@@ -1,6 +1,6 @@
-import { normalizeAttendanceRules, validateAttendanceRules, type AttendanceRule } from './attendanceRules';
+import { buildAttendanceRules, normalizeAttendanceRules, validateAttendanceRules, type AttendanceRule } from './attendanceRules';
 
-import type { AttendanceRange, AttendanceRuleMode } from '../../hr/api';
+import type { AttendanceRange, AttendanceRuleConfig, AttendanceRuleMode } from '../../hr/api';
 export type { AttendanceRange, AttendanceRuleMode } from '../../hr/api';
 
 export function defaultModeRules(mode: AttendanceRuleMode): AttendanceRange[] {
@@ -31,4 +31,16 @@ export function validateRanges(mode: AttendanceRuleMode, rules: AttendanceRange[
     if ((i === 0 && rule.minRate !== 0) || (i > 0 && rule.minRate !== rules[i - 1].maxRate) || (!last && (rule.maxRate === null || rule.maxRate <= rule.minRate)) || (last && (days ? rule.maxRate !== null : rule.maxRate !== 100 || rule.maxRate <= rule.minRate))) return '区间须连续覆盖完整范围';
   }
   return undefined;
+}
+
+export function buildAttendanceConfig(mode: AttendanceRuleMode, calculation: 'range' | 'unit', values: { attendanceRules?: AttendanceRange[]; unitAdjustment?: number | null }): AttendanceRuleConfig {
+  if (calculation === 'unit') {
+    const value = values.unitAdjustment;
+    if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > 9999999999.99 || Math.abs(value * 100 - Math.round(value * 100)) > 0.000001) throw new Error('请填写有效的每单位绩效调整金额，最多两位小数');
+    return { mode, calculation, unitAdjustment: value };
+  }
+  const rules = mode === 'rate_attendance' ? buildAttendanceRules(values.attendanceRules as AttendanceRule[] | undefined) : buildRanges(mode, values.attendanceRules);
+  const error = mode === 'rate_attendance' ? validateAttendanceRules(rules as AttendanceRule[]) : validateRanges(mode, rules);
+  if (error) throw new Error(error);
+  return { mode, calculation, rules };
 }

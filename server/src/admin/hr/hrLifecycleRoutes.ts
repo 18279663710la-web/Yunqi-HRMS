@@ -14,7 +14,7 @@ import { taskSchema, completionSchema } from './hrOnboardingService';
 import { cancelTransition, listTransitions, submitTransition, transitionSchema } from './hrTransitionService';
 import { cancelDeparture, finalizeDeparture } from './hrDepartureService';
 import { defaultOvertimeRules, overtimeRulesKey, overtimeRulesSchema } from '../../domains/payroll/overtimePayrollService';
-import { attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
+import { attendanceRangeRuleConfigSchema, attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
 import { ATTENDANCE_RULE_CONFIG_KEY, readAttendanceRuleConfig, saveAttendanceRuleConfig } from '../../domains/payroll/attendanceRuleConfigRepository';
 
 const router = Router();
@@ -120,19 +120,30 @@ async function loadAttendancePayrollRules() {
   }
   return setting ? parse(attendanceRulesSchema, json(setting.value_json)) : [];
 }
-router.get('/attendance-payroll-rule-config', asyncHandler(async (_req, res) => {
+router.get('/attendance-payroll-rule-config-v2', asyncHandler(async (_req, res) => {
   const stored = await readAttendanceRuleConfig();
   success(res, stored ?? { mode: 'rate_attendance', rules: await loadAttendancePayrollRules() });
 }));
-router.put('/attendance-payroll-rule-config', asyncHandler(async (req, res) => {
+router.put('/attendance-payroll-rule-config-v2', asyncHandler(async (req, res) => {
   const config = parse(attendanceRuleConfigSchema, req.body);
+  await saveAttendanceRuleConfig(config);
+  await recordAdminLog(req.admin!, '设置全员出勤绩效规则', 'hr_settings', ATTENDANCE_RULE_CONFIG_KEY, { mode: config.mode, calculation: config.calculation ?? 'range', count: config.calculation === 'unit' ? 1 : config.rules.length });
+  success(res, config);
+}));
+router.get('/attendance-payroll-rule-config', asyncHandler(async (_req, res) => {
+  const stored = await readAttendanceRuleConfig();
+  if (stored?.calculation === 'unit') throw conflict('当前规则按单位计算，请使用新版接口');
+  success(res, stored ?? { mode: 'rate_attendance', rules: await loadAttendancePayrollRules() });
+}));
+router.put('/attendance-payroll-rule-config', asyncHandler(async (req, res) => {
+  const config = parse(attendanceRangeRuleConfigSchema, req.body);
   await saveAttendanceRuleConfig(config);
   await recordAdminLog(req.admin!, '设置全员出勤绩效规则', 'hr_settings', ATTENDANCE_RULE_CONFIG_KEY, { mode: config.mode, count: config.rules.length });
   success(res, config);
 }));
 router.get('/attendance-payroll-rules', asyncHandler(async (_req, res) => {
   const config = await readAttendanceRuleConfig();
-  if (config && config.mode !== 'rate_attendance') throw conflict('当前规则不是按比例出勤配置，请使用新版接口');
+  if (config && (config.calculation === 'unit' || config.mode !== 'rate_attendance')) throw conflict('当前规则不是按区间比例出勤配置，请使用新版接口');
   success(res, await loadAttendancePayrollRules());
 }));
 router.put('/attendance-payroll-rules', asyncHandler(async (req, res) => {

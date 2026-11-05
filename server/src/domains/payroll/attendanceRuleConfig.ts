@@ -17,10 +17,12 @@ export const payrollAttendanceRulesSchema = z.array(legacyRule).min(2, '至少�
   if (rules[rules.length - 1].minRate !== 0) ctx.addIssue({ code: 'custom', message: '最后一条规则的下限必须为 0' });
 });
 
-export const attendanceRuleConfigSchema = z.object({
-  mode: z.enum(['rate_attendance', 'rate_absence', 'days_attendance', 'days_absence']),
+const mode = z.enum(['rate_attendance', 'rate_absence', 'days_attendance', 'days_absence']);
+export const attendanceRangeRuleConfigSchema = z.object({
+  mode,
+  calculation: z.literal('range').optional(),
   rules: z.array(z.object({ minRate: z.number().finite().min(0).max(999999), maxRate: z.number().finite().min(0).max(999999).nullable(), adjustment: amount })).min(1).max(30),
-}).superRefine((config, ctx) => {
+}).strict().superRefine((config, ctx) => {
   if (config.mode === 'rate_attendance') {
     const valid = payrollAttendanceRulesSchema.safeParse(config.rules);
     if (!valid.success) for (const issue of valid.error.issues) ctx.addIssue({ code: 'custom', message: issue.message, path: ['rules', ...issue.path] });
@@ -38,4 +40,6 @@ export const attendanceRuleConfigSchema = z.object({
     }
   }
 });
+const attendanceUnitRuleConfigSchema = z.object({ mode, calculation: z.literal('unit'), unitAdjustment: amount }).strict();
+export const attendanceRuleConfigSchema = z.union([attendanceUnitRuleConfigSchema, attendanceRangeRuleConfigSchema]);
 export type AttendanceRuleConfig = z.infer<typeof attendanceRuleConfigSchema>;

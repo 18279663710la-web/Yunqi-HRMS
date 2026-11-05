@@ -14,6 +14,6 @@ export async function saveAttendanceRuleConfig(config: AttendanceRuleConfig): Pr
   const sql = 'INSERT INTO hr_settings (setting_key, value_json, updated_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()';
   await transaction(async conn => {
     await conn.execute(sql, [ATTENDANCE_RULE_CONFIG_KEY, JSON.stringify(config)]);
-    if (config.mode === 'rate_attendance') await conn.execute(sql, [LEGACY_RULES_KEY, JSON.stringify(config.rules)]);
+    if (config.calculation !== 'unit' && config.mode === 'rate_attendance') await conn.execute(sql, [LEGACY_RULES_KEY, JSON.stringify(config.rules)]);
   });
 }

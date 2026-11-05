@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildRanges, defaultModeRules, validateRanges } from '../src/modules/models-formulas/attendance/attendanceRuleModes';
+import { buildAttendanceConfig, buildRanges, defaultModeRules, validateRanges } from '../src/modules/models-formulas/attendance/attendanceRuleModes';
 
 test('天数规则以非负整数连续覆盖到无上限', () => {
   assert.deepEqual(defaultModeRules('days_attendance'), [{ minRate: 0, maxRate: null, adjustment: 0 }]);
@@ -14,4 +14,13 @@ test('缺勤比例规则覆盖 0 到 100，拒绝无效金额与断档', () => {
   assert.equal(validateRanges('rate_absence', [{ minRate: 0, maxRate: 20, adjustment: 0 }, { minRate: 20, maxRate: 100, adjustment: -10 }]), undefined);
   assert.ok(validateRanges('rate_absence', [{ minRate: 0, maxRate: 20, adjustment: 0 }, { minRate: 21, maxRate: 100, adjustment: 0 }]));
   assert.ok(validateRanges('rate_absence', [{ minRate: 0, maxRate: 100, adjustment: 0.001 }]));
+});
+
+test('按单位保存四种方式的每单位调整金额，忽略旧区间', () => {
+  for (const mode of ['rate_attendance', 'rate_absence', 'days_attendance', 'days_absence'] as const) {
+    assert.deepEqual(buildAttendanceConfig(mode, 'unit', { unitAdjustment: -10.5, attendanceRules: defaultModeRules(mode) }), { mode, calculation: 'unit', unitAdjustment: -10.5 });
+  }
+  assert.throws(() => buildAttendanceConfig('rate_absence', 'unit', { unitAdjustment: null }));
+  assert.throws(() => buildAttendanceConfig('days_absence', 'unit', { unitAdjustment: 0.001 }));
+  assert.deepEqual(buildAttendanceConfig('days_absence', 'unit', { unitAdjustment: 0 }), { mode: 'days_absence', calculation: 'unit', unitAdjustment: 0 });
 });

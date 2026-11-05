@@ -40,9 +40,9 @@ export const getHrHistory = (id: string, section: 'contract' | 'salary') => requ
 export interface AttendancePayrollRule { minRate: number; maxRate: number; adjustment: number }
 export type AttendanceRuleMode = 'rate_attendance' | 'rate_absence' | 'days_attendance' | 'days_absence';
 export interface AttendanceRange { minRate: number; maxRate: number | null; adjustment: number }
-export interface AttendanceRuleConfig { mode: AttendanceRuleMode; rules: AttendanceRange[] }
-export const getAttendanceRuleConfig = () => request<AttendanceRuleConfig>('/admin/hr/attendance-payroll-rule-config');
-export const saveAttendanceRuleConfig = (config: AttendanceRuleConfig) => request<AttendanceRuleConfig>('/admin/hr/attendance-payroll-rule-config', { method: 'PUT', body: config });
+export type AttendanceRuleConfig = { mode: AttendanceRuleMode; calculation?: 'range'; rules: AttendanceRange[] } | { mode: AttendanceRuleMode; calculation: 'unit'; unitAdjustment: number };
+export const getAttendanceRuleConfig = () => request<AttendanceRuleConfig>('/admin/hr/attendance-payroll-rule-config-v2');
+export const saveAttendanceRuleConfig = (config: AttendanceRuleConfig) => request<AttendanceRuleConfig>('/admin/hr/attendance-payroll-rule-config-v2', { method: 'PUT', body: config });
 export const getAttendancePayrollRules = () => request<AttendancePayrollRule[]>('/admin/hr/attendance-payroll-rules');
 export const saveAttendancePayrollRules = (rules: AttendancePayrollRule[]) => request<AttendancePayrollRule[]>('/admin/hr/attendance-payroll-rules', { method: 'PUT', body: rules });
 export interface OvertimePayrollRule { minHours: number; maxHours: number | null; hourlyRate: number }
