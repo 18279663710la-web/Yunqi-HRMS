@@ -4,6 +4,8 @@
 
 加班绩效规则页面与字段，支持按区间或按单位设置小时金额。
 
+切换方式需确认并重新设置；区间模式为各区间配置每小时金额，单位模式为所有时长配置统一小时金额。保存配置不触发工资重算。
+
 ## 主要内容
 
 - 主要文件：`OvertimeRulesFields.tsx`、`overtimeConfig.ts`、`PayrollOvertimeRules.tsx`。
