@@ -2,11 +2,11 @@
 
 ## 职责
 
-加班绩效规则页面与字段。
+加班绩效规则页面与字段，支持按区间或按单位设置小时金额。
 
 ## 主要内容
 
-- 主要文件：`OvertimeRulesFields.tsx`、`PayrollOvertimeRules.tsx`。
+- 主要文件：`OvertimeRulesFields.tsx`、`overtimeConfig.ts`、`PayrollOvertimeRules.tsx`。
 
 ## 维护约束
 

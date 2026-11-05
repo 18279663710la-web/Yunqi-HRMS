@@ -46,6 +46,9 @@ export const saveAttendanceRuleConfig = (config: AttendanceRuleConfig) => reques
 export const getAttendancePayrollRules = () => request<AttendancePayrollRule[]>('/admin/hr/attendance-payroll-rules');
 export const saveAttendancePayrollRules = (rules: AttendancePayrollRule[]) => request<AttendancePayrollRule[]>('/admin/hr/attendance-payroll-rules', { method: 'PUT', body: rules });
 export interface OvertimePayrollRule { minHours: number; maxHours: number | null; hourlyRate: number }
+export type OvertimePayrollConfig = { calculation: 'range'; rules: OvertimePayrollRule[] } | { calculation: 'unit'; hourlyRate: number };
+export const getOvertimePayrollConfig = () => request<OvertimePayrollConfig>('/admin/hr/overtime-payroll-rule-config');
+export const saveOvertimePayrollConfig = (config: OvertimePayrollConfig) => request<OvertimePayrollConfig>('/admin/hr/overtime-payroll-rule-config', { method: 'PUT', body: config });
 export const getOvertimePayrollRules = () => request<OvertimePayrollRule[]>('/admin/hr/overtime-payroll-rules');
 export const saveOvertimePayrollRules = (rules: OvertimePayrollRule[]) => request<OvertimePayrollRule[]>('/admin/hr/overtime-payroll-rules', { method: 'PUT', body: rules });
 export type SalaryFieldRole = 'name' | 'employeeNo' | 'position' | 'base' | 'allowance' | 'performance';

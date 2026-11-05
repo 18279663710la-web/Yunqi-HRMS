@@ -16,6 +16,10 @@ test('超级管理员查看加班绩效时只展示对应规则', () => {
   const html = renderToStaticMarkup(<App><ModelsFormulasView role="super_admin" section="overtime" /></App>);
   assert.equal(html.split('加班绩效规则').length - 1, 1);
   assert.ok(!html.includes('出勤率绩效规则'));
+  assert.ok(!html.includes('panel-card'));
+  assert.ok(html.includes('计算方式'));
+  assert.ok(html.includes('统计单位'));
+  assert.ok(html.includes('小时'));
 });
 
 test('非超级管理员不能进入规则管理页面', () => {

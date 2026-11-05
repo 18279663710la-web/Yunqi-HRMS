@@ -13,7 +13,8 @@ import { success } from '../../shared/utils/response';
 import { taskSchema, completionSchema } from './hrOnboardingService';
 import { cancelTransition, listTransitions, submitTransition, transitionSchema } from './hrTransitionService';
 import { cancelDeparture, finalizeDeparture } from './hrDepartureService';
-import { defaultOvertimeRules, overtimeRulesKey, overtimeRulesSchema } from '../../domains/payroll/overtimePayrollService';
+import { overtimeRuleConfigSchema, overtimeRulesKey, overtimeRulesSchema } from '../../domains/payroll/overtimePayrollService';
+import { OVERTIME_RULE_CONFIG_KEY, readOvertimeRuleConfig, saveOvertimeRuleConfig } from '../../domains/payroll/overtimeRuleConfigRepository';
 import { attendanceRangeRuleConfigSchema, attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
 import { ATTENDANCE_RULE_CONFIG_KEY, readAttendanceRuleConfig, saveAttendanceRuleConfig } from '../../domains/payroll/attendanceRuleConfigRepository';
 
@@ -152,13 +153,23 @@ router.put('/attendance-payroll-rules', asyncHandler(async (req, res) => {
   await recordAdminLog(req.admin!, '设置全员出勤率绩效规则', 'hr_settings', attendanceRulesKey, { count: rules.length });
   success(res, rules);
 }));
+router.get('/overtime-payroll-rule-config', asyncHandler(async (_req, res) => {
+  success(res, await readOvertimeRuleConfig());
+}));
+router.put('/overtime-payroll-rule-config', asyncHandler(async (req, res) => {
+  const config = parse(overtimeRuleConfigSchema, req.body);
+  await saveOvertimeRuleConfig(config);
+  await recordAdminLog(req.admin!, '设置加班绩效规则', 'hr_settings', OVERTIME_RULE_CONFIG_KEY, { calculation: config.calculation, count: config.calculation === 'range' ? config.rules.length : 1 });
+  success(res, config);
+}));
 router.get('/overtime-payroll-rules', asyncHandler(async (_req, res) => {
-  const row = await queryOne<{ value_json: unknown }>('SELECT value_json FROM hr_settings WHERE setting_key = ?', [overtimeRulesKey]);
-  success(res, row ? parse(overtimeRulesSchema, json(row.value_json)) : defaultOvertimeRules);
+  const config = await readOvertimeRuleConfig();
+  if (config.calculation !== 'range') throw conflict('当前加班规则按单位计算，请使用新版接口');
+  success(res, config.rules);
 }));
 router.put('/overtime-payroll-rules', asyncHandler(async (req, res) => {
   const overtimeRules = parse(overtimeRulesSchema, req.body);
-  await execute('INSERT INTO hr_settings (setting_key, value_json, updated_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()', [overtimeRulesKey, JSON.stringify(overtimeRules)]);
+  await saveOvertimeRuleConfig({ calculation: 'range', rules: overtimeRules });
   await recordAdminLog(req.admin!, '设置加班绩效规则', 'hr_settings', overtimeRulesKey, { count: overtimeRules.length });
   success(res, overtimeRules);
 }));

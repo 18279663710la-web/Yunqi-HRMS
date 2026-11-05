@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 主要文件：`attendanceRules.ts`、`attendanceRuleModes.ts`、`AttendanceRulesFields.tsx`、`AttendanceModeRulesFields.tsx`、`PayrollAttendanceRules.tsx`。
+- 主要文件：`attendanceRules.ts`、`attendanceRuleModes.ts`、`attendanceRuleLoader.ts`、`AttendanceRulesFields.tsx`、`AttendanceModeRulesFields.tsx`、`PayrollAttendanceRules.tsx`。
 
 ## 维护约束
 
