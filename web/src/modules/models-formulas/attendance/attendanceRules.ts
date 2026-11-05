@@ -41,11 +41,11 @@ export function validateAttendanceRules(rules: AttendanceRule[] | undefined): st
     if (!(rule.minRate < rule.maxRate || (rule.minRate === 100 && rule.maxRate === 100))) return '区间下限须小于上限；100% 全勤可单独设置';
     if (Math.abs(rule.adjustment) > 9999999999.99 || !hasTwoDecimals(rule.adjustment)) return '调整金额无效，最多两位小数';
   }
-  if (rules[0].minRate !== 100 || rules[0].maxRate !== 100) return '规则 1 必须为全勤规则';
+  if (rules[0].minRate !== 100 || rules[0].maxRate !== 100) return '区间1必须为全勤规则';
   for (let index = 1; index < rules.length; index += 1) {
     const previous = rules[index - 1]; const current = rules[index];
     if (current.minRate === 100 && current.maxRate === 100) return '只能设置一条全勤规则';
-    if (current.maxRate !== previous.minRate) return `规则 ${index + 1} 的上限必须等于上一条规则的下限`;
+    if (current.maxRate !== previous.minRate) return `区间${index + 1}的上限必须等于上一条规则的下限`;
     if (index < rules.length - 1 && current.minRate <= 0) return '中间规则的下限必须大于 0';
   }
   if (rules[rules.length - 1].minRate !== 0) return '最后一条规则的下限必须为 0';

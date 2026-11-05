@@ -31,7 +31,7 @@ export function AttendanceModeRulesFields({ mode }: { mode: AttendanceRuleMode }
           {fields.map(({ key, name, ...rest }) => {
             const isLast = name === last;
             const lower = name === 0 ? 0 : rules[name - 1]?.maxRate ?? 0;
-            return <Card size="small" key={key} title={`规则 ${name + 1}`} extra={fields.length > 1 ? <Button danger onClick={() => deleteRule(name)}>删除</Button> : undefined}>
+            return <Card size="small" key={key} title={`区间${name + 1}`} extra={fields.length > 1 ? <Button danger onClick={() => deleteRule(name)}>删除</Button> : undefined}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 12px' }}>
                 <Form.Item label={`${label}下限（${unit}，含）`} style={{ flex: '1 1 140px' }}><InputNumber value={lower} disabled precision={days ? 0 : 2} style={{ width: '100%' }} /></Form.Item>
                 {isLast && days ? <Form.Item label={`${label}上限（${unit}）`} style={{ flex: '1 1 140px' }}><Input value="不限" disabled /></Form.Item> :

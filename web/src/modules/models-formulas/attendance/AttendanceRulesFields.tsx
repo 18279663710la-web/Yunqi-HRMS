@@ -38,7 +38,7 @@ export function AttendanceRulesFields() {
             const internal = !isFull && !isLast;
             const previousMin = name === 0 ? 100 : rules[name - 1]?.minRate ?? 100;
             const maxRate = isFull ? 100 : previousMin;
-            return <Card size="small" key={key} title={<Space><span>规则 {name + 1}</span>{isFull && <Tag color="blue">全勤</Tag>}</Space>}
+            return <Card size="small" key={key} title={<Space><span>区间{name + 1}</span>{isFull && <Tag color="blue">全勤</Tag>}</Space>}
               extra={isFull ? undefined : <Tooltip title={fields.length <= 2 ? '至少保留一条区间规则' : undefined}><span><Button danger disabled={fields.length <= 2} onClick={() => deleteRule(name)}>删除</Button></span></Tooltip>}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 12px' }}>
                 <Form.Item {...rest} name={[name, 'minRate']} label="出勤率下限（%）" rules={internal ? [{ required: true, message: '请输入下限' }] : undefined} style={{ flex: '1 1 140px' }}>

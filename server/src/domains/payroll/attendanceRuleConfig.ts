@@ -7,11 +7,11 @@ const legacyRule = z.object({ minRate: rate, maxRate: rate, adjustment: amount }
 
 export const payrollAttendanceRulesSchema = z.array(legacyRule).min(2, '至少保留全勤规则和一条区间规则').max(30).superRefine((rules, ctx) => {
   if (rules.length < 2) return;
-  if (rules[0].minRate !== 100 || rules[0].maxRate !== 100) { ctx.addIssue({ code: 'custom', message: '规则 1 必须为全勤规则' }); return; }
+  if (rules[0].minRate !== 100 || rules[0].maxRate !== 100) { ctx.addIssue({ code: 'custom', message: '区间1必须为全勤规则' }); return; }
   for (let index = 1; index < rules.length; index++) {
     const previous = rules[index - 1]; const current = rules[index];
     if (current.minRate === 100 && current.maxRate === 100) { ctx.addIssue({ code: 'custom', message: '只能设置一条全勤规则' }); return; }
-    if (current.maxRate !== previous.minRate) { ctx.addIssue({ code: 'custom', message: `规则 ${index + 1} 的上限必须等于上一条规则的下限` }); return; }
+    if (current.maxRate !== previous.minRate) { ctx.addIssue({ code: 'custom', message: `区间${index + 1}的上限必须等于上一条规则的下限` }); return; }
     if (index < rules.length - 1 && current.minRate <= 0) { ctx.addIssue({ code: 'custom', message: '中间规则的下限必须大于 0' }); return; }
   }
   if (rules[rules.length - 1].minRate !== 0) ctx.addIssue({ code: 'custom', message: '最后一条规则的下限必须为 0' });
