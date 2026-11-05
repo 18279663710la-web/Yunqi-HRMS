@@ -49,7 +49,7 @@ export function buildSalaryModelGroups(
       const name = (field?.name ?? '').trim();
       const type = field?.type ?? 'number';
       const role = type === 'number' && field?.role && AMOUNT_ROLES.includes(field.role) ? field.role : undefined;
-      return { name, type, required: field?.required !== false, ...(role ? { role } : {}), ...(field?.category ? { category: field.category } : {}), ...(field?.interfaceSource === 'attendance' ? { interfaceSource: field.interfaceSource } : {}), ...(field?.displaySetting && field.displaySetting !== 'none' ? { displaySetting: field.displaySetting } : {}) };
+      return { name, type, required: field?.required !== false, ...(role ? { role } : {}), ...(field?.category ? { category: field.category } : {}), ...(field?.interfaceSource === 'attendance' ? { interfaceSource: field.interfaceSource } : {}), ...(field?.interfaceSource === 'attendance' && field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field?.displaySetting && field.displaySetting !== 'none' ? { displaySetting: field.displaySetting } : {}) };
     });
   const normalizeExtended = (fields: Array<Partial<SalaryModelField> | undefined> | undefined): SalaryModelField[] =>
     (fields ?? []).map(field => ({
@@ -57,7 +57,7 @@ export function buildSalaryModelGroups(
       type: field?.type ?? 'number',
       required: field?.required !== false,
       category: field?.category ?? 'info',
-      ...(field?.interfaceSource === 'attendance' ? { interfaceSource: field.interfaceSource } : {}),
+      ...(field?.interfaceSource === 'attendance' ? { interfaceSource: field.interfaceSource } : {}), ...(field?.interfaceSource === 'attendance' && field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}),
       ...(field?.displaySetting && field.displaySetting !== 'none' ? { displaySetting: field.displaySetting } : {}),
     }));
   const fixed = normalizeAmount(fixedFields);

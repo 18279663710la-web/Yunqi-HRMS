@@ -5,6 +5,7 @@ import { badRequest } from '../../shared/utils/errors';
 export type SalaryFieldType = 'number' | 'text';
 export type SalaryFieldRole = 'name' | 'employeeNo' | 'position' | 'base' | 'allowance' | 'performance';
 export type SalaryFieldCategory = 'income' | 'deduction' | 'info';
+export type AttendanceMetric = 'presentDays' | 'overtimeHours';
 export type SalaryDisplaySetting = 'none' | 'display' | 'output';
 
 export interface SalaryModelField {
@@ -14,6 +15,7 @@ export interface SalaryModelField {
   role?: SalaryFieldRole;
   category?: SalaryFieldCategory;
   interfaceSource?: 'attendance';
+  attendanceMetric?: AttendanceMetric;
   displaySetting?: SalaryDisplaySetting;
 }
 
@@ -73,9 +75,12 @@ function parseField(raw: unknown, strict: boolean): SalaryModelField | null {
   const category = source.category;
   const interfaceSource = source.interfaceSource;
   const displaySetting = source.displaySetting;
+  const attendanceMetric = source.attendanceMetric;
   if (strict && category !== undefined && category !== 'income' && category !== 'deduction' && category !== 'info') throw badRequest('字段用途无效');
   if (strict && rawType === 'text' && category !== undefined && category !== 'info' && !identity) throw badRequest('字符串字段用途只能是仅记录');
   if (strict && interfaceSource !== undefined && interfaceSource !== 'none' && interfaceSource !== 'attendance') throw badRequest('接口配置无效');
+  if (strict && attendanceMetric !== undefined && attendanceMetric !== 'presentDays' && attendanceMetric !== 'overtimeHours') throw badRequest('考勤数据项目无效');
+  if (strict && attendanceMetric !== undefined && (interfaceSource !== 'attendance' || rawType !== 'number' || category !== 'info' || identity)) throw badRequest('考勤数据字段必须为数字且用途为仅记录');
   if (strict && displaySetting !== undefined && displaySetting !== 'none' && displaySetting !== 'display' && displaySetting !== 'output') throw badRequest('显示设置无效');
   return {
     name: identity ? IDENTITY_FIELDS.find(field => field.role === role)!.name : name,
@@ -85,6 +90,7 @@ function parseField(raw: unknown, strict: boolean): SalaryModelField | null {
     ...(!identity && (category === 'income' || category === 'deduction' || category === 'info') && rawType === 'number' ? { category } : {}),
     ...(!identity && rawType === 'text' ? { category: 'info' as const } : {}),
     ...(!identity && interfaceSource === 'attendance' ? { interfaceSource: 'attendance' as const } : {}),
+    ...(!identity && interfaceSource === 'attendance' && (attendanceMetric === 'presentDays' || attendanceMetric === 'overtimeHours') ? { attendanceMetric } : {}),
     ...(displaySetting === 'display' || displaySetting === 'output' ? { displaySetting } : {}),
   };
 }
@@ -132,7 +138,7 @@ export function normalizeStoredModel(value: unknown): SalaryModel {
     const role = field.role && AMOUNT_ROLES.has(field.role) && !roles.has(field.role) ? field.role : undefined;
     if (role) roles.add(role);
     names.add(field.name);
-    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
     if (amountFields.length >= 48) break;
   }
   const extendedFields: SalaryModelField[] = [];
@@ -142,7 +148,7 @@ export function normalizeStoredModel(value: unknown): SalaryModel {
     if (names.has(field.name)) continue;
     if (IDENTITY_FIELDS.length + amountFields.length + extendedFields.length >= 51) break;
     names.add(field.name);
-    extendedFields.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    extendedFields.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
   const fixedFields = [...identityFields, ...amountFields];
   const namesInModel = [...fixedFields, ...extendedFields].map(field => field.name);
@@ -168,7 +174,7 @@ export function normalizeModelInput(fixedFields: unknown, extendedFields: unknow
     const role = field.role && AMOUNT_ROLES.has(field.role) && !roles.has(field.role) ? field.role : undefined;
     if (role) roles.add(role);
     names.add(field.name);
-    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
   const normalizedExtended: SalaryModelField[] = [];
   for (const raw of asArray(extendedFields)) {
@@ -177,7 +183,7 @@ export function normalizeModelInput(fixedFields: unknown, extendedFields: unknow
     if (field.role && IDENTITY_ROLES.has(field.role)) throw badRequest('姓名、员工号和职务是固定字段，不能添加到扩展字段');
     if (names.has(field.name)) throw badRequest('字段名称不能重复');
     names.add(field.name);
-    normalizedExtended.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    normalizedExtended.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
   if (IDENTITY_FIELDS.length + amountFields.length + normalizedExtended.length > 51) throw badRequest('最多配置 51 个字段');
   return {

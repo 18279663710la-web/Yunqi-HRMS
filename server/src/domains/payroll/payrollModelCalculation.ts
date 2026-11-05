@@ -1,7 +1,7 @@
-import { buildSalaryValues, salaryAmountFields, type SalaryFieldCategory, type SalaryModel } from './salaryModelService';
+import { buildSalaryValues, salaryAmountFields, type SalaryFieldCategory, type SalaryModel, type AttendanceMetric } from './salaryModelService';
 import { badRequest } from '../../shared/utils/errors';
 
-export interface PayrollValue { name: string; value: number | string; category?: SalaryFieldCategory; type?: 'number' | 'text'; interfaceSource?: 'attendance' }
+export interface PayrollValue { name: string; value: number | string; category?: SalaryFieldCategory; type?: 'number' | 'text'; interfaceSource?: 'attendance'; attendanceMetric?: AttendanceMetric; attendancePeriod?: string }
 export interface PayrollExtendedValue extends PayrollValue { category: SalaryFieldCategory }
 export interface PayrollModelSnapshot {
   version: number;
@@ -24,12 +24,12 @@ export function fixedSalarySnapshot(record: Record<string, unknown>, model: Sala
   const values = buildSalaryValues(record, model);
   const fixed: PayrollValue[] = salaryAmountFields(model).map(field => {
     const value = values[field.name] ?? (field.type === 'text' ? '' : 0);
-    const item: PayrollValue = { name: field.name, value, ...(field.type === 'text' ? { type: 'text' as const } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}) };
+    const item: PayrollValue = { name: field.name, value, ...(field.type === 'text' ? { type: 'text' as const } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}) };
     checkValue(item); return item;
   });
   const cents = fixed.reduce((sum, field) => sum + (typeof field.value === 'number' && (field.category ?? 'income') === 'income' ? Math.round(field.value * 100) : 0), 0);
   if (cents > 999999999999) throw badRequest('固定薪资合计超出允许范围');
-  return { version: model.version, fixed, fixedTotal: cents / 100, extended: model.extendedFields.map(field => ({ name: field.name, value: field.type === 'text' ? '' : 0, category: field.category ?? 'info', ...(field.type === 'text' ? { type: 'text' as const } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}) })) };
+  return { version: model.version, fixed, fixedTotal: cents / 100, extended: model.extendedFields.map(field => ({ name: field.name, value: field.type === 'text' ? '' : 0, category: field.category ?? 'info', ...(field.type === 'text' ? { type: 'text' as const } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}) })) };
 }
 
 export function calculateExtendedSalary(snapshot: PayrollModelSnapshot) {

@@ -10,6 +10,7 @@ const fieldSchema = z.union([
     role: z.enum(['name', 'employeeNo', 'position', 'base', 'allowance', 'performance']).optional(),
     category: z.enum(['income', 'deduction', 'info']).optional(),
     interfaceSource: z.enum(['none', 'attendance']).optional(),
+    attendanceMetric: z.enum(['presentDays', 'overtimeHours']).optional(),
     displaySetting: z.enum(['none', 'display', 'output']).optional(),
   }),
 ]);

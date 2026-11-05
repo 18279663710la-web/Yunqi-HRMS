@@ -44,6 +44,8 @@ export function SalaryModels() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [form] = Form.useForm<SalaryModelField>();
   const watchedType = Form.useWatch('type', form);
+  const watchedSource = Form.useWatch('interfaceSource', form);
+  const watchedMetric = Form.useWatch('attendanceMetric', form);
   const fields = orderedSalaryFields(model);
   const selected = fields.find(field => field.name === selectedName);
   const selectedGroup: FieldGroup | undefined = selected && model?.fixedFields.some(field => field.name === selected.name) ? 'fixed' : selected ? 'extended' : undefined;
@@ -145,9 +147,10 @@ export function SalaryModels() {
         <div className="salary-single-field-form">
           <Form.Item className="salary-single-field-name" name="name" label="字段名称" rules={[{ required: true, whitespace: true, message: '请输入字段名称' }, { max: 60, message: '最多 60 个字符' }, { validator: async (_, value: string | undefined) => { if (!editing?.identity && value && SALARY_IDENTITY_FIELDS.some(field => field.name === value.trim())) throw new Error('姓名、员工号和职务是固定字段'); } }]}><Input maxLength={60} disabled={editing?.identity} /></Form.Item>
           <Form.Item className="salary-single-field-required" name="required" valuePropName="checked"><Checkbox disabled={editing?.identity}>必填</Checkbox></Form.Item>
-          <Form.Item name="type" label="字段类型" rules={[{ required: true }]}><Select disabled={editing?.identity} onChange={(type: 'number' | 'text') => { if (type === 'text') form.setFieldValue('category', 'info'); }} options={[{ value: 'number', label: '数字' }, { value: 'text', label: '字符串' }]} /></Form.Item>
-          <Form.Item name="category" label="字段用途" rules={[{ required: true }]}><Select disabled={editing?.identity} options={[{ value: 'income', label: '收入', disabled: watchedType === 'text' }, { value: 'deduction', label: '扣款', disabled: watchedType === 'text' }, { value: 'info', label: '仅记录' }]} /></Form.Item>
-          <Form.Item name="interfaceSource" label="接口配置"><Select disabled={editing?.identity} options={[{ value: 'none', label: '无' }, { value: 'attendance', label: '考勤系统' }]} /></Form.Item>
+          <Form.Item name="type" label="字段类型" rules={[{ required: true }]}><Select disabled={editing?.identity || (watchedSource === 'attendance' && !!watchedMetric)} onChange={(type: 'number' | 'text') => { if (type === 'text') form.setFieldValue('category', 'info'); }} options={[{ value: 'number', label: '数字' }, { value: 'text', label: '字符串' }]} /></Form.Item>
+          <Form.Item name="category" label="字段用途" rules={[{ required: true }]}><Select disabled={editing?.identity || (watchedSource === 'attendance' && !!watchedMetric)} options={[{ value: 'income', label: '收入', disabled: watchedType === 'text' }, { value: 'deduction', label: '扣款', disabled: watchedType === 'text' }, { value: 'info', label: '仅记录' }]} /></Form.Item>
+          <Form.Item name="interfaceSource" label="接口配置"><Select disabled={editing?.identity} onChange={(source: string) => { if (source === 'attendance') form.setFieldsValue({ type: 'number', category: 'info' }); else form.setFieldValue('attendanceMetric', undefined); }} options={[{ value: 'none', label: '无' }, { value: 'attendance', label: '考勤系统' }]} /></Form.Item>
+          {watchedSource === 'attendance' && <Form.Item name="attendanceMetric" label="考勤数据" rules={[{ required: true, message: '请选择考勤数据' }]}><Select onChange={() => form.setFieldsValue({ type: 'number', category: 'info' })} options={[{ value: 'presentDays', label: '实际出勤天数' }, { value: 'overtimeHours', label: '实际加班时长（小时）' }]} /></Form.Item>}
           <Form.Item name="displaySetting" label="显示设置"><Select options={DISPLAY_OPTIONS} /></Form.Item>
         </div>
       </Form>

@@ -203,6 +203,7 @@ router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (re
     snapshot.extended = snapshot.extended.map(field => {
       const value = byName.get(field.name);
       if (value === undefined) throw badRequest('扩展字段与工资明细不一致');
+      if (field.attendanceMetric && value !== field.value) throw badRequest(`字段“${field.name}”来自考勤系统，不能手工修改`);
       return { ...field, value };
     });
     snapshot.revision = revision + 1;

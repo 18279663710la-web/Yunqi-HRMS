@@ -3,6 +3,8 @@ import { transaction } from '../../shared/db/pool';
 import { badRequest, notFound } from '../../shared/utils/errors';
 import { dateKey, parseDateKey } from '../../shared/utils/datetime';
 import { readSalaryModel, type SalaryModel } from './salaryModelService';
+import { readPayrollAttendance } from '../attendance/payrollAttendanceSource';
+import type { AttendanceMetric } from './salaryModelService';
 import { calculateExtendedSalary, fixedSalarySnapshot, type PayrollModelSnapshot } from './payrollModelCalculation';
 
 export interface AutoPayrollCandidate {
@@ -24,7 +26,7 @@ async function readBatch(conn: PoolConnection, batchId: number, lock: boolean): 
   return { month: String(rows[0].month) };
 }
 
-async function collectCandidates(conn: PoolConnection, batchId: number, model: SalaryModel, employeeIds?: string[]): Promise<{ candidates: AutoPayrollCandidate[]; existingCount: number }> {
+async function collectCandidates(conn: PoolConnection, batchId: number, model: SalaryModel, month: string, employeeIds?: string[]): Promise<{ candidates: AutoPayrollCandidate[]; existingCount: number }> {
   const [rows] = await conn.query<RowDataPacket[]>(
     `SELECT e.id, e.name, e.employee_no AS employeeNo, e.position, o.archived_at AS archivedAt, c.data_json AS contract, s.data_json AS salary
        FROM employees e
@@ -51,6 +53,18 @@ async function collectCandidates(conn: PoolConnection, batchId: number, model: S
     const totals = calculateExtendedSalary(modelSnapshot);
     candidates.push({ employeeId: String(row.id), name: String(row.name), employeeNo: String(row.employeeNo), position: String(row.position ?? ''), baseGross: modelSnapshot.fixedTotal, ...totals, modelSnapshot });
   }
+  if ([...model.fixedFields, ...model.extendedFields].some(field => field.attendanceMetric && (field.interfaceSource !== 'attendance' || field.type !== 'number' || field.category !== 'info'))) throw badRequest('考勤字段配置无效，请检查薪资构成模型');
+  const metrics = new Set<AttendanceMetric>([...model.fixedFields, ...model.extendedFields].flatMap(field => field.attendanceMetric ? [field.attendanceMetric] : []));
+  const attendance = await readPayrollAttendance(conn, candidates.map(candidate => ({ id: candidate.employeeId, name: `${candidate.name}（${candidate.employeeNo}）` })), month, metrics);
+  for (const candidate of candidates) {
+    for (const field of [...candidate.modelSnapshot.fixed, ...candidate.modelSnapshot.extended]) {
+      if (!field.attendanceMetric) continue;
+      const value = attendance.get(candidate.employeeId)?.[field.attendanceMetric];
+      if (value === undefined) throw badRequest(`未能获取员工“${candidate.name}”的考勤数据`);
+      field.value = value;
+      field.attendancePeriod = month;
+    }
+  }
   return { candidates, existingCount };
 }
 function sumTotals(candidates: AutoPayrollCandidate[]): AutoPayrollTotals {
@@ -61,15 +75,15 @@ export async function previewAutoPayrollItems(batchId: number): Promise<AutoPayr
   return transaction(async conn => {
     const model = await readSalaryModel(conn);
     const batch = await readBatch(conn, batchId, false);
-    const { candidates, existingCount } = await collectCandidates(conn, batchId, model);
+    const { candidates, existingCount } = await collectCandidates(conn, batchId, model, batch.month);
     return { month: batch.month, candidates, existingCount, totals: sumTotals(candidates) };
   });
 }
 export async function addAutoPayrollItems(batchId: number, employeeIds?: string[]): Promise<AutoPayrollAddResult> {
   return transaction(async conn => {
     const model = await readSalaryModel(conn, true);
-    await readBatch(conn, batchId, true);
-    const { candidates, existingCount } = await collectCandidates(conn, batchId, model, employeeIds);
+    const batch = await readBatch(conn, batchId, true);
+    const { candidates, existingCount } = await collectCandidates(conn, batchId, model, batch.month, employeeIds);
     if (employeeIds && candidates.length + existingCount !== new Set(employeeIds).size) throw badRequest('员工没有有效的定薪信息');
     const added: AutoPayrollCandidate[] = [];
     for (const candidate of candidates) {

@@ -9,7 +9,7 @@ export interface HrEvent { id: number; employeeId: string; type: string; effecti
 export interface HrTransition { id: number; type: 'promotion' | 'transfer'; effectiveDate: string; before: Record<string, string | null>; after: Record<string, string | null>; note: string; status: 'submitted' | 'cancelled'; createdAt: string }
 export interface HrHistory { id: number; data: Record<string, unknown>; createdAt: string }
 export interface PayrollBatch { id: number; month: string; status: 'draft' | 'reviewed'; createdAt: string; reviewedAt: string | null }
-export interface PayrollFieldValue { name: string; value: number | string; type?: 'number' | 'text'; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'attendance' }
+export interface PayrollFieldValue { name: string; value: number | string; type?: 'number' | 'text'; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'attendance'; attendanceMetric?: 'presentDays' | 'overtimeHours'; attendancePeriod?: string }
 export interface PayrollModelSnapshot { version: number; revision: number; position?: string; fixedTotal: number; fixed: PayrollFieldValue[]; extended: (PayrollFieldValue & { category: 'income' | 'deduction' | 'info' })[] }
 export interface PayrollBatchItem { id: number; employeeId: string; name: string; employeeNo: string; position: string; gross: number; baseGross: number | null; attendanceRate: number | null; attendanceAdjustment: number; overtimeSeconds: number; overtimePay: number; deductions: number; net: number; note: string; modelSnapshot: PayrollModelSnapshot | null }
 export interface AutoPayrollCandidate { employeeId: string; name: string; employeeNo: string; position: string; baseGross: number; gross: number; deductions: number; net: number; modelSnapshot: PayrollModelSnapshot }
@@ -44,7 +44,7 @@ export interface OvertimePayrollRule { minHours: number; maxHours: number | null
 export const getOvertimePayrollRules = () => request<OvertimePayrollRule[]>('/admin/hr/overtime-payroll-rules');
 export const saveOvertimePayrollRules = (rules: OvertimePayrollRule[]) => request<OvertimePayrollRule[]>('/admin/hr/overtime-payroll-rules', { method: 'PUT', body: rules });
 export type SalaryFieldRole = 'name' | 'employeeNo' | 'position' | 'base' | 'allowance' | 'performance';
-export interface SalaryModelField { name: string; type: 'number' | 'text'; required: boolean; role?: SalaryFieldRole; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'none' | 'attendance'; displaySetting?: 'none' | 'display' | 'output' }
+export interface SalaryModelField { name: string; type: 'number' | 'text'; required: boolean; role?: SalaryFieldRole; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'none' | 'attendance'; attendanceMetric?: 'presentDays' | 'overtimeHours'; displaySetting?: 'none' | 'display' | 'output' }
 export interface SalaryComponentModel { version: number; fixedFields: SalaryModelField[]; extendedFields: SalaryModelField[]; fieldOrder?: string[] }
 export interface SalaryComponentModelInput { version: number; fixedFields: SalaryModelField[]; extendedFields: SalaryModelField[]; fieldOrder?: string[] }
 export const getSalaryComponentModel = () => request<SalaryComponentModel>('/admin/hr/salary-model');

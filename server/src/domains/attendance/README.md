@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 主要文件：`attendancePolicy.ts`、`attendanceService.ts`、`attendanceSettings.ts`、`overtimeAttendanceService.ts`。
+- 主要文件：`attendancePolicy.ts`、`attendanceService.ts`、`attendanceSettings.ts`、`overtimeAttendanceService.ts`、`payrollAttendanceSource.ts`（按员工和工资月份读取考勤项目）。
 
 ## 维护约束
 
