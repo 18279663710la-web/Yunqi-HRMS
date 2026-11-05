@@ -19,7 +19,7 @@ export function ModelsFormulasView({ role, section }: { role: AdminRole | undefi
     'onboarding-template': <OnboardingTemplateSettings />,
     'payroll-workflow': <PayrollWorkflow />,
   }[section];
-  if (section === 'payroll-workflow' || section === 'salary') return content;
+  if (section === 'attendance' || section === 'payroll-workflow' || section === 'salary') return content;
   return <div className="page-stack">
     <Card className="panel-card" bordered={false}>
       <div className="page-stack">{content}</div>
