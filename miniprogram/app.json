@@ -1,0 +1,63 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/onboarding-required/onboarding-required",
+    "pages/onboarding/onboarding",
+    "pages/onboarding-signature/onboarding-signature",
+    "pages/index/index",
+    "pages/approval/approval",
+    "pages/contacts/contacts",
+    "pages/mine/mine",
+    "pages/attendance/attendance",
+    "pages/record/record",
+    "pages/approval-create/approval-create",
+    "pages/approval-detail/approval-detail",
+    "pages/notice/notice",
+    "pages/notice-detail/notice-detail",
+    "pages/contact-detail/contact-detail",
+    "pages/invoice-tool/invoice-tool"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#F5F7FB",
+    "navigationBarTitleText": "企业办公",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F5F7FB",
+    "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#8A94A6",
+    "selectedColor": "#3D6EF7",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/approval/approval",
+        "text": "审批"
+      },
+      {
+        "pagePath": "pages/contacts/contacts",
+        "text": "通讯录"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于考勤打卡时校验您是否在办公区域内"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

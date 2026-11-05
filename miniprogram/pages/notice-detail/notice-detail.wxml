@@ -1,0 +1,72 @@
+<view class="page" wx:if="{{notice}}">
+  <!-- ============ 头图 ============ -->
+  <view class="detail-hero" style="background: {{notice.banner}}">
+    <view class="hero-tags">
+      <view class="hero-tag">{{notice.categoryName}}</view>
+      <view class="hero-tag hero-tag-top" wx:if="{{notice.isTop}}">置顶</view>
+    </view>
+    <view class="hero-title">{{notice.title}}</view>
+    <view class="hero-meta">{{notice.publisher}} · {{notice.publisherDept}}</view>
+    <view class="hero-meta hero-meta-sub">{{notice.publishTime}}</view>
+  </view>
+
+  <view class="page-body">
+    <!-- ============ 正文 ============ -->
+    <view class="card article">
+      <block wx:for="{{notice.blocks}}" wx:key="_k">
+        <view class="blk-p" wx:if="{{item.type === 'p'}}">{{item.text}}</view>
+        <view class="blk-h" wx:elif="{{item.type === 'h'}}">{{item.text}}</view>
+        <view class="blk-list" wx:elif="{{item.type === 'list'}}">
+          <view class="blk-li" wx:for="{{item.items}}" wx:for-item="li" wx:key="*this">
+            <view class="blk-li-dot"></view>
+            <view class="blk-li-text">{{li}}</view>
+          </view>
+        </view>
+        <view class="blk-quote" wx:elif="{{item.type === 'quote'}}">{{item.text}}</view>
+      </block>
+    </view>
+
+    <!-- ============ 附件 ============ -->
+    <view class="card" wx:if="{{notice.attachments.length}}">
+      <view class="section-title">附件（{{notice.attachments.length}}）</view>
+      <view
+        class="att-file"
+        wx:for="{{notice.attachments}}"
+        wx:key="name"
+        data-name="{{item.name}}"
+        bindtap="onAttachment"
+        hover-class="row-item-hover"
+        hover-stay-time="60"
+      >
+        <view class="att-file-ext">{{item.ext}}</view>
+        <view class="flex-1 att-file-main">
+          <view class="att-file-name ellipsis">{{item.name}}</view>
+          <view class="att-file-size">{{item.size}}</view>
+        </view>
+        <view class="chevron"></view>
+      </view>
+    </view>
+
+    <!-- ============ 阅读回执 ============ -->
+    <view class="card">
+      <view class="section-title">阅读情况</view>
+      <view class="read-line">
+        <view class="read-bar">
+          <view class="read-fill" style="width: {{notice.readPercent}}%"></view>
+        </view>
+        <view class="read-count">{{notice.readCount}}/{{notice.totalCount}}</view>
+      </view>
+      <view class="read-tip">
+        已读回执会同步给发布人，帮助确认信息是否触达。你的阅读已记录。
+      </view>
+    </view>
+
+    <!-- ============ 订阅提醒 ============ -->
+    <view class="btn btn-ghost subscribe-btn" bindtap="onSubscribe">
+      <view class="subscribe-icon"></view>
+      <text>{{subscribed ? '已开启公告提醒' : '开启公告消息提醒'}}</text>
+    </view>
+
+    <view class="detail-foot">— 云启科技 · 企业办公 —</view>
+  </view>
+</view>

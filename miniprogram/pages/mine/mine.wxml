@@ -1,0 +1,103 @@
+<view class="page">
+  <!-- ============ 个人信息 ============ -->
+  <view class="mine-hero">
+    <view class="mine-user">
+      <view class="avatar avatar-lg mine-avatar">{{userInitial}}</view>
+      <view class="mine-info">
+        <view class="mine-name">{{user.name}}</view>
+        <view class="mine-position" wx:if="{{roleTitle}}">{{roleTitle}}</view>
+        <view class="mine-dept">{{user.jobCategory}}</view>
+      </view>
+    </view>
+    <view class="mine-meta">
+      <view class="mine-meta-item">工号 {{user.employeeNo}}</view>
+      <view class="mine-meta-item">入职 {{user.joinDate}}</view>
+    </view>
+  </view>
+
+  <view class="page-body">
+    <!-- ============ 待办统计 ============ -->
+    <view class="card stat-card">
+      <view class="stat-cell" bindtap="onMenuTap" data-key="approval">
+        <view class="stat-cell-value c-blue">{{stats.pending}}</view>
+        <view class="stat-cell-label">待我审批</view>
+      </view>
+      <view class="stat-cell" bindtap="onMenuTap" data-key="approval">
+        <view class="stat-cell-value">{{stats.mine}}</view>
+        <view class="stat-cell-label">我发起的</view>
+      </view>
+      <view class="stat-cell" bindtap="onMenuTap" data-key="notice">
+        <view class="stat-cell-value c-orange">{{stats.unreadNotice}}</view>
+        <view class="stat-cell-label">未读公告</view>
+      </view>
+    </view>
+
+    <!-- ============ 我的考勤 ============ -->
+    <view class="card att-summary" bindtap="onMenuTap" data-key="attendance" hover-class="card-hover">
+      <view class="att-summary-left">
+        <view class="att-summary-title">今日考勤</view>
+        <view class="att-summary-sub">
+          {{user.name}} · {{stats.attendance.checkIn || '--:--'}} - {{stats.attendance.checkOut || '--:--'}}
+        </view>
+      </view>
+      <view class="tag {{stats.attendance.status === 'normal' ? 'tag-green' : stats.attendance.status === 'rest' ? 'tag-gray' : 'tag-orange'}}">
+        {{stats.attendance.statusText}}
+      </view>
+      <view class="chevron"></view>
+    </view>
+
+    <!-- ============ 常用功能 ============ -->
+    <view class="section-head">
+      <view class="section-title">常用功能</view>
+    </view>
+
+    <view class="card card-tight">
+      <view
+        class="menu-row"
+        wx:for="{{menu}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="onMenuTap"
+        hover-class="row-item-hover"
+        hover-stay-time="60"
+      >
+        <view class="menu-icon menu-icon-{{item.icon}}"></view>
+        <view class="menu-main">
+          <view class="menu-name">{{item.name}}</view>
+          <view class="menu-desc ellipsis">{{item.desc}}</view>
+        </view>
+        <view class="chevron"></view>
+      </view>
+    </view>
+
+    <!-- ============ 设置 ============ -->
+    <view class="section-head">
+      <view class="section-title">设置</view>
+    </view>
+
+    <view class="card card-tight">
+      <view
+        class="menu-row"
+        wx:for="{{settings}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="onSettingTap"
+        hover-class="row-item-hover"
+        hover-stay-time="60"
+      >
+        <view class="menu-icon menu-icon-{{item.icon}} {{item.danger ? 'is-danger' : ''}}"></view>
+        <view class="menu-main">
+          <view class="menu-name">{{item.name}}</view>
+        </view>
+        <view class="chevron"></view>
+      </view>
+    </view>
+
+    <view class="mine-foot">
+      <view class="mine-foot-name">{{company.name}}</view>
+      <view class="mine-foot-tip">企业办公小程序 · 演示版本 v1.0.0</view>
+    </view>
+
+    <view class="tabbar-holder"></view>
+  </view>
+</view>

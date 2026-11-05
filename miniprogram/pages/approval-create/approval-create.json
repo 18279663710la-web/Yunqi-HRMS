@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "发起审批",
+  "navigationBarBackgroundColor": "#F5F7FB",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "invoice-uploader": "/components/invoice-uploader/index"
+  }
+}

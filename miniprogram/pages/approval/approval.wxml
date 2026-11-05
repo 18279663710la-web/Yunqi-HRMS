@@ -1,0 +1,62 @@
+<view class="page">
+  <!-- Tab 头部 -->
+  <view class="tab-bar">
+    <view
+      class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+      wx:for="{{tabs}}"
+      wx:key="key"
+      data-key="{{item.key}}"
+      bindtap="onTab"
+    >
+      <view class="tab-name">
+        {{item.name}}
+        <text class="tab-count" wx:if="{{item.count > 0}}">{{item.count}}</text>
+      </view>
+      <view class="tab-line"></view>
+    </view>
+  </view>
+
+  <view class="page-body">
+    <!-- 列表 -->
+    <block wx:if="{{list.length}}">
+      <view class="card card-tight">
+        <view
+          class="row-item"
+          wx:for="{{list}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="goDetail"
+          hover-class="row-item-hover"
+          hover-stay-time="60"
+        >
+          <view class="type-badge type-{{item.type}}">{{item.typeIcon}}</view>
+          <view class="row-main">
+            <view class="row-title ellipsis">{{item.title}}</view>
+            <view class="row-meta ellipsis">{{item.applicantName}} · {{item.applicantPosition}} · {{item.timeText}}</view>
+            <view class="appr-summary ellipsis">{{item.summary}}</view>
+          </view>
+          <view class="appr-right">
+            <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+            <view class="tag tag-red appr-flag" wx:if="{{item.urgent}}">加急</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="empty" wx:elif="{{!loading}}">
+      <view class="empty-icon">✓</view>
+      <view class="empty-text">
+        {{activeTab === 'pending' ? '暂无待你审批的单据' : activeTab === 'mine' ? '你还没有发起过审批' : '暂无已办结记录'}}
+      </view>
+    </view>
+
+    <view class="tabbar-holder"></view>
+  </view>
+
+  <!-- 发起审批悬浮按钮 -->
+  <view wx:if="{{!isChairperson}}" class="fab" bindtap="goCreate" hover-class="fab-hover">
+    <view class="fab-plus"></view>
+    <view class="fab-text">发起审批</view>
+  </view>
+  <view wx:if="{{isChairperson}}" class="chairperson-logout" bindtap="logout">退出登录</view>
+</view>

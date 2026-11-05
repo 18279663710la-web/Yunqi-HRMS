@@ -1,0 +1,15 @@
+<view class="signature-page">
+  <view class="signature-header">
+    <view class="signature-title">手写签名</view>
+    <view class="signature-hint">请在下方区域签写您的姓名</view>
+  </view>
+  <view class="signature-paper">
+    <canvas id="signatureCanvas" canvas-id="signatureCanvas" class="signature-canvas" disable-scroll="true" bindtouchstart="signatureStart" catchtouchmove="signatureMove"></canvas>
+    <view wx:if="{{!drawn}}" class="signature-placeholder">请在此处签名</view>
+  </view>
+  <view class="signature-footer">
+    <button class="signature-button signature-cancel" disabled="{{saving}}" bindtap="cancelSignature">取消</button>
+    <button class="signature-button signature-clear" disabled="{{saving}}" bindtap="clearSignature">清空</button>
+    <button class="signature-button signature-save" loading="{{saving}}" disabled="{{saving}}" bindtap="saveSignature">确认签名</button>
+  </view>
+</view>

@@ -1,0 +1,58 @@
+import 'dotenv/config';
+import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
+import test from 'node:test';
+import mysql from 'mysql2/promise';
+import jwt from 'jsonwebtoken';
+
+test('字段配置保存、定薪无损转换及工资明细类型兼容', async () => {
+  const database = `yunqi_salary_field_${randomBytes(8).toString('hex')}`;
+  const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
+  let created = false; let closePool: (() => Promise<void>) | undefined; let closeServer: (() => Promise<void>) | undefined;
+  try {
+    await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true; process.env.MYSQL_DATABASE = database;
+    const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
+    await (await import('../src/shared/db/seed')).seedDatabase(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
+    const { config } = await import('../src/config');
+    const admin = jwt.sign({ typ: 'admin', role: 'super_admin' }, config.jwt.secret, { subject: '1' });
+    const server = (await import('../src/app')).createApp().listen(0, '127.0.0.1'); await new Promise<void>(resolve => server.once('listening', resolve));
+    closeServer = () => new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+    const addr = server.address(); assert.ok(addr && typeof addr !== 'string');
+    const call = async (path: string, method = 'GET', body?: unknown) => { const r = await fetch(`http://127.0.0.1:${addr.port}/api${path}`, { method, headers: { Authorization: `Bearer ${admin}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }); return { status: r.status, body: await r.json() as { data?: any; message?: string } }; };
+    const original = (await call('/admin/hr/salary-model')).body.data;
+    const fixed = [{ name: '基本工资', type: 'number', category: 'income' }, { name: '固定扣款', type: 'number', category: 'deduction' }, { name: '岗位说明', type: 'text', category: 'info', interfaceSource: 'attendance' }];
+    const extended = [{ name: '考勤说明', type: 'text', category: 'info', interfaceSource: 'attendance' }, { name: '奖金', type: 'number', category: 'income' }];
+    let saved = await call('/admin/hr/salary-model', 'PUT', { version: original.version, fixedFields: fixed, extendedFields: extended });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const current = (await call('/admin/hr/salary-model')).body.data;
+    assert.equal(current.fixedFields.find((f: any) => f.name === '岗位说明').interfaceSource, 'attendance');
+    assert.equal(current.extendedFields[0].type, 'text');
+    const setSalary = await call('/admin/hr/employees/U001/salary', 'PUT', { effectiveDate: '2026-01-01', modelVersion: current.version, values: { 基本工资: 1000, 固定扣款: 50, 岗位说明: '测试岗位' } });
+    assert.equal(setSalary.status, 200, JSON.stringify(setSalary.body));
+    assert.equal((await call('/admin/hr/employees/U001/salary')).body.data.values.岗位说明, '测试岗位');
+    const batch = await call('/admin/hr/payroll-batches', 'POST', { month: '2026-09' }); const id = batch.body.data.id;
+    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items`, 'POST', { employeeId: 'U001' })).status, 200);
+    let row = (await call(`/admin/hr/payroll-batches/${id}/items`)).body.data[0];
+    assert.equal(row.gross, 1000); assert.equal(row.deductions, 50); assert.equal(row.net, 950);
+    assert.equal(row.modelSnapshot.fixed.find((f: any) => f.name === '岗位说明').value, '测试岗位');
+    assert.equal(row.modelSnapshot.extended[0].value, '');
+    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${row.id}/extended`, 'PUT', { revision: 0, values: [{ name: '考勤说明', value: '已核对' }, { name: '奖金', value: 20 }] })).status, 200);
+    row = (await call(`/admin/hr/payroll-batches/${id}/items`)).body.data[0];
+    assert.equal(row.modelSnapshot.extended[0].value, '已核对'); assert.equal(row.net, 970);
+    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${row.id}/extended`, 'PUT', { revision: 1, values: [{ name: '考勤说明', value: 1 }, { name: '奖金', value: 20 }] })).status, 400);
+    const changed = fixed.map(field => field.name === '岗位说明' ? { ...field, type: 'number', category: 'info' } : field);
+    saved = await call('/admin/hr/salary-model', 'PUT', { version: current.version, fixedFields: changed, extendedFields: extended });
+    assert.equal(saved.status, 400);
+    assert.equal((await call('/admin/hr/salary-model')).body.data.version, current.version);
+    assert.equal((await call('/admin/hr/employees/U001/salary')).body.data.values.岗位说明, '测试岗位');
+    assert.equal((await call('/admin/hr/employees/U001/salary', 'PUT', { effectiveDate: '2026-01-01', modelVersion: current.version, values: { 基本工资: 1000, 固定扣款: 50, 岗位说明: '123.45' } })).status, 200);
+    assert.equal((await call('/admin/hr/employees/U005/salary', 'PUT', { effectiveDate: '2026-01-01', modelVersion: current.version, values: { 基本工资: 1000, 固定扣款: 50, 岗位说明: '无法转换' } })).status, 200);
+    assert.equal((await call('/admin/hr/salary-model', 'PUT', { version: current.version, fixedFields: changed, extendedFields: extended })).status, 400);
+    assert.equal((await call('/admin/hr/employees/U001/salary')).body.data.values.岗位说明, '123.45');
+    assert.equal((await call('/admin/hr/employees/U005/salary', 'PUT', { effectiveDate: '2026-01-01', modelVersion: current.version, values: { 基本工资: 1000, 固定扣款: 50, 岗位说明: '456' } })).status, 200);
+    const converted = await call('/admin/hr/salary-model', 'PUT', { version: current.version, fixedFields: changed, extendedFields: extended });
+    assert.equal(converted.status, 200);
+    assert.equal((await call('/admin/hr/employees/U001/salary')).body.data.values.岗位说明, 123.45);
+    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items`)).body.data[0].modelSnapshot.fixed.find((f: any) => f.name === '岗位说明').value, '测试岗位');
+  } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
+});

@@ -1,0 +1,18 @@
+<view wx:if="{{!hidden}}" class="tabbar">
+  <view
+    class="tab-item {{selected === index ? 'active' : ''}}"
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    data-index="{{index}}"
+    data-path="{{item.pagePath}}"
+    bindtap="onSwitch"
+    hover-class="tab-item-hover"
+    hover-stay-time="60"
+  >
+    <view class="tab-icon-wrap">
+      <view class="tab-icon ico-{{item.icon}}"></view>
+      <view class="tab-badge" wx:if="{{item.icon === 'approval' && badge > 0}}">{{badge > 99 ? '99+' : badge}}</view>
+    </view>
+    <view class="tab-text">{{item.text}}</view>
+  </view>
+</view>

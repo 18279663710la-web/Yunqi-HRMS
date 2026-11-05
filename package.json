@@ -1,0 +1,18 @@
+{
+  "name": "yunqi-office",
+  "version": "1.0.0",
+  "private": true,
+  "description": "云启科技 · 企业办公小程序 + Web 管理后台（TypeScript / MySQL）",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix miniprogram install && npm --prefix web install",
+    "db:setup": "npm --prefix server run db:setup",
+    "db:reset": "npm --prefix server run db:reset",
+    "dev": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build:server": "npm --prefix server run build",
+    "build:web": "npm --prefix web run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix miniprogram run typecheck && npm --prefix web run typecheck",
+    "smoke": "npm --prefix server run smoke",
+    "smoke:admin": "npm --prefix server run smoke:admin"
+  }
+}

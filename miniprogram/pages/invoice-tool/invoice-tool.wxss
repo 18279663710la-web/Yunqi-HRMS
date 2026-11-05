@@ -1,0 +1,171 @@
+/* pages/invoice-tool/invoice-tool.wxss — 发票工具台 */
+
+/* ============ 页面标题 ============ */
+.it-hero {
+  background: linear-gradient(135deg, #3D6EF7, #5B8DFF);
+  box-shadow: 0 12rpx 32rpx rgba(61, 110, 247, 0.24);
+}
+
+.it-hero-title {
+  font-size: 38rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+/* ============ 录入 ============ */
+/* 离屏 canvas：不能用 display:none，否则取不到节点，只能移出屏幕外 */
+.it-canvas {
+  position: fixed;
+  left: -2000px;
+  top: 0;
+  width: 500px;
+  height: 500px;
+  pointer-events: none;
+}
+
+/* ============ 读码诊断 ============ */
+.it-diag-clear {
+  float: right;
+  font-size: 24rpx;
+  font-weight: 400;
+  color: #3D6EF7;
+}
+
+.it-diag-result {
+  padding: 20rpx 24rpx;
+  margin-bottom: 8rpx;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.it-diag-result.is-ok {
+  background: #EAF9F1;
+  color: #14875A;
+}
+
+.it-diag-result.is-fail {
+  background: #FFF3E8;
+  color: #C2661B;
+}
+
+.it-diag-img {
+  width: 100%;
+  margin: 16rpx 0 8rpx;
+  border-radius: 14rpx;
+  background: #F5F6F8;
+}
+
+.it-progress {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #8A94A6;
+}
+
+.it-btns {
+  display: flex;
+  margin-top: 24rpx;
+}
+
+.it-btns .btn + .btn {
+  margin-left: 16rpx;
+}
+
+.it-error {
+  margin-top: 18rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: #FFEDEC;
+  font-size: 24rpx;
+  color: #F04438;
+}
+
+/* ============ 解析结果 ============ */
+.it-rows {
+  margin-top: 8rpx;
+}
+
+.it-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 16rpx 0;
+}
+
+.it-row + .it-row {
+  border-top: 2rpx solid #F7F9FC;
+}
+
+.it-row-label {
+  width: 176rpx;
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #9AA1AC;
+}
+
+.it-row-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
+  color: #1A1D26;
+  word-break: break-all;
+}
+
+/* ============ 查重 ============ */
+.it-clean {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 0;
+}
+
+.it-clean-icon {
+  flex-shrink: 0;
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 18rpx;
+  border-radius: 50%;
+  background: #E6F7EF;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 26rpx 26rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316B364' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+}
+
+.it-clean-text {
+  font-size: 26rpx;
+  color: #16B364;
+}
+
+.it-dup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 0 18rpx;
+}
+
+.it-dup-count {
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+.it-dup {
+  padding: 20rpx 22rpx;
+  margin-bottom: 16rpx;
+  border-radius: 14rpx;
+  background: #FAFBFD;
+  border-left: 6rpx solid #F79009;
+}
+
+.it-dup-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #1A1D26;
+}
+
+.it-dup-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9AA1AC;
+  line-height: 1.6;
+}
+

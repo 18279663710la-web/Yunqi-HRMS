@@ -1,0 +1,204 @@
+/* ============ 头图 ============ */
+.detail-hero {
+  padding: 44rpx 40rpx 64rpx;
+  border-radius: 0 0 40rpx 40rpx;
+}
+
+.hero-tags {
+  display: flex;
+  align-items: center;
+}
+
+.hero-tag {
+  height: 44rpx;
+  padding: 0 18rpx;
+  margin-right: 12rpx;
+  border-radius: 8rpx;
+  background: rgba(255, 255, 255, 0.22);
+  color: #FFFFFF;
+  font-size: 22rpx;
+  display: flex;
+  align-items: center;
+}
+
+.hero-tag-top {
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.hero-title {
+  margin-top: 26rpx;
+  font-size: 42rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  line-height: 1.45;
+}
+
+.hero-meta {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.hero-meta-sub {
+  margin-top: 8rpx;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.page-body {
+  margin-top: -32rpx;
+}
+
+/* ============ 正文 ============ */
+.article {
+  padding: 36rpx 34rpx 20rpx;
+}
+
+.blk-p {
+  font-size: 29rpx;
+  color: #2B3346;
+  line-height: 1.85;
+  margin-bottom: 22rpx;
+}
+
+.blk-h {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1A1D26;
+  line-height: 1.5;
+  margin: 16rpx 0 18rpx;
+}
+
+.blk-list {
+  margin-bottom: 22rpx;
+}
+
+.blk-li {
+  display: flex;
+  margin-bottom: 14rpx;
+}
+
+.blk-li-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #7BA0FF;
+  margin: 16rpx 14rpx 0 4rpx;
+  flex-shrink: 0;
+}
+
+.blk-li-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  color: #2B3346;
+  line-height: 1.8;
+}
+
+.blk-quote {
+  margin: 8rpx 0 24rpx;
+  padding: 22rpx 24rpx;
+  background: #F5F8FF;
+  border-left: 6rpx solid #3D6EF7;
+  border-radius: 0 14rpx 14rpx 0;
+  font-size: 27rpx;
+  color: #4A5670;
+  line-height: 1.8;
+}
+
+/* ============ 附件 ============ */
+.att-file {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 0;
+}
+
+.att-file + .att-file {
+  border-top: 2rpx solid #F2F4F8;
+}
+
+.att-file-ext {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 18rpx;
+  background: #EAF0FF;
+  color: #3D6EF7;
+  font-size: 24rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.att-file-main {
+  margin: 0 20rpx;
+}
+
+.att-file-name {
+  font-size: 28rpx;
+  color: #1A1D26;
+}
+
+.att-file-size {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+/* ============ 阅读回执 ============ */
+.read-line {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  margin-bottom: 4rpx;
+}
+
+.read-bar {
+  flex: 1;
+  height: 14rpx;
+  border-radius: 7rpx;
+  background: #F2F4F8;
+  overflow: hidden;
+}
+
+.read-fill {
+  height: 100%;
+  border-radius: 7rpx;
+  background: linear-gradient(90deg, #3D6EF7, #7BA0FF);
+}
+
+.read-count {
+  margin-left: 20rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #3D6EF7;
+}
+
+.read-tip {
+  margin-top: 18rpx;
+  font-size: 23rpx;
+  color: #9AA1AC;
+  line-height: 1.7;
+}
+
+/* ============ 订阅提醒 ============ */
+.subscribe-btn {
+  margin: 8rpx 0 24rpx;
+}
+
+.subscribe-icon {
+  width: 34rpx;
+  height: 34rpx;
+  margin-right: 12rpx;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.6 10.2a5.4 5.4 0 0 1 10.8 0c0 3.9 1.4 5.1 1.9 5.9H4.7c.5-.8 1.9-2 1.9-5.9Z'/%3E%3Cpath d='M10.2 19.2a2 2 0 0 0 3.6 0'/%3E%3C/svg%3E");
+}
+
+.detail-foot {
+  text-align: center;
+  font-size: 22rpx;
+  color: #C4CAD6;
+  padding: 20rpx 0 40rpx;
+}

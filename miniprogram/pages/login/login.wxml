@@ -1,0 +1,53 @@
+<view class="login-page">
+  <view class="login-hero">
+    <view class="login-brand">广东省优科印刷材料有限公司</view>
+    <view class="login-brand-sub">企业办公 · 员工登录</view>
+  </view>
+
+  <view class="login-card">
+    <view class="login-card-title">账号登录</view>
+
+    <view class="login-form-item">
+      <view class="login-label">登录名</view>
+      <input
+        class="login-input"
+        value="{{loginName}}"
+        placeholder="请输入登录名"
+        placeholder-class="login-placeholder"
+        maxlength="50"
+        bindinput="onLoginNameInput"
+      />
+    </view>
+
+    <view class="login-form-item">
+      <view class="login-label">密码</view>
+      <input
+        class="login-input"
+        password="{{true}}"
+        value="{{password}}"
+        placeholder="请输入密码"
+        placeholder-class="login-placeholder"
+        maxlength="64"
+        confirm-type="done"
+        bindinput="onPasswordInput"
+        bindconfirm="onSubmit"
+      />
+    </view>
+
+    <button
+      class="login-submit {{loading || checking ? 'is-disabled' : ''}}"
+      loading="{{loading}}"
+      disabled="{{loading || checking}}"
+      bindtap="onSubmit"
+    >
+      登录
+    </button>
+
+  </view>
+
+  <view class="login-foot">云启科技 · 企业办公</view>
+
+  <view class="login-checking" wx:if="{{checking}}">
+    <view class="login-checking-box">正在检查登录状态…</view>
+  </view>
+</view>

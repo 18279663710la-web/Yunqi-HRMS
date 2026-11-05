@@ -1,0 +1,41 @@
+<view class="onboarding-page">
+  <view class="onboarding-header">
+    <view class="onboarding-header-icon">入</view>
+    <view class="onboarding-header-copy"><view class="onboarding-heading">填写入职信息</view><view class="onboarding-subtitle">请根据实际情况填写以下信息</view></view>
+  </view>
+  <view wx:if="{{loading}}" class="onboarding-status">正在加载入职申请…</view>
+  <view wx:elif="{{loadError}}" class="onboarding-status"><view>入职信息加载失败，请检查网络后重试。</view><button class="onboarding-add onboarding-retry" bindtap="loadOnboarding">重新加载</button></view>
+    <scroll-view wx:if="{{onboarding}}" scroll-y class="onboarding-fields">
+      <view class="onboarding-section-title"><text class="onboarding-section-mark"></text><text>入职资料</text></view>
+      <view class="onboarding-field onboarding-photo-field">
+        <view class="onboarding-field-label">照片 <text class="onboarding-optional">选填</text></view>
+        <view class="onboarding-upload">
+          <image wx:if="{{onboardingPhotoPreview}}" src="{{onboardingPhotoPreview}}" mode="aspectFill" class="onboarding-photo" />
+          <view wx:else class="onboarding-photo-placeholder">{{onboardingHasPhoto ? '已保留' : '照'}}</view>
+          <view class="onboarding-upload-copy"><view class="onboarding-upload-title">{{onboardingHasPhoto ? '已选择照片' : '上传个人照片'}}</view><view class="onboarding-upload-hint">支持拍照或从相册选择，图片不超过 1MB</view><button class="onboarding-action" size="mini" bindtap="chooseOnboardingPhoto">{{onboardingHasPhoto ? '更换照片' : '选择照片'}}</button></view>
+        </view>
+      </view>
+      <view wx:for="{{onboarding.template}}" wx:for-item="field" wx:for-index="fieldIndex" wx:key="name" class="onboarding-field">
+        <view class="onboarding-field-label">{{field.name}}<text wx:if="{{field.required}}" class="onboarding-required"> *</text></view>
+        <block wx:if="{{field.type === 'table'}}">
+          <view wx:for="{{field.rows}}" wx:for-item="row" wx:for-index="rowIndex" wx:key="id" class="onboarding-row">
+            <view class="onboarding-row-heading"><view class="onboarding-row-index">第 {{rowIndex + 1}} 条</view><button class="onboarding-row-remove" size="mini" data-index="{{fieldIndex}}" data-row="{{rowIndex}}" bindtap="removeOnboardingRow">删除</button></view>
+            <view wx:for="{{field.children}}" wx:for-item="child" wx:for-index="childIndex" wx:key="name" class="onboarding-cell">
+              <view class="onboarding-cell-label">{{child.name}}<text wx:if="{{child.required}}" class="onboarding-required"> *</text></view>
+              <picker wx:if="{{child.type === 'date'}}" mode="date" value="{{row.values[child.name]}}" data-index="{{fieldIndex}}" data-row="{{rowIndex}}" data-child="{{childIndex}}" bindchange="changeOnboardingCell"><view class="onboarding-input onboarding-date {{row.values[child.name] ? '' : 'onboarding-date-placeholder'}}"><text>{{row.values[child.name] || '请选择日期'}}</text><text class="onboarding-date-arrow">›</text></view></picker>
+              <picker wx:elif="{{child.type === 'select'}}" mode="selector" range="{{child.options}}" value="{{row.indexes[child.name]}}" data-index="{{fieldIndex}}" data-row="{{rowIndex}}" data-child="{{childIndex}}" bindchange="selectOnboardingCell"><view class="onboarding-input onboarding-select {{row.values[child.name] ? '' : 'onboarding-date-placeholder'}}"><text>{{row.values[child.name] || '请选择'}}</text><text class="onboarding-date-arrow">›</text></view></picker>
+              <input wx:else class="onboarding-input" type="{{child.type === 'number' ? 'digit' : 'text'}}" maxlength="{{child.maxLength || 500}}" value="{{row.values[child.name]}}" placeholder="请填写" placeholder-class="onboarding-placeholder" cursor-spacing="24" data-index="{{fieldIndex}}" data-row="{{rowIndex}}" data-child="{{childIndex}}" bindinput="changeOnboardingCell" />
+            </view>
+          </view>
+          <button class="onboarding-add" size="mini" data-index="{{fieldIndex}}" bindtap="addOnboardingRow"><text class="onboarding-add-icon">＋</text> 添加{{field.name}}</button>
+        </block>
+        <picker wx:elif="{{field.type === 'date'}}" mode="date" value="{{field.value}}" data-index="{{fieldIndex}}" bindchange="changeOnboarding"><view class="onboarding-input onboarding-date {{field.value ? '' : 'onboarding-date-placeholder'}}"><text>{{field.value || '请选择日期'}}</text><text class="onboarding-date-arrow">›</text></view></picker>
+        <picker wx:elif="{{field.type === 'select'}}" mode="selector" range="{{field.options}}" value="{{field.valueIndex}}" data-index="{{fieldIndex}}" bindchange="selectOnboarding"><view class="onboarding-input onboarding-select {{field.value ? '' : 'onboarding-date-placeholder'}}"><text>{{field.value || '请选择'}}</text><text class="onboarding-date-arrow">›</text></view></picker>
+        <input wx:else class="onboarding-input" type="{{field.type === 'number' ? 'digit' : 'text'}}" maxlength="{{field.maxLength || 500}}" value="{{field.value}}" placeholder="请填写" placeholder-class="onboarding-placeholder" cursor-spacing="24" data-index="{{fieldIndex}}" bindinput="changeOnboarding" />
+      </view>
+      <view class="onboarding-section-title onboarding-section-final"><text class="onboarding-section-mark"></text><text>声明与签名</text></view>
+      <view class="onboarding-field"><view class="onboarding-field-label">声明</view><view class="onboarding-declaration">{{onboarding.declaration}}</view><checkbox-group bindchange="toggleDeclaration"><label class="onboarding-confirm"><checkbox value="accepted" checked="{{declarationAccepted}}" color="#3D6EF7" />已阅读并同意声明</label></checkbox-group></view>
+      <view class="onboarding-field onboarding-signature-field"><view class="onboarding-field-label">签名<text class="onboarding-required"> *</text></view><image wx:if="{{onboardingSignaturePreview}}" src="{{onboardingSignaturePreview}}" mode="aspectFit" class="onboarding-signature-preview" /><button class="onboarding-add" size="mini" bindtap="openSignature">{{onboardingSignaturePreview ? '重新签名' : '手写签名'}}</button></view>
+    </scroll-view>
+  <view wx:if="{{onboarding}}" class="onboarding-footer"><button class="onboarding-submit" loading="{{onboardingSaving}}" disabled="{{onboardingSaving}}" bindtap="submitOnboarding">提交入职信息</button></view>
+</view>

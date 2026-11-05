@@ -1,0 +1,202 @@
+<view class="page">
+  <view class="page-body has-bottom-bar">
+    <!-- ============ 类型选择 ============ -->
+    <view class="section-head">
+      <view class="section-title">审批类型</view>
+      <view class="type-desc">{{type.desc}}</view>
+    </view>
+
+    <view class="card type-card">
+      <view class="type-grid">
+        <view
+          class="type-cell {{typeKey === item.key ? 'active' : ''}}"
+          wx:for="{{types}}"
+          wx:key="key"
+          data-key="{{item.key}}"
+          bindtap="onTypeTap"
+          hover-class="type-cell-hover"
+          hover-stay-time="60"
+        >
+          <view class="type-cell-icon" style="background-color: {{item.color}}">{{item.initial}}</view>
+          <view class="type-cell-name">{{item.name}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 动态表单 ============ -->
+    <view class="section-head">
+      <view class="section-title">申请内容</view>
+    </view>
+
+    <view class="card">
+      <view class="form-row {{item.type === 'textarea' ? 'is-block' : ''}}" wx:for="{{fields}}" wx:key="key">
+        <view class="form-label">
+          <text class="form-req" wx:if="{{item.required}}">*</text>{{item.label}}
+        </view>
+
+        <view class="form-control">
+          <!-- 请假时长由起止日期和时间自动计算 -->
+          <view wx:if="{{typeKey === 'leave' && item.key === 'days'}}" class="picker-value">
+            {{values[item.key] || '请选择有效起止时间'}}
+          </view>
+
+          <!-- 文本 / 数字 / 金额 -->
+          <input
+            wx:elif="{{item.type === 'text' || item.type === 'number' || item.type === 'money'}}"
+            class="form-input"
+            type="{{item.type === 'number' || item.type === 'money' ? 'digit' : 'text'}}"
+            value="{{values[item.key]}}"
+            placeholder="{{item.placeholder || '请输入'}}"
+            placeholder-class="form-placeholder"
+            data-key="{{item.key}}"
+            bindinput="onInput"
+          />
+
+          <!-- 下拉选择 -->
+          <picker
+            wx:elif="{{item.type === 'picker'}}"
+            mode="selector"
+            range="{{item.options}}"
+            data-key="{{item.key}}"
+            bindchange="onPicker"
+          >
+            <view class="picker-value {{values[item.key] ? '' : 'is-placeholder'}}">
+              {{values[item.key] || '请选择'}}
+              <view class="picker-arrow"></view>
+            </view>
+          </picker>
+
+          <!-- 日期 -->
+          <picker
+            wx:elif="{{item.type === 'date'}}"
+            mode="date"
+            value="{{values[item.key]}}"
+            data-key="{{item.key}}"
+            bindchange="onPicker"
+          >
+            <view class="picker-value {{values[item.key] ? '' : 'is-placeholder'}}">
+              {{values[item.key] || '请选择日期'}}
+              <view class="picker-arrow"></view>
+            </view>
+          </picker>
+
+          <!-- 时间 -->
+          <picker
+            wx:elif="{{item.type === 'time'}}"
+            mode="time"
+            value="{{values[item.key]}}"
+            data-key="{{item.key}}"
+            bindchange="onPicker"
+          >
+            <view class="picker-value {{values[item.key] ? '' : 'is-placeholder'}}">
+              {{values[item.key] || '请选择时间'}}
+              <view class="picker-arrow"></view>
+            </view>
+          </picker>
+
+          <!-- 多行文本 -->
+          <textarea
+            wx:elif="{{item.type === 'textarea'}}"
+            class="form-textarea"
+            value="{{values[item.key]}}"
+            placeholder="{{item.placeholder || '请输入'}}"
+            placeholder-class="form-placeholder"
+            maxlength="{{item.maxlength || 200}}"
+            data-key="{{item.key}}"
+            bindinput="onInput"
+          />
+        </view>
+      </view>
+      <view wx:if="{{typeKey === 'leave'}}" class="form-tip">请假时长自动计算：不足一天按 1 天，超过一天的余数满 12 小时进 1 天。</view>
+    </view>
+
+    <!-- ============ 发票识别（仅报销类型） ============ -->
+    <block wx:if="{{isExpense}}">
+      <view class="section-head">
+        <view class="section-title">发票识别</view>
+        <view class="type-desc">拍照自动填单</view>
+      </view>
+
+      <invoice-uploader id="invoiceUploader" max="{{9}}" bind:change="onInvoiceChange" />
+
+      <view class="autofill-hint" wx:if="{{autoFillHint}}">
+        <view class="autofill-icon"></view>
+        <view class="autofill-text">{{autoFillHint}}</view>
+      </view>
+
+      <view class="autofill-hint is-warn" wx:if="{{recognizingInvoices}}">
+        <view class="autofill-icon is-loading"></view>
+        <view class="autofill-text">发票识别中，完成后将自动填单，请稍候提交</view>
+      </view>
+      <view class="form-tip" wx:if="{{!invoiceCheckReady}}">{{invoiceCheckMessage}}</view>
+      <view class="section-head"><view class="section-title">补充材料</view></view>
+      <view class="card">
+        <view class="attachment-row" wx:for="{{attachments}}" wx:key="fileID">
+          <image class="attachment-thumb" src="{{item.preview}}" mode="aspectFill" />
+          <input class="attachment-name" value="{{item.name}}" placeholder="填写材料名称，如行程单" maxlength="100" data-index="{{index}}" bindinput="onAttachmentName" />
+          <view class="attachment-remove" data-index="{{index}}" bindtap="removeAttachment">删除</view>
+        </view>
+        <view class="attachment-add" bindtap="addAttachments">{{uploadingAttachments ? '上传中…' : '添加材料图片'}}</view>
+      </view>
+      <view class="section-head"><view class="section-title">AI预审</view></view>
+      <view class="card precheck-card">
+        <view class="precheck-action {{precheckRunning ? 'is-busy' : ''}}" role="button" aria-label="AI 审批" bindtap="onAiPrecheck">{{precheckRunning ? 'AI 审批中…' : 'AI 审批'}}</view>
+        <block wx:if="{{precheckRunning}}">
+          <view class="precheck-line">{{precheckProgress || '正在校验发票并生成建议…'}}</view>
+          <view class="precheck-note">AI 正在生成建议，结果尚未完成。</view>
+        </block>
+        <block wx:elif="{{precheckResult}}">
+          <block wx:if="{{precheckResult.status === 'completed' && precheckResult.advice}}">
+            <view class="precheck-title">{{precheckResult.advice.recommendation === 'approve' ? '建议通过' : precheckResult.advice.recommendation === 'reject' ? '发现材料问题' : '无法判断，请人工复核'}}</view>
+            <view class="precheck-line">原因：{{precheckResult.advice.reason}}</view>
+            <view class="precheck-line" wx:if="{{precheckResult.advice.rule}}">规则依据：{{precheckResult.advice.rule}}</view>
+            <view class="precheck-line" wx:if="{{precheckResult.advice.missingAttachments.length}}">建议补充：<text wx:for="{{precheckResult.advice.missingAttachments}}" wx:key="*this">{{index ? '、' : ''}}{{item}}</text></view>
+            <view class="precheck-line" wx:if="{{precheckResult.advice.attachmentIssues && precheckResult.advice.attachmentIssues.length}}">材料问题：<view wx:for="{{precheckResult.advice.attachmentIssues}}" wx:key="index">{{item.name}}：{{item.issue}}</view></view>
+          </block>
+          <view class="precheck-line" wx:else>{{precheckResult.status === 'no_rules' ? '审批规则尚未配置' : precheckResult.status === 'unconfigured' ? 'AI 服务尚未配置' : 'AI 预审暂不可用'}}，可继续提交供人工审核。</view>
+          <view class="precheck-note" wx:if="{{precheckStale}}">申请内容或材料已修改，以上结果可能已过期，可重新点击 AI 审批。</view>
+          <view class="precheck-note" wx:else>AI 建议仅供参考，最终由审批人决定。</view>
+        </block>
+        <view class="precheck-note" wx:else>点击 AI 审批，检查申请内容和材料。</view>
+      </view>
+    </block>
+
+    <!-- ============ 审批设置 ============ -->
+    <view class="section-head">
+      <view class="section-title">审批流转</view>
+    </view>
+
+    <view class="card card-tight">
+      <view class="list-row">
+        <view class="setting-label">审批人</view>
+        <view class="flex-1"></view>
+        <view class="approver-chip">
+          <view class="avatar avatar-sm">{{leader.name}}</view>
+          <view class="approver-info">
+            <view class="approver-name">{{leader.name}}</view>
+            <view class="approver-role">{{leader.position}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="list-row">
+        <view class="setting-label">加急处理</view>
+        <view class="setting-hint">加急单据将在审批列表中置顶提醒</view>
+        <view class="flex-1"></view>
+        <switch checked="{{urgent}}" color="#3D6EF7" bindchange="onUrgentChange" />
+      </view>
+    </view>
+
+    <view class="form-tip">{{typeKey === 'leave' ? '提交后由上述审批人处理，可在审批列表查看进度。' : '提交后可在审批列表查看进度。'}}</view>
+  </view>
+
+  <!-- ============ 底部提交栏 ============ -->
+  <view class="fixed-bottom-bar">
+    <view
+      class="btn btn-primary flex-1 {{canSubmit && !submitting && !recognizingInvoices && (typeKey !== 'leave' || leaveApproverReady) && (typeKey !== 'expense' || (invoiceCheckReady && expenseApproverReady)) && ((typeKey !== 'overtime' && typeKey !== 'travel' && typeKey !== 'purchase') || typeApproverReady) ? '' : 'btn-disabled'}}"
+      bindtap="onSubmit"
+    >
+      {{submitting ? '提交中...' : recognizingInvoices ? '发票识别中...' : '提交审批'}}
+    </view>
+  </view>
+</view>

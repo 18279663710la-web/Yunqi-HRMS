@@ -1,0 +1,116 @@
+<view class="iu">
+  <!-- 离屏 canvas：用于从上传的图片里解码二维码。
+       注意不能用 display:none，那样取不到节点；只能移出屏幕外。 -->
+  <canvas type="2d" id="qrCanvas" class="iu-canvas"></canvas>
+
+  <!-- ============ 发票缩略图网格 ============ -->
+  <view class="iu-grid">
+    <view class="iu-cell" wx:for="{{invoices}}" wx:key="id">
+      <view class="iu-thumb" data-id="{{item.id}}" bindtap="onPreview">
+        <!-- 扫码录入的发票没有原图，渲染二维码占位卡 -->
+        <view class="iu-qrbox" wx:if="{{item.source === 'qr'}}">
+          <view class="iu-qrbox-icon"></view>
+          <view class="iu-qrbox-label">扫码录入</view>
+        </view>
+        <image wx:else class="iu-img" src="{{item.fileID || item.tempPath}}" mode="aspectFill" lazy-load />
+
+        <!-- 识别中 -->
+        <view class="iu-overlay" wx:if="{{item.status === 'pending' || item.status === 'recognizing'}}">
+          <view class="iu-spinner"></view>
+          <view class="iu-overlay-text">识别中</view>
+        </view>
+
+        <!-- 识别失败，点击重试 -->
+        <view
+          class="iu-overlay iu-overlay-fail"
+          wx:elif="{{item.status === 'failed'}}"
+          data-id="{{item.id}}"
+          catchtap="onRetry"
+        >
+          <view class="iu-overlay-text">识别失败</view>
+          <view class="iu-overlay-sub">点击重试</view>
+        </view>
+
+        <!-- 识别成功，点击展开明细 -->
+        <view class="iu-caption" wx:elif="{{item.status === 'done'}}" data-id="{{item.id}}" catchtap="onToggle">
+          <view class="iu-caption-amount">¥{{item.result.totalAmount}}</view>
+          <view class="iu-caption-seller">{{item.result.sellerName || item.result.invoiceNumber}}</view>
+        </view>
+      </view>
+
+      <view class="iu-remove" data-id="{{item.id}}" catchtap="onRemove">✕</view>
+    </view>
+
+    <!-- 添加 -->
+    <view
+      class="iu-cell iu-add"
+      wx:if="{{invoices.length < max && !disabled}}"
+      bindtap="onChoose"
+      hover-class="iu-add-hover"
+      hover-stay-time="60"
+    >
+      <view class="iu-add-plus"></view>
+      <view class="iu-add-text">拍照上传</view>
+    </view>
+  </view>
+
+  <view class="iu-check-list" wx:if="{{invoices.length}}">
+    <view class="iu-check-row" wx:for="{{invoices}}" wx:key="id">
+      <view class="iu-check-number">发票 {{index + 1}}{{item.result && item.result.invoiceNumber ? ' · ' + item.result.invoiceNumber : ''}}</view>
+      <view class="iu-check-status {{item.batchDuplicate || item.status === 'failed' || item.checkState === 'blocked' || item.checkState === 'error' ? 'iu-check-error' : ''}}">
+        {{item.batchDuplicate ? '本单重复，请移除' : item.status === 'failed' ? item.errorMsg : item.status !== 'done' ? '识别中' : item.checkState === 'pending' ? '等待查重' : item.checkMessage}}
+      </view>
+      <view class="iu-check-retry" wx:if="{{item.status === 'done' && (item.checkState === 'error' || item.checkState === 'blocked') && !item.batchDuplicate}}" data-id="{{item.id}}" bindtap="onRetryCheck">重新查验</view>
+    </view>
+  </view>
+
+  <!-- ============ 扫码录入（连续扫码） ============ -->
+  <view
+    class="iu-scan {{scanning ? 'iu-scan-active' : ''}}"
+    wx:if="{{!disabled && invoices.length < max}}"
+    bindtap="onScan"
+    hover-class="iu-scan-hover"
+    hover-stay-time="60"
+  >
+    <view class="iu-scan-icon"></view>
+    <view class="iu-scan-body">
+      <view class="iu-scan-title">{{scanning ? '扫码中…' : '扫发票二维码'}}</view>
+      <view class="iu-scan-sub">
+        {{scanning ? (scanCount > 0 ? '已录入 ' + scanCount + ' 张，可继续扫码' : '将发票二维码放入取景框') : '支持连续扫码，一次录入多张'}}
+      </view>
+    </view>
+    <view class="iu-scan-arrow"></view>
+  </view>
+
+  <!-- ============ 合计 ============ -->
+  <view class="iu-total" wx:if="{{summary.count > 0}}">
+    <view class="iu-total-left">
+      <view class="iu-total-count">已识别 {{summary.count}} 张发票</view>
+      <view class="iu-total-hint">价税合计（自动填入报销金额）</view>
+    </view>
+    <view class="iu-total-value">¥{{summary.totalAmountText}}</view>
+  </view>
+
+  <!-- ============ 识别明细 ============ -->
+  <view class="iu-detail" wx:if="{{expanded}}">
+    <view class="iu-detail-head">
+      <view class="iu-detail-title">识别结果明细</view>
+      <view class="iu-detail-close" bindtap="closeDetail">收起</view>
+    </view>
+
+    <view class="iu-row" wx:for="{{expanded.rows}}" wx:key="label">
+      <view class="iu-row-label">{{item.label}}</view>
+      <view class="iu-row-value">{{item.value}}</view>
+    </view>
+
+    <view class="iu-detail-note" wx:if="{{expanded.isQR}}">
+      数据来自发票二维码，识别和内部查重结果不代表发票已验伪。
+    </view>
+
+    <view class="iu-detail-note" wx:if="{{expanded.isMock}}">
+      以上字段为模拟识别结果，不能用于报销。
+    </view>
+  </view>
+
+  <view class="iu-tip">{{tip || '拍照或选图时请将发票左上角二维码保持清晰完整；支持部分二维码格式。请核对票面金额，查重不代表验伪。'}}</view>
+</view>

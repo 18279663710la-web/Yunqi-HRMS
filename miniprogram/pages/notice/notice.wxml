@@ -1,0 +1,77 @@
+<view class="page">
+  <view class="top-sticky">
+    <!-- 搜索 -->
+    <view class="search-bar">
+      <view class="search-box">
+        <view class="search-icon"></view>
+        <input
+          class="search-input"
+          placeholder="搜索公告标题或内容"
+          placeholder-class="search-placeholder"
+          value="{{keyword}}"
+          confirm-type="search"
+          bindinput="onSearch"
+        />
+        <view class="search-clear" wx:if="{{keyword}}" bindtap="clearSearch">✕</view>
+      </view>
+    </view>
+
+    <!-- 分类 -->
+    <scroll-view class="cat-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view
+        class="cat-item {{activeCategory === item.key ? 'active' : ''}}"
+        wx:for="{{categories}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="onCategory"
+      >
+        {{item.name}}
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="page-body">
+    <view class="list-tip" wx:if="{{list.length}}">
+      <text>共 {{list.length}} 条公告</text>
+      <text wx:if="{{unread > 0}}" class="list-tip-unread">{{unread}} 条未读</text>
+    </view>
+
+    <view
+      class="notice-item"
+      wx:for="{{list}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="goDetail"
+      hover-class="card-hover"
+      hover-stay-time="60"
+    >
+      <view class="notice-bar" style="background: {{item.banner}}"></view>
+      <view class="notice-body">
+        <view class="notice-head">
+          <view class="tag tag-blue">{{item.categoryName}}</view>
+          <view class="tag tag-red" wx:if="{{item.isTop}}">置顶</view>
+          <view class="flex-1"></view>
+          <view class="unread-dot" wx:if="{{!item.isRead}}"></view>
+        </view>
+
+        <view class="notice-title ellipsis-2">{{item.title}}</view>
+        <view class="notice-summary ellipsis-2">{{item.summary}}</view>
+
+        <view class="notice-foot">
+          <text class="notice-publisher">{{item.publisher}} · {{item.publisherDept}}</text>
+          <text class="notice-time">{{item.timeText}}</text>
+        </view>
+
+        <view class="notice-read-bar">
+          <view class="notice-read-fill" style="width: {{item.readPercent}}%"></view>
+        </view>
+        <view class="notice-read-text">已读 {{item.readCount}}/{{item.totalCount}}</view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{!list.length && !loading}}">
+      <view class="empty-icon">🔍</view>
+      <view class="empty-text">没有找到符合条件的公告</view>
+    </view>
+  </view>
+</view>

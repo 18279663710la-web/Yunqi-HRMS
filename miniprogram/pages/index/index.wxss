@@ -1,0 +1,299 @@
+/* ============ 顶部问候区 ============ */
+.hero {
+  position: relative;
+  padding: 36rpx 40rpx 116rpx;
+  background: linear-gradient(160deg, #3D6EF7 0%, #5B8DFF 60%, #7BA0FF 100%);
+  border-radius: 0 0 44rpx 44rpx;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  right: -120rpx;
+  top: -140rpx;
+  width: 420rpx;
+  height: 420rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  left: -220rpx;
+  top: 260rpx;
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.hero-greet {
+  font-size: 42rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: 1rpx;
+}
+
+.hero-dept {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.hero-tag {
+  margin-top: 16rpx;
+  display: flex;
+  align-items: center;
+}
+
+.hero-tag-item {
+  font-size: 22rpx;
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8rpx;
+  padding: 6rpx 14rpx;
+}
+
+.hero-tag-sep {
+  margin: 0 10rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.hero-avatar {
+  margin-left: 24rpx;
+  background: rgba(255, 255, 255, 0.24);
+  border: 4rpx solid rgba(255, 255, 255, 0.5);
+  color: #FFFFFF;
+}
+
+/* ============ 考勤卡片 ============ */
+.page-body {
+  margin-top: -84rpx;
+}
+
+.att-card {
+  padding: 30rpx 32rpx 26rpx;
+}
+
+.att-head-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1D26;
+}
+
+.att-body {
+  margin-top: 26rpx;
+  align-items: center;
+}
+
+.att-times {
+  display: flex;
+  align-items: center;
+}
+
+.att-item-label {
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+.att-item-value {
+  margin-top: 6rpx;
+  font-size: 44rpx;
+  font-weight: 600;
+  color: #1A1D26;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1rpx;
+}
+
+.att-item-value.is-empty {
+  color: #C4CAD6;
+}
+
+.att-line {
+  width: 2rpx;
+  height: 52rpx;
+  background: #EEF1F6;
+  margin: 0 32rpx;
+}
+
+.att-cta {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  padding: 0 24rpx;
+  border-radius: 36rpx;
+  background: linear-gradient(135deg, #3D6EF7, #5B8DFF);
+  box-shadow: 0 8rpx 20rpx rgba(61, 110, 247, 0.28);
+}
+
+.att-cta-text {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #FFFFFF;
+}
+
+.att-cta-arrow {
+  width: 12rpx;
+  height: 12rpx;
+  border-top: 3rpx solid #FFFFFF;
+  border-right: 3rpx solid #FFFFFF;
+  transform: rotate(45deg);
+  margin-left: 10rpx;
+}
+
+.att-foot {
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+  border-top: 2rpx solid #F2F4F8;
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+.att-foot-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #16B364;
+  margin-right: 10rpx;
+}
+
+/* ============ 快捷入口 ============ */
+.qa-card {
+  padding: 32rpx 12rpx 16rpx;
+}
+
+.qa-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.qa-item {
+  width: 25%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.qa-item-hover {
+  opacity: 0.66;
+}
+
+.qa-icon {
+  position: relative;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 8rpx 18rpx rgba(24, 43, 92, 0.12);
+}
+
+.qa-icon::after {
+  content: '';
+  position: absolute;
+  right: -18rpx;
+  top: -18rpx;
+  width: 62rpx;
+  height: 62rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.qa-glyph {
+  position: relative;
+  z-index: 1;
+  width: 46rpx;
+  height: 46rpx;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+
+.qa-name {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: #5A6472;
+}
+
+/* ============ 公告卡片 ============ */
+.notice-card {
+  padding: 28rpx 32rpx;
+}
+
+.notice-top {
+  margin-bottom: 16rpx;
+}
+
+.notice-time {
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+.notice-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1D26;
+  line-height: 1.5;
+}
+
+.notice-foot {
+  margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+.notice-read {
+  color: #C4CAD6;
+}
+
+/* ============ 快捷入口图标（内联 SVG） ============ */
+.qa-clock {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.2'/%3E%3Cpath d='M12 7.6V12l3 1.9'/%3E%3C/svg%3E");
+}
+
+.qa-doc {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.2 3.6h8.9L20.4 8.9V19a1.6 1.6 0 0 1-1.6 1.6H6.2A1.6 1.6 0 0 1 4.6 19V5.2A1.6 1.6 0 0 1 6.2 3.6Z'/%3E%3Cpath d='M15.1 3.6v5.3h5.3'/%3E%3Cpath d='M8.8 14.2l1.9 1.9 4-4.2'/%3E%3C/svg%3E");
+}
+
+.qa-bell {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.6 10.2a5.4 5.4 0 0 1 10.8 0c0 3.9 1.4 5.1 1.9 5.9H4.7c.5-.8 1.9-2 1.9-5.9Z'/%3E%3Cpath d='M10.2 19.2a2 2 0 0 0 3.6 0'/%3E%3C/svg%3E");
+}
+
+.qa-users {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9.2' cy='8.6' r='3.1'/%3E%3Cpath d='M3.8 19.4c0-3 2.4-5.1 5.4-5.1s5.4 2.1 5.4 5.1'/%3E%3Cpath d='M16.4 6.2a2.9 2.9 0 0 1 0 5.4'/%3E%3C/svg%3E");
+}
+
+.qa-calendar {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.8' y='5' width='16.4' height='15.2' rx='2.6'/%3E%3Cpath d='M3.8 9.6h16.4'/%3E%3Cpath d='M8.4 3.4v3.2M15.6 3.4v3.2'/%3E%3Cpath d='M9.4 14.6l1.9 1.9 3.6-3.8'/%3E%3C/svg%3E");
+}
+
+.qa-money {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.2'/%3E%3Cpath d='M8.8 8.4 12 11.9l3.2-3.5'/%3E%3Cpath d='M12 11.9v5'/%3E%3Cpath d='M9.2 13.5h5.6M9.2 15.8h5.6'/%3E%3C/svg%3E");
+}
+
+.qa-moon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 14.8A8.3 8.3 0 0 1 9.3 4.2 8.5 8.5 0 1 0 20 14.8Z'/%3E%3C/svg%3E");
+}
+
+.qa-plane {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.4 4.2 3.6 10.9l6 2.4 2.4 6 8.4-15.1Z'/%3E%3Cpath d='M9.6 13.3l4.8-4.8'/%3E%3C/svg%3E");
+}
+
+.onboarding-gate-error { padding: 120rpx 48rpx; color: #62718a; line-height: 1.7; text-align: center; }
+.onboarding-gate-error button { margin-top: 30rpx; color: #315fca; background: #edf3ff; }

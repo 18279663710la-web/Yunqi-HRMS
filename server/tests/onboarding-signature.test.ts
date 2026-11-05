@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+test('横屏签名保留表单，确认回传，清空和取消不覆盖旧签名', async () => {
+ const g = globalThis as any; let page: any; let navigation: any; let back = 0; const emitted: any[] = []; let toast = '';
+ const ctx = { clearRect() {}, draw() {}, setStrokeStyle() {}, setLineWidth() {}, setLineCap() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} };
+ g.Page = (definition: any) => { page = definition; };
+ g.wx = { navigateTo: (options: any) => { navigation = options; }, navigateBack: () => { back++; }, showToast: (o: any) => { toast = o.title; }, createSelectorQuery: () => ({ in() { return this; }, select() { return this; }, boundingClientRect(cb: any) { cb({ left: 20, top: 30, width: 600, height: 260 }); return this; }, exec() {} }), createCanvasContext: () => ctx, canvasToTempFilePath: (o: any) => o.success({ tempFilePath: 'signature.png' }), getFileSystemManager: () => ({ readFile: (o: any) => o.success({ data: 'iVBORw0KGgo=' }) }) };
+ await import('../../miniprogram/pages/onboarding/onboarding');
+ const form = { ...page, data: structuredClone(page.data), setData(update: any) { Object.assign(this.data, update); } };
+ form.data.onboarding = { template: [{ name: '姓名', value: '已填写' }] }; form.data.onboardingSignature = 'previous'; form.data.onboardingSignaturePreview = 'previous.png';
+ form.openSignature(); assert.equal(navigation.url, '/pages/onboarding-signature/onboarding-signature');
+ await import('../../miniprogram/pages/onboarding-signature/onboarding-signature');
+ const signature = { ...page, data: structuredClone(page.data), setData(update: any) { Object.assign(this.data, update); }, getOpenerEventChannel: () => ({ emit: (...args: any[]) => { emitted.push(args); navigation.events.signatureSaved(args[1]); } }) };
+ signature.onReady(); signature.saveSignature(); assert.equal(toast, '请先手写签名');
+ signature.signatureStart({ touches: [{ clientX: 40, clientY: 50 }] }); signature.signatureMove({ touches: [{ clientX: 80, clientY: 70 }] }); signature.clearSignature(); signature.saveSignature(); assert.equal(back, 0); assert.equal(form.data.onboardingSignature, 'previous');
+ signature.signatureStart({ touches: [{ clientX: 40, clientY: 50 }] }); signature.signatureMove({ touches: [{ clientX: 80, clientY: 70 }] }); signature.saveSignature(); assert.equal(back, 1); assert.equal(emitted.length, 1);
+ assert.equal(form.data.onboardingSignature, 'data:image/png;base64,iVBORw0KGgo='); assert.equal(form.data.onboardingSignaturePreview, 'signature.png'); assert.equal(form.data.onboarding.template[0].value, '已填写'); signature.setData({ saving: false }); signature.cancelSignature(); assert.equal(back, 2); assert.equal(emitted.length, 1);
+ const config = JSON.parse(readFileSync('../miniprogram/pages/onboarding-signature/onboarding-signature.json', 'utf8')); assert.equal(config.pageOrientation, 'landscape'); assert.equal(config.navigationStyle, 'custom');
+});

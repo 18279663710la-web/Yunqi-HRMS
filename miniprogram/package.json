@@ -1,0 +1,13 @@
+{
+  "name": "yunqi-office-miniprogram",
+  "version": "1.0.0",
+  "private": true,
+  "description": "云启科技 · 企业办公小程序前端（TypeScript）",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "^5.2.3",
+    "typescript": "^5.7.3"
+  }
+}

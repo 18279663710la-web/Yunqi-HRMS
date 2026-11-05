@@ -1,0 +1,9 @@
+{
+  "navigationBarBackgroundColor": "#3D6EF7",
+  "navigationBarTextStyle": "white",
+  "navigationBarTitleText": "考勤打卡",
+  "backgroundColor": "#3D6EF7",
+  "backgroundTextStyle": "light",
+  "enablePullDownRefresh": true,
+  "usingComponents": {}
+}

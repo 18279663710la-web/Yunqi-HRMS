@@ -1,0 +1,9 @@
+<view class="required-page">
+  <view class="required-card">
+    <view class="required-icon">入</view>
+    <view class="required-title">入职信息尚未完善</view>
+    <view class="required-description">请先填写入职申请表，提交后即可进入工作台。</view>
+    <button class="required-button" bindtap="openOnboarding">填写入职信息</button>
+    <button class="required-switch" bindtap="switchAccount">退出当前账号</button>
+  </view>
+</view>

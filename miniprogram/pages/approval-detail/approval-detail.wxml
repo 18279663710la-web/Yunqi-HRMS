@@ -1,0 +1,188 @@
+<view class="page" wx:if="{{detail}}">
+  <!-- ============ 状态头 ============ -->
+  <view class="head {{headClass}}">
+    <view class="head-status">{{detail.statusText}}</view>
+    <view class="head-title">{{detail.title}}</view>
+    <view class="head-node" wx:if="{{detail.node}}">{{detail.node}}</view>
+  </view>
+
+  <view class="page-body {{detail.canApprove || detail.canCancel ? 'has-bottom-bar' : ''}}">
+    <!-- ============ 申请人 ============ -->
+    <view class="card applicant-card">
+      <view class="avatar avatar-md">{{detail.initial}}</view>
+      <view class="flex-1 applicant-main">
+        <view class="applicant-name">{{detail.applicantName}}</view>
+        <view class="applicant-meta">{{detail.applicantPosition}}</view>
+      </view>
+      <view class="tag tag-red" wx:if="{{detail.urgent}}">加急</view>
+    </view>
+
+    <!-- ============ 申请内容 ============ -->
+    <view class="section-head">
+      <view class="section-title">申请内容</view>
+      <view class="tag tag-blue">{{detail.typeName}}</view>
+    </view>
+
+    <view class="card">
+      <view class="detail-row" wx:for="{{detail.form}}" wx:key="label">
+        <view class="detail-label">{{item.label}}</view>
+        <view class="detail-value">{{item.value}}</view>
+      </view>
+    </view>
+
+    <!-- ============ 发票附件 ============ -->
+    <block wx:if="{{detail.invoices.length}}">
+      <view class="section-head">
+        <view class="section-title">发票附件</view>
+        <view class="inv-sum">共 {{detail.invoices.length}} 张 · 合计 ¥{{detail.invoiceTotal}}</view>
+      </view>
+
+      <view class="card">
+        <view class="inv-grid">
+          <view
+            class="inv-cell"
+            wx:for="{{detail.invoices}}"
+            wx:key="id"
+            data-index="{{index}}"
+            bindtap="onPreviewInvoice"
+            hover-class="card-hover"
+            hover-stay-time="60"
+          >
+            <image wx:if="{{item.fileID}}" class="inv-img" src="{{item.fileID}}" mode="aspectFill" lazy-load />
+            <view wx:else class="inv-img inv-img-empty">
+              <view class="inv-ph-icon"></view>
+              <view class="inv-ph-text">{{item.invoiceType || '发票'}}</view>
+              <view class="inv-ph-badge" wx:if="{{item.isQR}}">{{item.qrFrom === 'image' ? '二维码直读' : '扫码录入'}}</view>
+            </view>
+
+            <view class="inv-caption">
+              <view class="inv-amount">¥{{item.totalAmount}}</view>
+              <view class="inv-no">{{item.invoiceNumber || item.invoiceType}}</view>
+            </view>
+          </view>
+        </view>
+        <view class="inv-tip">点击发票可放大查看原图；扫码录入的发票将展示票面字段</view>
+      </view>
+    </block>
+
+    <block wx:if="{{detail.attachments.length}}">
+      <view class="section-head"><view class="section-title">补充材料</view></view>
+      <view class="card">
+        <view class="extra-item" wx:for="{{detail.attachments}}" wx:key="fileID" data-index="{{index}}" bindtap="onPreviewAttachment">
+          <image class="extra-image" src="{{item.fileID}}" mode="aspectFill" />
+          <view class="extra-name">{{item.name}}</view>
+        </view>
+      </view>
+    </block>
+
+    <!-- AI 仅提供建议，不改变审批状态 -->
+    <block wx:if="{{detail.aiAdvice}}">
+      <view class="section-head"><view class="section-title">AI 审批建议</view></view>
+      <view class="card ai-card">
+        <block wx:if="{{detail.aiAdvice.status === 'completed' && detail.aiAdvice.advice}}">
+          <view class="ai-result {{detail.aiAdvice.advice.recommendation === 'approve' ? 'is-approve' : detail.aiAdvice.advice.recommendation === 'reject' ? 'is-reject' : ''}}">
+            {{detail.aiAdvice.advice.recommendation === 'approve' ? '建议同意' : detail.aiAdvice.advice.recommendation === 'reject' ? '建议驳回' : '无法判断，请人工复核'}}
+          </view>
+          <view class="ai-line"><text class="ai-label">原因：</text>{{detail.aiAdvice.advice.reason}}</view>
+          <view class="ai-line" wx:if="{{detail.aiAdvice.advice.rule}}"><text class="ai-label">规则依据：</text>{{detail.aiAdvice.advice.rule}}</view>
+          <view class="ai-line" wx:if="{{detail.aiAdvice.advice.missingAttachments.length}}"><text class="ai-label">建议补充：</text><text wx:for="{{detail.aiAdvice.advice.missingAttachments}}" wx:key="*this">{{index ? '、' : ''}}{{item}}</text></view>
+          <view class="ai-line" wx:if="{{detail.aiAdvice.advice.attachmentIssues && detail.aiAdvice.advice.attachmentIssues.length}}"><text class="ai-label">材料问题：</text><view wx:for="{{detail.aiAdvice.advice.attachmentIssues}}" wx:key="index">{{item.name}}：{{item.issue}}</view></view>
+        </block>
+        <view class="ai-line" wx:else>{{detail.aiAdvice.status === 'no_rules' ? '审批规则尚未配置，请人工复核' : detail.aiAdvice.status === 'unconfigured' ? 'AI 服务尚未配置，请人工复核' : detail.aiAdvice.status === 'failed' ? 'AI 建议生成失败，请人工复核' : '正在生成建议，请稍候'}}</view>
+        <view class="ai-note">AI 建议仅供参考，最终由审批人决定</view>
+      </view>
+    </block>
+
+    <!-- ============ 审批流程 ============ -->
+    <view class="section-head">
+      <view class="section-title">审批流程</view>
+    </view>
+
+    <view class="card">
+      <view class="tl-item {{item.isLast ? 'is-last' : ''}}" wx:for="{{detail.timeline}}" wx:key="_k">
+        <view class="tl-rail">
+          <view class="tl-dot {{item.nodeClass}}"></view>
+          <view class="tl-line" wx:if="{{!item.isLast}}"></view>
+        </view>
+        <view class="tl-body">
+          <view class="flex-between">
+            <view class="tl-name">
+              {{item.name}}
+              <text class="tl-role">{{item.role}}</text>
+            </view>
+            <view class="tl-action {{item.nodeClass}}">{{item.action}}</view>
+          </view>
+          <view class="tl-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
+          <view class="tl-time" wx:if="{{item.time}}">{{item.time}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 单据信息 ============ -->
+    <view class="card card-tight">
+      <view class="list-row">
+        <view class="list-row-label">审批编号</view>
+        <view class="list-row-value" bindtap="copyId">{{detail.id}}</view>
+      </view>
+      <view class="list-row">
+        <view class="list-row-label">提交时间</view>
+        <view class="list-row-value">{{detail.createdAt}}</view>
+      </view>
+      <view class="list-row">
+        <view class="list-row-label">当前状态</view>
+        <view class="list-row-value">{{detail.statusText}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 底部操作栏 ============ -->
+  <view class="fixed-bottom-bar" wx:if="{{detail.canApprove}}">
+    <view class="btn btn-danger-ghost flex-1" bindtap="openReject">驳回</view>
+    <view class="btn btn-primary flex-1" bindtap="openApprove">同意</view>
+  </view>
+  <view class="fixed-bottom-bar" wx:elif="{{detail.canCancel}}">
+    <view class="btn btn-danger-ghost flex-1" bindtap="onCancel">撤销申请</view>
+  </view>
+
+  <!-- ============ 审批意见面板 ============ -->
+  <view class="sheet-mask {{sheetVisible ? 'show' : ''}}" bindtap="closeSheet">
+    <view class="sheet {{sheetVisible ? 'show' : ''}}" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <view class="sheet-head">
+        <view class="sheet-title">{{actionType === 'approve' ? '同意审批' : '驳回申请'}}</view>
+        <view class="sheet-close" bindtap="closeSheet">✕</view>
+      </view>
+
+      <textarea
+        class="sheet-textarea"
+        value="{{comment}}"
+        placeholder="{{actionType === 'approve' ? '填写审批意见（选填）' : '请说明驳回原因（必填）'}}"
+        placeholder-class="form-placeholder"
+        maxlength="200"
+        bindinput="onCommentInput"
+      />
+
+      <view class="sheet-quick">
+        <view
+          class="quick-chip"
+          wx:for="{{quickComments}}"
+          wx:key="*this"
+          data-text="{{item}}"
+          bindtap="onQuickComment"
+        >
+          {{item}}
+        </view>
+      </view>
+
+      <view class="sheet-actions">
+        <view class="btn btn-plain flex-1" bindtap="closeSheet">取消</view>
+        <view
+          class="btn flex-1 {{actionType === 'approve' ? 'btn-primary' : 'btn-reject'}}"
+          bindtap="confirmAction"
+        >
+          {{actionType === 'approve' ? '确认同意' : '确认驳回'}}
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,133 @@
+<view wx:if="{{ready}}" class="page">
+  <!-- ============ 顶部问候区 ============ -->
+  <view class="hero">
+    <view class="hero-bg"></view>
+    <view class="hero-inner">
+      <view class="flex-1">
+        <view class="hero-greet">{{greeting}}，{{user.name}}</view>
+        <view class="hero-dept">{{user.jobCategory}}</view>
+        <view class="hero-tag">
+          <block wx:if="{{user.isLeader}}">
+            <text class="hero-tag-item">负责人</text>
+            <text class="hero-tag-sep">·</text>
+          </block>
+          <text class="hero-tag-item">{{company.workTime}}</text>
+        </view>
+      </view>
+      <view class="avatar avatar-lg hero-avatar">{{userInitial}}</view>
+    </view>
+  </view>
+
+  <view class="page-body">
+    <!-- ============ 今日考勤 ============ -->
+    <view class="card att-card fade-in" bindtap="goAttendance" hover-class="card-hover">
+      <view class="flex-between">
+        <view class="att-head-title">今日考勤</view>
+        <view class="tag {{attendance.statusClass}}">{{attendance.statusText}}</view>
+      </view>
+
+      <view class="flex-between att-body">
+        <view class="att-times">
+          <view class="att-item">
+            <view class="att-item-label">上班</view>
+            <view class="att-item-value {{attendance.checkIn ? '' : 'is-empty'}}">{{attendance.checkIn || '--:--'}}</view>
+          </view>
+          <view class="att-line"></view>
+          <view class="att-item">
+            <view class="att-item-label">下班</view>
+            <view class="att-item-value {{attendance.checkOut ? '' : 'is-empty'}}">{{attendance.checkOut || '--:--'}}</view>
+          </view>
+        </view>
+        <view class="att-cta">
+          <view class="att-cta-text">{{attendance.nextText}}</view>
+          <view class="att-cta-arrow"></view>
+        </view>
+      </view>
+
+      <view class="att-foot">
+        <view class="att-foot-dot"></view>
+        <text>{{company.flexible}}</text>
+      </view>
+    </view>
+
+    <!-- ============ 快捷入口 ============ -->
+    <view class="card qa-card">
+      <view class="qa-grid">
+        <view
+          class="qa-item"
+          wx:for="{{actions}}"
+          wx:key="key"
+          data-index="{{index}}"
+          bindtap="onAction"
+          hover-class="qa-item-hover"
+          hover-stay-time="60"
+        >
+          <view class="qa-icon" style="background-color: {{item.color}}">
+            <view class="qa-glyph qa-{{item.icon}}"></view>
+          </view>
+          <view class="qa-name">{{item.name}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 待办审批 ============ -->
+    <view class="section-head">
+      <view class="section-title">待办审批</view>
+      <view class="section-more" bindtap="goApproval">全部 {{todo.pending}} 项 ›</view>
+    </view>
+
+    <view class="card card-tight" wx:if="{{pendingList.length}}">
+      <view
+        class="row-item"
+        wx:for="{{pendingList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="goApprovalDetail"
+        hover-class="row-item-hover"
+        hover-stay-time="60"
+      >
+        <view class="avatar avatar-md">{{item.initial}}</view>
+        <view class="row-main">
+          <view class="row-title ellipsis">{{item.title}}</view>
+          <view class="row-meta ellipsis">{{item.applicantName}} · {{item.applicantDept}} · {{item.timeText}}</view>
+        </view>
+        <view class="tag tag-red row-flag" wx:if="{{item.urgent}}">加急</view>
+        <view class="chevron"></view>
+      </view>
+    </view>
+
+    <view class="card empty-mini" wx:else>
+      <view class="empty-mini-icon">✓</view>
+      <view class="empty-mini-text">待办已清空，暂无需要你审批的单据</view>
+    </view>
+
+    <!-- ============ 最新公告 ============ -->
+    <view class="section-head">
+      <view class="section-title">最新公告</view>
+      <view class="section-more" bindtap="goNotice">查看全部 ›</view>
+    </view>
+
+    <view
+      class="card notice-card"
+      wx:for="{{noticeList}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="goNoticeDetail"
+      hover-class="card-hover"
+    >
+      <view class="flex-between notice-top">
+        <view class="tag tag-blue">{{item.categoryName}}</view>
+        <view class="notice-time">{{item.timeText}}</view>
+      </view>
+      <view class="notice-title ellipsis-2">{{item.title}}</view>
+      <view class="notice-foot">
+        <text class="notice-publisher">{{item.publisher}} · {{item.publisherDept}}</text>
+        <text class="notice-read">已读 {{item.readCount}}/{{item.totalCount}}</text>
+      </view>
+    </view>
+
+    <view class="tabbar-holder"></view>
+  </view>
+</view>
+
+<view wx:if="{{gateError}}" class="onboarding-gate-error"><view>无法检查入职状态，请检查网络后重试。</view><button bindtap="checkAccess">重新检查</button></view>

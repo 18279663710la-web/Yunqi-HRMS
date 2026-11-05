@@ -1,0 +1,783 @@
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  App as AntApp,
+  Avatar,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Divider,
+  Dropdown,
+  Form,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Steps,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
+import type { MenuProps } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import {
+  DownOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  TeamOutlined,
+  UserDeleteOutlined,
+} from '@ant-design/icons';
+import dayjs, { type Dayjs } from 'dayjs';
+import { pinyin } from 'pinyin-pro';
+import { useSearchParams } from 'react-router-dom';
+
+import { createEmployee, fetchEmployees, resetEmployeeAccountPassword, setEmployeeAccountStatus, updateEmployee, upsertEmployeeAccount } from './api';
+import { PageTitle } from '../../components/PageTitle';
+import type {
+  AccountStatus,
+  AdminEmployee,
+  JobCategoryName,
+} from '../../types';
+import { accountStatusTag, initialOf } from '../../utils/helpers';
+
+const { Text } = Typography;
+
+interface EmployeeFormValues {
+  name: string;
+  gender?: string;
+  jobCategory?: JobCategoryName;
+  employeeNo: string;
+  phone: string;
+  email?: string;
+  joinDate: Dayjs;
+  isLeader?: boolean;
+  withAccount?: boolean;
+  loginName?: string;
+  password?: string;
+  accountStatus?: AccountStatus;
+}
+
+interface AccountFormValues {
+  loginName: string;
+  password: string;
+  status: AccountStatus;
+}
+
+interface ResetFormValues {
+  password: string;
+}
+
+export function EmployeesPage() {
+  const { message, modal } = AntApp.useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [list, setList] = useState<AdminEmployee[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [keyword, setKeyword] = useState('');
+  const [jobFilter, setJobFilter] = useState<'all' | JobCategoryName>('all');
+  const [accountStatus, setAccountStatus] = useState<'all' | AccountStatus | 'none'>('all');
+
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminEmployee | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form] = Form.useForm<EmployeeFormValues>();
+  const withAccount = Form.useWatch('withAccount', form);
+
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountTarget, setAccountTarget] = useState<AdminEmployee | null>(null);
+  const [accountForm] = Form.useForm<AccountFormValues>();
+
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<AdminEmployee | null>(null);
+  const [resetForm] = Form.useForm<ResetFormValues>();
+
+  const [resignOpen, setResignOpen] = useState(false);
+  const [resignTarget, setResignTarget] = useState<AdminEmployee | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const result = await fetchEmployees({
+        keyword,
+        jobCategory: jobFilter === 'all' ? undefined : jobFilter,
+        accountStatus,
+        page,
+        pageSize,
+      });
+      setList(result.list);
+      setTotal(result.total);
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [page, pageSize, keyword, jobFilter, accountStatus]);
+
+  useEffect(() => {
+    if (editOpen) {
+      if (editing) {
+        form.setFieldsValue({
+          name: editing.name,
+          gender: editing.gender || '男',
+          employeeNo: editing.employeeNo,
+          phone: editing.phone,
+          email: editing.email,
+          joinDate: dayjs(editing.joinDate),
+          isLeader: editing.isLeader,
+          withAccount: false,
+        });
+      } else {
+        form.resetFields();
+        form.setFieldsValue({
+          gender: '男',
+          joinDate: dayjs(),
+          isLeader: false,
+          withAccount: true,
+          accountStatus: 'active',
+        });
+      }
+    }
+  }, [editOpen, editing, form]);
+
+  useEffect(() => {
+    if (accountOpen) {
+      accountForm.resetFields();
+      accountForm.setFieldsValue({ status: 'active' });
+    }
+  }, [accountOpen, accountForm]);
+
+  useEffect(() => {
+    if (resetOpen) {
+      resetForm.resetFields();
+    }
+  }, [resetOpen, resetForm]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setEditOpen(true);
+  };
+
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      openCreate();
+      searchParams.delete('create');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // 只在首次进入时处理 ?create=1
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const openEdit = (record: AdminEmployee) => {
+    setEditing(record);
+    setEditOpen(true);
+  };
+
+  const openAccount = (record: AdminEmployee) => {
+    setAccountTarget(record);
+    setAccountOpen(true);
+  };
+
+  const openReset = (record: AdminEmployee) => {
+    setResetTarget(record);
+    setResetOpen(true);
+  };
+
+  const openResign = (record: AdminEmployee) => {
+    setResignTarget(record);
+    setResignOpen(true);
+  };
+
+  const submitEmployee = async (values: EmployeeFormValues) => {
+    setSaving(true);
+    try {
+      const generatedPinyin = pinyin(values.name, { toneType: 'none', type: 'array' })
+        .join('')
+        .toLowerCase()
+        .replace(/\s+/g, '');
+      const payload = {
+        name: values.name.trim(),
+        pinyin: editing ? editing.pinyin : generatedPinyin,
+        gender: values.gender,
+        deptId: editing ? editing.deptId : 'D00',
+        position: editing ? editing.position : '员工',
+        level: editing ? editing.level : '—',
+        employeeNo: values.employeeNo.trim(),
+        phone: values.phone.trim(),
+        email: values.email?.trim() || '',
+        joinDate: values.joinDate.format('YYYY-MM-DD'),
+        isLeader: !!values.isLeader,
+        jobCategory: editing ? editing.jobCategory : (values.jobCategory || '员工'),
+        seat: editing ? editing.seat : '',
+        leaderId: editing ? editing.leaderId : '',
+      };
+
+      if (editing) {
+        await updateEmployee(editing.id, payload);
+        message.success('员工资料已更新');
+      } else {
+        await createEmployee({
+          ...payload,
+          account: values.withAccount
+            ? {
+                loginName: (values.loginName || '').trim(),
+                password: values.password || '',
+                status: values.accountStatus || 'active',
+              }
+            : undefined,
+        });
+        message.success('员工与账号已创建');
+      }
+      setEditOpen(false);
+      await load();
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitAccount = async (values: AccountFormValues) => {
+    if (!accountTarget) return;
+    setSaving(true);
+    try {
+      await upsertEmployeeAccount(accountTarget.id, {
+        loginName: values.loginName.trim(),
+        password: values.password,
+        status: values.status,
+      });
+      message.success('登录账号已开通');
+      setAccountOpen(false);
+      await load();
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitReset = async (values: ResetFormValues) => {
+    if (!resetTarget) return;
+    setSaving(true);
+    try {
+      await resetEmployeeAccountPassword(resetTarget.id, values.password);
+      message.success('密码已重置');
+      setResetOpen(false);
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleAccount = (record: AdminEmployee) => {
+    if (!record.account) return;
+    const nextStatus = record.account.status === 'active' ? 'disabled' : 'active';
+    modal.confirm({
+      title: nextStatus === 'disabled' ? '停用登录账号' : '启用登录账号',
+      content:
+        nextStatus === 'disabled'
+          ? `停用后，${record.name} 将无法使用该账号登录。员工档案与历史考勤不受影响。`
+          : `启用后，${record.name} 可以重新使用该账号登录。`,
+      okText: nextStatus === 'disabled' ? '确认停用' : '确认启用',
+      okButtonProps: { danger: nextStatus === 'disabled' },
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await setEmployeeAccountStatus(record.id, nextStatus);
+          message.success(nextStatus === 'disabled' ? '账号已停用' : '账号已启用');
+          await load();
+        } catch (err) {
+          message.error((err as Error).message);
+        }
+      },
+    });
+  };
+
+  const menuFor = (record: AdminEmployee): MenuProps => ({
+    items: [
+      { key: 'edit', label: '编辑资料' },
+      record.account
+        ? { key: 'reset', label: '重置登录密码' }
+        : { key: 'create-account', label: '开通登录账号' },
+      ...(record.account
+        ? [
+            {
+              key: 'toggle',
+              label: record.account.status === 'active' ? '停用登录账号' : '启用登录账号',
+              danger: record.account.status === 'active',
+            },
+          ]
+        : []),
+      { type: 'divider' as const },
+      { key: 'resign', label: '离职', icon: <UserDeleteOutlined />, danger: true },
+    ],
+    onClick: ({ key }) => {
+      if (key === 'edit') openEdit(record);
+      if (key === 'reset') openReset(record);
+      if (key === 'create-account') openAccount(record);
+      if (key === 'toggle') toggleAccount(record);
+      if (key === 'resign') openResign(record);
+    },
+  });
+
+  const columns: ColumnsType<AdminEmployee> = [
+    {
+      title: '员工',
+      dataIndex: 'name',
+      width: 220,
+      render: (_, record) => (
+        <Space>
+          <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7', fontWeight: 600 }}>
+            {initialOf(record.name)}
+          </Avatar>
+          <div>
+            <div className="table-primary">
+              {record.name}
+              {record.isLeader ? <span className="leader-dot">负责人</span> : null}
+              {record.employmentStatus === 'departed' ? <Tag color="default">已离职</Tag> : null}
+            </div>
+            <Text type="secondary" className="table-secondary">
+              {record.employeeNo}
+            </Text>
+          </div>
+        </Space>
+      ),
+    },
+    {
+      title: '职位',
+      dataIndex: 'position',
+      width: 150,
+      render: (_, record) => {
+        const color =
+          record.jobCategory === '研发员' ? 'blue' : record.jobCategory === '业务员' ? 'orange' : 'default';
+        return <Tag color={color} bordered={false}>{record.jobCategory}</Tag>;
+      },
+    },
+    {
+      title: '联系方式',
+      dataIndex: 'phone',
+      width: 190,
+      render: (_, record) => (
+        <div>
+          <div>{record.phone}</div>
+          <Text type="secondary" className="table-secondary">
+            {record.email || '未填写邮箱'}
+          </Text>
+        </div>
+      ),
+    },
+    {
+      title: '入职日期',
+      dataIndex: 'joinDate',
+      width: 120,
+    },
+    {
+      title: '登录账号',
+      dataIndex: 'account',
+      width: 210,
+      render: (_, record) =>
+        record.account ? (
+          <div>
+            <Space size={6}>
+              {accountStatusTag(record.account.status)}
+              <Text>{record.account.loginName}</Text>
+            </Space>
+            <div className="table-secondary">
+              最近登录：{record.account.lastLoginAt || '从未登录'}
+            </div>
+          </div>
+        ) : (
+          <Space direction="vertical" size={2}>
+            {accountStatusTag('none')}
+            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => openAccount(record)}>
+              立即开通
+            </Button>
+          </Space>
+        ),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 100,
+      fixed: 'right',
+      render: (_, record) => (
+        <Dropdown menu={menuFor(record)} trigger={['click']}>
+          <Button size="small">
+            管理 <DownOutlined />
+          </Button>
+        </Dropdown>
+      ),
+    },
+  ];
+
+  return (
+    <div className="page-stack">
+      <PageTitle
+        title="员工与账号"
+        subtitle="维护员工档案，创建小程序登录账号，控制账号启停"
+        extra={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={() => { void load(); }}>
+              刷新
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              新增员工账号
+            </Button>
+          </Space>
+        }
+      />
+
+      <Card className="panel-card" bordered={false}>
+        <div className="filter-bar">
+          <Input.Search
+            allowClear
+            enterButton={<SearchOutlined />}
+            placeholder="搜索姓名 / 拼音 / 工号 / 手机号 / 登录名"
+            style={{ width: 330 }}
+            onSearch={(value) => {
+              setPage(1);
+              setKeyword(value.trim());
+            }}
+          />
+          <Select
+            style={{ width: 180 }}
+            value={jobFilter}
+            options={[
+              { value: 'all', label: '全部职位' },
+              { value: '研发员', label: '研发员' },
+              { value: '业务员', label: '业务员' },
+              { value: '员工', label: '员工' },
+            ]}
+            onChange={(value) => {
+              setPage(1);
+              setJobFilter(value);
+            }}
+          />
+          <Select
+            style={{ width: 160 }}
+            value={accountStatus}
+            onChange={(value) => {
+              setPage(1);
+              setAccountStatus(value);
+            }}
+            options={[
+              { value: 'all', label: '全部账号状态' },
+              { value: 'active', label: '已启用' },
+              { value: 'disabled', label: '已停用' },
+              { value: 'none', label: '未开通' },
+            ]}
+          />
+          <div className="filter-count">
+            <TeamOutlined /> 共 {total} 人
+          </div>
+        </div>
+
+        <Table
+          rowKey="id"
+          loading={loading}
+          columns={columns}
+          dataSource={list}
+          scroll={{ x: 1040 }}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            showTotal: (value) => `共 ${value} 条`,
+            onChange: (nextPage, nextPageSize) => {
+              setPage(nextPage);
+              setPageSize(nextPageSize);
+            },
+          }}
+        />
+      </Card>
+
+      <Modal
+        title={editing ? `编辑员工 · ${editing.name}` : '新增员工账号'}
+        open={editOpen}
+        onCancel={() => setEditOpen(false)}
+        onOk={() => form.submit()}
+        confirmLoading={saving}
+        okText={editing ? '保存修改' : '创建'}
+        cancelText="取消"
+        width={760}
+        destroyOnClose={false}
+      >
+        <Form form={form} layout="vertical" onFinish={submitEmployee}>
+          <Divider orientation="left" plain>员工信息</Divider>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="name"
+                label="姓名"
+                rules={[{ required: true, message: '请输入姓名' }]}
+              >
+                <Input placeholder="如：王小明" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="gender" label="性别">
+                <Select options={[{ value: '男', label: '男' }, { value: '女', label: '女' }]} />
+              </Form.Item>
+            </Col>
+
+            {!editing ? (
+              <Col span={8}>
+                <Form.Item
+                  name="jobCategory"
+                  label="职位"
+                  rules={[{ required: true, message: '请选择职位' }]}
+                >
+                  <Select
+                    placeholder="请选择职位"
+                    options={[
+                      { value: '研发员', label: '研发员' },
+                      { value: '业务员', label: '业务员' },
+                      { value: '员工', label: '员工' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            ) : null}
+
+
+            <Col span={8}>
+              <Form.Item name="employeeNo" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
+                <Input placeholder="如：YQ2026100" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请输入手机号' }]}>
+                <Input placeholder="11 位手机号" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="email"
+                label="邮箱"
+                rules={[{ type: 'email', message: '邮箱格式不正确' }]}
+              >
+                <Input placeholder="name@yunqi-tech.com" />
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item name="joinDate" label="入职日期" rules={[{ required: true, message: '请选择入职日期' }]}>
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="isLeader" label="部门负责人" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {!editing ? (
+            <>
+              <div className="form-tip" style={{ marginBottom: 18 }}>
+                只需填写基础信息、职位与登录账号。拼音会自动生成，部门默认归入公司根节点，
+                职级/工位/直属上级使用默认值，不影响账号创建与登录。
+              </div>
+              <Divider orientation="left" plain>登录账号</Divider>
+              <Form.Item name="withAccount" label="同时开通小程序登录账号" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              {withAccount ? (
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <Form.Item
+                      name="loginName"
+                      label="登录名"
+                      rules={[
+                        { required: true, message: '请输入登录名' },
+                        {
+                          pattern: /^[A-Za-z0-9_.-]{3,30}$/,
+                          message: '3-30 位字母、数字、下划线、点或短横线',
+                        },
+                      ]}
+                    >
+                      <Input placeholder="如：wangxiaoming" autoComplete="off" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={8}>
+                    <Form.Item
+                      name="password"
+                      label="初始密码"
+                      rules={[
+                        { required: true, message: '请输入初始密码' },
+                        { min: 6, message: '密码至少 6 位' },
+                      ]}
+                    >
+                      <Input.Password placeholder="至少 6 位" autoComplete="new-password" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={8}>
+                    <Form.Item name="accountStatus" label="账号状态">
+                      <Select
+                        options={[
+                          { value: 'active', label: '启用' },
+                          { value: 'disabled', label: '停用' },
+                        ]}
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              ) : (
+                <div className="form-tip">暂不开通账号也没关系，可稍后在列表中点「立即开通」。</div>
+              )}
+            </>
+          ) : null}
+        </Form>
+      </Modal>
+
+      <Modal
+        title="开通登录账号"
+        open={accountOpen}
+        onCancel={() => setAccountOpen(false)}
+        onOk={() => accountForm.submit()}
+        confirmLoading={saving}
+        okText="开通"
+        cancelText="取消"
+      >
+        {accountTarget ? (
+          <div className="modal-target">
+            {accountTarget.name} · {accountTarget.deptName} · {accountTarget.employeeNo}
+          </div>
+        ) : null}
+        <Form form={accountForm} layout="vertical" onFinish={submitAccount}>
+          <Form.Item
+            name="loginName"
+            label="登录名"
+            rules={[
+              { required: true, message: '请输入登录名' },
+              { pattern: /^[A-Za-z0-9_.-]{3,30}$/, message: '3-30 位字母、数字、下划线、点或短横线' },
+            ]}
+          >
+            <Input placeholder="如：wangxiaoming" autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="初始密码"
+            rules={[
+              { required: true, message: '请输入初始密码' },
+              { min: 6, message: '密码至少 6 位' },
+            ]}
+          >
+            <Input.Password placeholder="至少 6 位" autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="status" label="账号状态">
+            <Select
+              options={[
+                { value: 'active', label: '启用' },
+                { value: 'disabled', label: '停用' },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="重置登录密码"
+        open={resetOpen}
+        onCancel={() => setResetOpen(false)}
+        onOk={() => resetForm.submit()}
+        confirmLoading={saving}
+        okText="重置密码"
+        cancelText="取消"
+      >
+        {resetTarget ? (
+          <div className="modal-target">
+            {resetTarget.name} · 登录名 {resetTarget.account?.loginName}
+          </div>
+        ) : null}
+        <Form form={resetForm} layout="vertical" onFinish={submitReset}>
+          <Form.Item
+            name="password"
+            label="新密码"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              { min: 6, message: '密码至少 6 位' },
+            ]}
+          >
+            <Input.Password placeholder="至少 6 位" autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={resignTarget ? `离职办理 · ${resignTarget.name}` : '离职办理'}
+        open={resignOpen}
+        onCancel={() => setResignOpen(false)}
+        width={640}
+        footer={[
+          <Button key="close" onClick={() => setResignOpen(false)}>
+            关闭
+          </Button>,
+          <Button key="confirm" type="primary" disabled>
+            确认离职（待启用）
+          </Button>,
+        ]}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="离职流程正在设计中，此处为预留入口"
+          description="当前点击不会修改员工状态、登录账号、考勤或审批数据。后续将在这里接入完整的离职办理流程。"
+          style={{ marginBottom: 18 }}
+        />
+
+        {resignTarget ? (
+          <div className="resign-summary">
+            <Space size={12}>
+              <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7' }}>
+                {initialOf(resignTarget.name)}
+              </Avatar>
+              <div>
+                <div className="table-primary">
+                  {resignTarget.name}
+                  <Tag color="red" bordered={false} style={{ marginLeft: 8 }}>
+                    待设计
+                  </Tag>
+                </div>
+                <Text type="secondary" className="table-secondary">
+                  {resignTarget.employeeNo} · {resignTarget.jobCategory}
+                  {resignTarget.account ? ` · ${resignTarget.account.loginName}` : ' · 未开通账号'}
+                </Text>
+              </div>
+            </Space>
+          </div>
+        ) : null}
+
+        <Steps
+          direction="vertical"
+          size="small"
+          current={-1}
+          items={[
+            { title: '提交离职申请', description: '待接入离职审批单，记录离职原因与最后工作日' },
+            { title: '工作交接', description: '待接入交接清单、接手人与文档归档' },
+            { title: '账号与权限回收', description: '待接入登录账号停用、审批/通讯录权限回收' },
+            { title: '考勤与薪资结算', description: '待接入考勤封存、调休/加班结算与薪资数据' },
+            { title: '离职归档', description: '待接入员工状态变更、历史数据归档与审计' },
+          ]}
+        />
+
+        <div className="form-tip" style={{ marginTop: 16 }}>
+          以上步骤仅为占位，暂未启用；后续可在此扩展为完整的离职向导。
+        </div>
+      </Modal>
+    </div>
+  );
+}

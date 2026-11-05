@@ -1,0 +1,81 @@
+<view class="page">
+  <view class="page-body">
+    <!-- 月度汇总 -->
+    <view class="card">
+      <view class="flex-between">
+        <view class="section-title">{{monthLabel}}</view>
+        <view class="tag tag-blue">月度汇总</view>
+      </view>
+
+      <view class="sum-grid">
+        <view class="sum-item">
+          <view class="sum-value c-green">{{stats.month.normal}}</view>
+          <view class="sum-label">正常</view>
+        </view>
+        <view class="sum-item">
+          <view class="sum-value c-orange">{{stats.month.missingIn}}</view>
+          <view class="sum-label">未打上班卡</view>
+        </view>
+        <view class="sum-item">
+          <view class="sum-value c-orange">{{stats.month.missingOut}}</view>
+          <view class="sum-label">未打下班卡</view>
+        </view>
+        <view class="sum-item">
+          <view class="sum-value c-red">{{stats.month.absent}}</view>
+          <view class="sum-label">缺卡</view>
+        </view>
+        <view class="sum-item">
+          <view class="sum-value c-blue">{{stats.month.leave}}</view>
+          <view class="sum-label">请假</view>
+        </view>
+        <view class="sum-item">
+          <view class="sum-value">{{stats.month.rest}}</view>
+          <view class="sum-label">休息</view>
+        </view>
+      </view>
+
+      <view class="sum-foot">
+        <text>日均工时 {{stats.avgHours}} h</text>
+        <text class="sum-foot-sep">|</text>
+        <text>打卡天数 {{stats.totalDays}} 天</text>
+      </view>
+    </view>
+
+    <!-- 筛选 -->
+    <view class="filter-bar">
+      <view
+        class="filter-item {{filter === item.key ? 'active' : ''}}"
+        wx:for="{{filters}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="onFilter"
+      >
+        {{item.name}}
+      </view>
+    </view>
+
+    <!-- 明细列表 -->
+    <view class="card card-tight" wx:if="{{records.length}}">
+      <view class="rec-row" wx:for="{{records}}" wx:key="date">
+        <view class="rec-date">
+          <view class="rec-day {{item.isToday ? 'is-today' : ''}}">{{item.day}}</view>
+          <view class="rec-week">{{item.weekdayText}}</view>
+        </view>
+        <view class="rec-main">
+          <view class="rec-time">
+            <text class="{{item.checkIn ? '' : 'is-empty'}}">{{item.checkIn || '--:--'}}</text>
+            <text class="rec-dash">—</text>
+            <text class="{{item.checkOut ? '' : 'is-empty'}}">{{item.checkOut || '--:--'}}</text>
+          </view>
+          <view class="rec-duration">工时 {{item.duration}}</view>
+        </view>
+        <view class="tag {{item.tagClass}}">{{item.statusText}}</view>
+      </view>
+    </view>
+
+    <view class="empty" wx:else>
+      <view class="empty-icon">○</view>
+      <view class="empty-text">该分类下暂无考勤记录</view>
+    </view>
+  </view>
+</view>

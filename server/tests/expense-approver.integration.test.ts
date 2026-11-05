@@ -1,0 +1,83 @@
+import 'dotenv/config';
+import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
+import test from 'node:test';
+import mysql from 'mysql2/promise';
+import jwt from 'jsonwebtoken';
+
+test('仅超级管理员设置有效的报销审批人，审批人可以审批自己的报销', async () => {
+  const database = `yunqi_expense_test_${randomBytes(8).toString('hex')}`;
+  process.env.VERIFY_DRIVER = 'tencent';
+  process.env.TENCENTCLOUD_SECRET_ID = 'test-only';
+  process.env.TENCENTCLOUD_SECRET_KEY = 'test-only';
+  const { ocr } = await import('tencentcloud-sdk-nodejs-ocr');
+  const prototype = ocr.v20181119.Client.prototype as any;
+  const originalVerify = prototype.VatInvoiceVerifyNew;
+  prototype.VatInvoiceVerifyNew = async (request: any) => ({ Invoice: { Number: request.InvoiceNo, IsAbandoned: 'N', RedLetterInvoiceMark: false, AmountWithTax: request.Amount, AmountWithoutTax: request.Amount } });
+  const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
+  let created = false;
+  let closePool: (() => Promise<void>) | undefined;
+  let closeServer: (() => Promise<void>) | undefined;
+  try {
+    await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    created = true;
+    process.env.MYSQL_DATABASE = database;
+    const pool = await import('../src/shared/db/pool'); closePool = pool.closePool;
+    await pool.ensureSchema();
+    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/admin/employees/adminEmployeeService')).backfillEmployeeJobCategories();
+    await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
+    await conn.query(`INSERT INTO \`${database}\`.admins (username, password_hash, name, role, status, created_at) VALUES ('hr_test', 'x', 'HR', 'hr_admin', 1, NOW())`);
+    const { config } = await import('../src/config');
+    const { issueTokens } = await import('../src/miniprogram/auth/authService');
+    const server = (await import('../src/app')).createApp().listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    closeServer = () => new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
+    const address = server.address(); assert.ok(address && typeof address !== 'string');
+    const base = `http://127.0.0.1:${address.port}/api`;
+    const admin = jwt.sign({ typ: 'admin', role: 'super_admin' }, config.jwt.secret, { subject: '1' });
+    const hr = jwt.sign({ typ: 'admin', role: 'hr_admin' }, config.jwt.secret, { subject: '2' });
+    const applicant = issueTokens('U001').accessToken;
+    const reviewer = issueTokens('U011').accessToken;
+    async function request(path: string, token: string, method = 'GET', body?: unknown) {
+      const res = await fetch(base + path, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+      return { status: res.status, body: await res.json() as { data?: any; message?: string } };
+    }
+    const invoice = { id: 'test-invoice', invoiceCode: '', invoiceNumber: '12345678901234567890', invoiceDate: '2026-10-28', invoiceType: '普通发票', checkCode: '', amount: 10, taxAmount: 0, totalAmount: 10 };
+    const expense = { type: 'expense', title: '报销', invoices: [invoice] };
+    assert.equal((await request('/approvals/expense-approver', applicant)).status, 400);
+    assert.equal((await request('/approvals', applicant, 'POST', expense)).status, 400);
+    assert.equal((await request('/admin/expense-approver', hr, 'PUT', { employeeId: 'U011' })).status, 403);
+    assert.equal((await request('/admin/expense-approver', hr)).status, 403);
+    assert.equal((await request('/admin/expense-approver', applicant, 'PUT', { employeeId: 'U011' })).status, 401);
+    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'missing' })).status, 400);
+    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'U011' })).status, 200);
+    assert.equal((await request('/approvals/expense-approver', applicant)).body.data.id, 'U011');
+    assert.equal((await request('/approvals/expense-approver', reviewer)).body.data.id, 'U011');
+    const ownExpense = await request('/approvals', reviewer, 'POST', { ...expense, invoices: [{ ...invoice, id: 'self-invoice', invoiceNumber: '12345678901234567891' }] });
+    assert.equal(ownExpense.status, 200);
+    assert.equal(ownExpense.body.data.timeline[1].approverId, 'U011');
+    assert.equal(ownExpense.body.data.canApprove, true);
+    assert.ok((await request('/approvals?tab=pending', reviewer)).body.data.some((item: { id: string }) => item.id === ownExpense.body.data.id));
+    assert.ok((await request('/approvals?tab=mine', reviewer)).body.data.some((item: { id: string }) => item.id === ownExpense.body.data.id));
+    assert.equal((await request(`/approvals/${ownExpense.body.data.id}/action`, reviewer, 'POST', { action: 'approve' })).body.data.ok, true);
+    const createdExpense = await request('/approvals', applicant, 'POST', expense);
+    assert.equal(createdExpense.status, 200);
+    assert.equal(createdExpense.body.data.aiAdvice, null, '申请人不得查看审批人的 AI 建议');
+    assert.equal((await request(`/approvals/${createdExpense.body.data.id}`, reviewer)).body.data.aiAdvice.status, 'no_rules');
+    assert.equal(createdExpense.body.data.status, 'pending');
+    assert.equal(createdExpense.body.data.timeline[1].approverId, 'U011');
+    assert.equal((await request(`/approvals/${createdExpense.body.data.id}/action`, applicant, 'POST', { action: 'approve' })).body.data.ok, false);
+    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'U005' })).status, 200);
+    assert.equal((await request(`/approvals/${createdExpense.body.data.id}/action`, reviewer, 'POST', { action: 'approve' })).body.data.ok, true);
+    await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'disabled' WHERE employee_id = 'U005'`);
+    assert.equal((await request('/approvals/expense-approver', applicant)).status, 400);
+    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'U005' })).status, 400);
+  } finally {
+    prototype.VatInvoiceVerifyNew = originalVerify;
+    if (closeServer) await closeServer();
+    if (closePool) await closePool();
+    if (created) await conn.query(`DROP DATABASE \`${database}\``);
+    await conn.end();
+  }
+});

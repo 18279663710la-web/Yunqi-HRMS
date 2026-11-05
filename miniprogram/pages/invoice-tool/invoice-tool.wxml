@@ -1,0 +1,98 @@
+<view class="page">
+  <view class="page-body">
+
+    <!-- 离屏 canvas：给「选图读码」用。不能用 display:none，否则取不到节点。 -->
+    <canvas type="2d" id="toolCanvas" class="it-canvas"></canvas>
+
+    <!-- ============ 页面标题 ============ -->
+    <view class="card it-hero">
+      <view class="it-hero-title">发票工具台</view>
+    </view>
+
+    <!-- ============ ① 录入 ============ -->
+    <view class="card">
+      <view class="section-title">① 上传发票</view>
+
+      <view class="it-btns">
+        <view class="btn btn-primary flex-1" bindtap="onChooseImage">上传图片</view>
+        <view class="btn btn-ghost flex-1" bindtap="onTakePhoto">拍照上传</view>
+      </view>
+      <view class="it-progress" wx:if="{{decoding}}">解析图片中…</view>
+
+      <view class="it-error" wx:if="{{parseError}}">{{parseError}}</view>
+    </view>
+
+    <!-- ============ 读码诊断 ============ -->
+    <view class="card" wx:if="{{decodeInfo}}">
+      <view class="section-title">
+        读码诊断
+        <text class="it-diag-clear" bindtap="onClearDecode">清除</text>
+      </view>
+
+      <view class="it-diag-result {{decodeInfo.ok ? 'is-ok' : 'is-fail'}}">
+        {{decodeInfo.ok ? '已读出二维码' : '未读出二维码：' + (decodeInfo.message || '未知原因')}}
+      </view>
+
+      <image class="it-diag-img" wx:if="{{previewPath}}" src="{{previewPath}}" mode="widthFix" />
+
+      <view class="it-rows">
+        <view class="it-row" wx:for="{{decodeRows}}" wx:key="label">
+          <view class="it-row-label">{{item.label}}</view>
+          <view class="it-row-value">{{item.value}}</view>
+        </view>
+      </view>
+
+    </view>
+
+    <!-- ============ ② 解析结果 ============ -->
+    <view class="card fade-in" wx:if="{{parsed}}">
+      <view class="section-title">② 解析结果</view>
+
+      <view class="it-rows">
+        <view class="it-row" wx:for="{{rows}}" wx:key="label">
+          <view class="it-row-label">{{item.label}}</view>
+          <view class="it-row-value">{{item.value}}</view>
+        </view>
+      </view>
+
+      <view class="it-btns">
+        <view class="btn btn-ghost flex-1" bindtap="onCheckDuplicate">查重</view>
+        <view class="btn btn-primary flex-1" bindtap="onVerify">{{verifying ? '查验中…' : '查验真伪'}}</view>
+      </view>
+    </view>
+
+    <!-- ============ ③ 查重结果 ============ -->
+    <view class="card fade-in" wx:if="{{dupResult}}">
+      <view class="section-title">③ 查重结果</view>
+
+      <view class="it-clean" wx:if="{{!dupResult.duplicated}}">
+        <view class="it-clean-icon"></view>
+        <view class="it-clean-text">未发现重复报销，尚未验伪</view>
+      </view>
+
+      <block wx:else>
+        <view class="it-dup-head">
+          <view class="tag {{dupResult.blocking ? 'tag-red' : 'tag-orange'}}">
+            {{dupResult.blocking ? '重复报销 · 拦截' : '重复命中 · 仅提示'}}
+          </view>
+          <view class="it-dup-count">命中 {{dupResult.hits.length}} 条</view>
+        </view>
+
+        <view class="it-dup" wx:for="{{dupResult.hits}}" wx:key="approvalId">
+          <view class="it-dup-title">{{item.title}}</view>
+          <view class="it-dup-meta">
+            {{item.applicantName}} · {{item.createdAt}} · {{item.blocking ? '审批中或已通过' : '已驳回或已撤销'}}
+          </view>
+        </view>
+
+      </block>
+    </view>
+
+    <view class="card fade-in" wx:if="{{verifyResult}}">
+      <view class="section-title">④ 查验结果</view>
+      <view class="it-diag-result {{verifyResult.level === 'ok' ? 'is-ok' : 'is-fail'}}">{{verifyResult.statusText}}</view>
+      <view class="it-row-value">{{verifyResult.message}}</view>
+    </view>
+
+  </view>
+</view>

@@ -1,0 +1,100 @@
+<view class="page" wx:if="{{emp}}">
+  <!-- ============ 名片头 ============ -->
+  <view class="profile-hero">
+    <view class="avatar avatar-lg profile-avatar">{{emp.initial}}</view>
+    <view class="profile-name">
+      {{emp.name}}
+      <text class="profile-leader-tag" wx:if="{{emp.isLeader}}">负责人</text>
+    </view>
+    <view class="profile-position">{{emp.position}}</view>
+    <view class="profile-dept">{{emp.deptFullName}}</view>
+
+    <view class="profile-tags">
+      <view class="profile-tag">工号 {{emp.employeeNo}}</view>
+      <view class="profile-tag">职级 {{emp.level}}</view>
+    </view>
+  </view>
+
+  <view class="page-body has-bottom-bar">
+    <!-- ============ 联系方式 ============ -->
+    <view class="card card-tight">
+      <view class="info-row" data-value="{{emp.phone}}" bindtap="onCopy" hover-class="row-item-hover">
+        <view class="info-label">手机</view>
+        <view class="info-value">{{emp.phoneText}}</view>
+        <view class="info-copy">复制</view>
+      </view>
+      <view class="info-row" data-value="{{emp.email}}" bindtap="onCopy" hover-class="row-item-hover">
+        <view class="info-label">邮箱</view>
+        <view class="info-value ellipsis">{{emp.email}}</view>
+        <view class="info-copy">复制</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">工位</view>
+        <view class="info-value">{{emp.seat}}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">入职日期</view>
+        <view class="info-value">{{emp.joinDate}}</view>
+      </view>
+    </view>
+
+    <!-- ============ 汇报关系 ============ -->
+    <view class="section-head">
+      <view class="section-title">汇报关系</view>
+    </view>
+
+    <view class="card card-tight">
+      <view
+        class="emp-line"
+        wx:if="{{emp.leader}}"
+        data-id="{{emp.leader.id}}"
+        bindtap="goColleague"
+        hover-class="row-item-hover"
+      >
+        <view class="avatar avatar-md">{{emp.leaderInitial}}</view>
+        <view class="emp-line-main">
+          <view class="emp-line-name">{{emp.leader.name}}</view>
+          <view class="emp-line-meta">{{emp.leader.position}}</view>
+        </view>
+        <view class="tag tag-blue">直属上级</view>
+        <view class="chevron"></view>
+      </view>
+
+      <view class="emp-line" wx:else>
+        <view class="emp-line-main">
+          <view class="emp-line-meta">暂无上级记录</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 下属 ============ -->
+    <block wx:if="{{emp.subordinates.length}}">
+      <view class="section-head">
+        <view class="section-title">直接下属（{{emp.subordinates.length}}）</view>
+      </view>
+      <view class="card card-tight">
+        <view
+          class="emp-line"
+          wx:for="{{emp.subordinates}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="goColleague"
+          hover-class="row-item-hover"
+        >
+          <view class="avatar avatar-md">{{item.initial}}</view>
+          <view class="emp-line-main">
+            <view class="emp-line-name">{{item.name}}</view>
+            <view class="emp-line-meta ellipsis">{{item.deptName}} · {{item.position}}</view>
+          </view>
+          <view class="chevron"></view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- ============ 底部操作 ============ -->
+  <view class="fixed-bottom-bar">
+    <view class="btn btn-ghost flex-1" bindtap="onChat">发消息</view>
+    <view class="btn btn-primary flex-1" bindtap="onCall">打电话</view>
+  </view>
+</view>

@@ -1,0 +1,253 @@
+.has-bottom-bar {
+  padding-bottom: 200rpx;
+}
+
+.type-desc {
+  font-size: 24rpx;
+  color: #9AA1AC;
+}
+
+/* ============ 类型选择 ============ */
+.type-card {
+  padding: 32rpx 12rpx 20rpx;
+}
+
+.type-grid {
+  display: flex;
+}
+
+.type-cell {
+  width: 20%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.type-cell-hover {
+  opacity: 0.7;
+}
+
+.type-cell-icon {
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 34rpx;
+  font-weight: 600;
+  opacity: 0.42;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.type-cell.active .type-cell-icon {
+  opacity: 1;
+  transform: translateY(-6rpx);
+  box-shadow: 0 12rpx 22rpx rgba(24, 43, 92, 0.22);
+}
+
+.type-cell-name {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: #9AA1AC;
+}
+
+.type-cell.active .type-cell-name {
+  color: #1A1D26;
+  font-weight: 600;
+}
+
+/* ============ 表单 ============ */
+.form-row {
+  display: flex;
+  align-items: center;
+  min-height: 104rpx;
+  padding: 14rpx 0;
+}
+
+.form-row + .form-row {
+  border-top: 2rpx solid #F2F4F8;
+}
+
+.form-row.is-block {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.form-label {
+  width: 220rpx;
+  flex-shrink: 0;
+  font-size: 28rpx;
+  color: #5A6472;
+}
+
+.form-row.is-block .form-label {
+  width: auto;
+  margin-bottom: 16rpx;
+}
+
+.form-req {
+  color: #F04438;
+  margin-right: 6rpx;
+}
+
+.form-control {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-input {
+  width: 100%;
+  height: 68rpx;
+  font-size: 28rpx;
+  color: #1A1D26;
+  text-align: right;
+}
+
+.form-row.is-block .form-input {
+  text-align: left;
+}
+
+.form-placeholder {
+  color: #C4CAD6;
+}
+
+.form-textarea {
+  width: 100%;
+  height: 180rpx;
+  font-size: 28rpx;
+  color: #1A1D26;
+  line-height: 1.6;
+  background: #F8FAFD;
+  border-radius: 16rpx;
+  padding: 22rpx;
+  box-sizing: border-box;
+}
+
+.picker-value {
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 28rpx;
+  color: #1A1D26;
+}
+
+.picker-value.is-placeholder {
+  color: #C4CAD6;
+}
+
+.picker-arrow {
+  width: 12rpx;
+  height: 12rpx;
+  border-right: 3rpx solid #C4CAD6;
+  border-bottom: 3rpx solid #C4CAD6;
+  transform: rotate(-45deg);
+  margin-left: 12rpx;
+  margin-top: -6rpx;
+}
+
+/* ============ 审批流转 ============ */
+.setting-label {
+  font-size: 28rpx;
+  color: #5A6472;
+  flex-shrink: 0;
+}
+
+.setting-hint {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: #C4CAD6;
+  flex: 1;
+  min-width: 0;
+}
+
+.approver-chip {
+  display: flex;
+  align-items: center;
+}
+
+.approver-info {
+  margin-left: 16rpx;
+}
+
+.approver-name {
+  font-size: 28rpx;
+  color: #1A1D26;
+}
+
+.approver-role {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #9AA1AC;
+}
+
+.form-tip {
+  padding: 4rpx 16rpx 20rpx;
+  font-size: 22rpx;
+  color: #9AA1AC;
+  line-height: 1.7;
+}
+
+/* ============ OCR 自动填单提示 ============ */
+.autofill-hint {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  margin-bottom: 24rpx;
+  border-radius: 16rpx;
+  background: #E6F7EF;
+}
+
+.autofill-hint.is-warn {
+  background: #FFF4E5;
+}
+
+.autofill-icon {
+  width: 34rpx;
+  height: 34rpx;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316B364' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8.2 12.3l2.6 2.6 5-5.3'/%3E%3C/svg%3E");
+}
+
+.autofill-icon.is-loading {
+  border-radius: 50%;
+  border: 4rpx solid rgba(247, 144, 9, 0.28);
+  border-top-color: #F79009;
+  background-image: none;
+  box-sizing: border-box;
+  animation: acSpin 0.8s linear infinite;
+}
+
+@keyframes acSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.autofill-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: #0E8F4E;
+  line-height: 1.6;
+}
+
+.autofill-hint.is-warn .autofill-text {
+  color: #B25E00;
+}
+.attachment-row { display: flex; align-items: center; gap: 16rpx; padding: 12rpx 0; }
+.attachment-thumb { width: 72rpx; height: 72rpx; border-radius: 8rpx; flex-shrink: 0; }
+.attachment-name { flex: 1; min-width: 0; font-size: 26rpx; }
+.attachment-remove { color: #D13E34; font-size: 24rpx; }
+.attachment-add { padding: 20rpx 0; color: #3D6EF7; font-size: 26rpx; }
+.precheck-title { font-size: 28rpx; font-weight: 600; color: #303949; }
+.precheck-line { margin-top: 14rpx; font-size: 26rpx; line-height: 1.6; color: #303949; word-break: break-all; }
+.precheck-note { margin-top: 14rpx; font-size: 23rpx; line-height: 1.6; color: #697588; }
+.precheck-action { display: inline-flex; align-items: center; justify-content: center; min-width: 180rpx; min-height: 68rpx; padding: 0 24rpx; border: 2rpx solid #3D6EF7; border-radius: 12rpx; color: #3D6EF7; font-size: 26rpx; font-weight: 500; }
+.precheck-action.is-busy { border-color: #DDE2EB; color: #8994A6; }

@@ -1,0 +1,363 @@
+/**
+ * utils/request.ts — 统一 HTTP 请求层（前后端分离）
+ *
+ * 登录体系：
+ *   · 小程序只使用员工账号密码登录（POST /auth/password-login）
+ *   · 账号只能由 Web 管理后台创建，小程序端不提供注册
+ *   · 管理员账号与员工账号完全隔离：employee token 只能访问员工接口
+ *   · 无 token 时直接跳转登录页；401 先尝试 refresh，失败后清登录态并跳转登录
+ *
+ * 注意：真机调试时 127.0.0.1 指向手机自身，需把 BASE_URL 改成电脑局域网 IP，
+ * 并在微信开发者工具中保持「不校验合法域名」。
+ */
+
+import type { CurrentUser, LoginResponse } from '../types/models';
+import { AiStreamDecoder } from './expense-ai-stream';
+import type { AiStreamEvent } from './expense-ai-stream';
+import { toast } from './util';
+import { isOnboardingRoute } from '../services/onboarding/onboardingRoutes';
+
+export const BASE_URL = 'http://10.62.56.146:3100/api';
+export const STATIC_BASE = 'http://10.62.56.146:3100';
+
+const LOGIN_PAGE = '/pages/login/login';
+const TIMEOUT = 15000;
+const ACCESS_TOKEN_KEY = 'access_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const CURRENT_USER_KEY = 'current_user';
+
+export interface ApiError {
+  code: number;
+  message: string;
+  [key: string]: unknown;
+}
+
+interface ApiEnvelope {
+  code: number;
+  message?: string;
+  data?: unknown;
+}
+
+type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
+export interface RequestOptions {
+  url: string;
+  method?: RequestMethod;
+  data?: unknown;
+  header?: Record<string, string>;
+  silent?: boolean;
+  timeout?: number;
+  /** false 表示不带 token（仅登录 / 刷新接口使用） */
+  auth?: boolean;
+}
+
+let redirectingToLogin = false;
+let redirectingToOnboarding = false;
+
+function buildUrl(url: string): string {
+  if (/^https?:\/\//.test(url)) return url;
+  return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+export function resolveFileUrl(path: string): string {
+  if (!path) return '';
+  if (/^https?:\/\//.test(path)) return path;
+  if (path.startsWith('wxfile://') || path.startsWith('file://')) return path;
+  return `${STATIC_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
+export function getToken(): string {
+  return wx.getStorageSync(ACCESS_TOKEN_KEY) || '';
+}
+
+export function getCachedUser(): CurrentUser | null {
+  const user = wx.getStorageSync(CURRENT_USER_KEY);
+  return user || null;
+}
+
+export function clearSession(): void {
+  wx.removeStorageSync(ACCESS_TOKEN_KEY);
+  wx.removeStorageSync(REFRESH_TOKEN_KEY);
+  wx.removeStorageSync(CURRENT_USER_KEY);
+}
+
+function storeSession(data: LoginResponse): void {
+  wx.setStorageSync(ACCESS_TOKEN_KEY, data.accessToken);
+  wx.setStorageSync(REFRESH_TOKEN_KEY, data.refreshToken);
+  wx.setStorageSync(CURRENT_USER_KEY, data.user);
+}
+
+function toastError(message: string): void {
+  wx.showToast({ title: message, icon: 'none', duration: 2000 });
+}
+
+function currentRoute(): string {
+  const pages = getCurrentPages() as Array<{ route?: string }>;
+  return pages.length ? pages[pages.length - 1].route || '' : '';
+}
+
+/** 清空登录态并跳转登录页（避免重复跳转） */
+export function redirectToLogin(): void {
+  if (redirectingToLogin) return;
+  if (currentRoute() === 'pages/login/login') return;
+  redirectingToLogin = true;
+  wx.reLaunch({
+    url: LOGIN_PAGE,
+    complete: () => {
+      setTimeout(() => {
+        redirectingToLogin = false;
+      }, 800);
+    },
+  });
+}
+
+function parseBody(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function unwrap<T>(statusCode: number, raw: unknown, silent = false): T {
+  const body = parseBody(raw);
+
+  if (statusCode >= 200 && statusCode < 300) {
+    if (body && typeof body === 'object' && 'code' in body) {
+      const envelope = body as ApiEnvelope;
+      if (envelope.code === 0 || envelope.code === 200) {
+        return (envelope.data !== undefined ? envelope.data : envelope) as T;
+      }
+      const err: ApiError = {
+        code: envelope.code,
+        message: envelope.message || '请求失败',
+      };
+      if (!silent) toastError(err.message);
+      throw err;
+    }
+    return body as T;
+  }
+
+  const bodyMessage =
+    body && typeof body === 'object' && 'message' in body ? String((body as ApiEnvelope).message || '') : '';
+  const message = bodyMessage || `服务异常 (${statusCode})`;
+  const err: ApiError = { code: statusCode, message };
+  if (!silent) toastError(message);
+  throw err;
+}
+
+function wxRequest(options: RequestOptions): Promise<WechatMiniprogram.RequestSuccessCallbackResult> {
+  const token = options.auth === false ? '' : getToken();
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: buildUrl(options.url),
+      method: options.method || 'GET',
+      data: (options.data ?? {}) as Record<string, unknown>,
+      timeout: options.timeout || TIMEOUT,
+      header: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.header || {}),
+      },
+      success: resolve,
+      fail: (e) => {
+        const err: ApiError = {
+          code: -1,
+          message: '网络连接失败，请检查后端服务是否已启动',
+          detail: e,
+        };
+        if (!options.silent) toastError(err.message);
+        reject(err);
+      },
+    });
+  });
+}
+
+async function rawRequest<T>(options: RequestOptions): Promise<T> {
+  const res = await wxRequest(options);
+  return unwrap<T>(res.statusCode, res.data, options.silent);
+}
+
+/** 员工账号密码登录：账号由 Web 管理后台创建 */
+export async function login(loginName: string, password: string): Promise<CurrentUser> {
+  const data = await rawRequest<LoginResponse>({
+    url: '/auth/password-login',
+    method: 'POST',
+    data: { loginName, password },
+    auth: false,
+    silent: true,
+  });
+  storeSession(data);
+  return data.user;
+}
+
+/** 退出登录：清空 token、用户缓存 */
+export function logout(): void {
+  clearSession();
+}
+
+async function refreshTokens(): Promise<void> {
+  const refreshToken = wx.getStorageSync(REFRESH_TOKEN_KEY);
+  if (!refreshToken) throw { code: 401, message: '登录已过期' } as ApiError;
+  const data = await rawRequest<LoginResponse>({
+    url: '/auth/refresh',
+    method: 'POST',
+    data: { refreshToken },
+    auth: false,
+    silent: true,
+  });
+  storeSession(data);
+}
+
+function authExpired(options: RequestOptions, message = '登录已过期，请重新登录'): ApiError {
+  clearSession();
+  redirectToLogin();
+  const err: ApiError = { code: 401, message };
+  if (!options.silent) toastError(message);
+  return err;
+}
+
+async function send<T>(options: RequestOptions, retried = false): Promise<T> {
+  const res = await wxRequest({ ...options, auth: true });
+
+  const body = parseBody(res.data) as { code?: number } | null;
+  const onboardingBlocked = res.statusCode === 403 && body?.code === 40301;
+  if (onboardingBlocked) {
+    const route = currentRoute();
+    if (!redirectingToOnboarding && !isOnboardingRoute(route)) {
+      redirectingToOnboarding = true;
+      wx.reLaunch({ url: '/pages/onboarding-required/onboarding-required', complete: () => { setTimeout(() => { redirectingToOnboarding = false; }, 800); } });
+    }
+  }
+
+  if (res.statusCode === 401) {
+    if (retried) throw authExpired(options);
+    try {
+      await refreshTokens();
+    } catch {
+      throw authExpired(options);
+    }
+    return send<T>(options, true);
+  }
+
+  return unwrap<T>(res.statusCode, res.data, options.silent || onboardingBlocked);
+}
+
+/** 业务请求（必须已登录；401 自动刷新 token 并重放） */
+export async function request<T>(options: RequestOptions): Promise<T> {
+  if (!getToken()) {
+    if (!options.silent) toastError('请先登录');
+    redirectToLogin();
+    throw { code: 401, message: '请先登录' } as ApiError;
+  }
+  return send<T>(options);
+}
+
+export function get<T>(url: string, data?: unknown, options: Partial<RequestOptions> = {}): Promise<T> {
+  return request<T>({ url, method: 'GET', data, ...options });
+}
+
+export function post<T>(url: string, data?: unknown, options: Partial<RequestOptions> = {}): Promise<T> {
+  return request<T>({ url, method: 'POST', data, ...options });
+}
+
+/** 带登录态的流式请求，结束前必须收到服务端结果帧。 */
+export function streamPost(url: string, data: unknown, timeout: number, onEvent: (event: AiStreamEvent) => void): { promise: Promise<void>; abort: () => void } {
+  let task: WechatMiniprogram.RequestTask | undefined;
+  let cancelled = false;
+  const promise = new Promise<void>((resolve, reject) => {
+    const start = (retried: boolean): void => {
+      const token = getToken();
+      if (!token) { redirectToLogin(); reject({ code: 401, message: '请先登录' }); return; }
+      let receivedResult = false;
+      let receivedChunk = false;
+      const decoder = new AiStreamDecoder((event) => {
+        if (event.type === 'result') receivedResult = true;
+        onEvent(event);
+      });
+      task = wx.request({
+        url: buildUrl(url), method: 'POST', data: data as Record<string, unknown>, timeout,
+        enableChunked: true, responseType: 'arraybuffer',
+        header: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        success: (res) => {
+          if (res.statusCode === 401 && !retried) {
+            void refreshTokens().then(() => { if (!cancelled) start(true); else reject({ code: -1, message: '预审已取消' }); }).catch(() => reject(authExpired({ url })));
+            return;
+          }
+          if (res.statusCode === 401) { reject(authExpired({ url })); return; }
+          if (res.statusCode < 200 || res.statusCode >= 300) { reject({ code: res.statusCode, message: '预审请求失败，请检查发票与材料' }); return; }
+          if (!receivedChunk && res.data instanceof ArrayBuffer) decoder.push(res.data);
+          if (receivedResult) resolve(); else reject({ code: -1, message: '预审连接中断，请重试' });
+        },
+        fail: () => reject({ code: -1, message: cancelled ? '预审已取消' : '预审连接失败，请重试' }),
+      });
+      if (typeof task.onChunkReceived !== 'function') { task.abort(); reject({ code: -1, message: '当前微信版本不支持流式预审' }); return; }
+      task.onChunkReceived((event) => { receivedChunk = true; decoder.push(event.data); });
+    };
+    start(false);
+  });
+  return { promise, abort: () => { cancelled = true; task?.abort(); } };
+}
+
+export function put<T>(url: string, data?: unknown, options: Partial<RequestOptions> = {}): Promise<T> {
+  return request<T>({ url, method: 'PUT', data, ...options });
+}
+
+export function del<T>(url: string, data?: unknown, options: Partial<RequestOptions> = {}): Promise<T> {
+  return request<T>({ url, method: 'DELETE', data, ...options });
+}
+
+export interface UploadOptions {
+  url: string;
+  filePath: string;
+  name?: string;
+  formData?: Record<string, string | number>;
+  header?: Record<string, string>;
+  silent?: boolean;
+}
+
+async function uploadOnce(options: UploadOptions): Promise<WechatMiniprogram.UploadFileSuccessCallbackResult> {
+  return new Promise((resolve, reject) => {
+    wx.uploadFile({
+      url: buildUrl(options.url),
+      filePath: options.filePath,
+      name: options.name || 'file',
+      formData: options.formData || {},
+      header: {
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+        ...(options.header || {}),
+      },
+      success: resolve,
+      fail: () => {
+        const err: ApiError = { code: -1, message: '网络连接失败，请检查网络后重试' };
+        if (!options.silent) toastError(err.message);
+        reject(err);
+      },
+    });
+  });
+}
+
+/** wx.uploadFile 的 Promise 封装，带 401 刷新重试 */
+export async function upload<T>(options: UploadOptions): Promise<T> {
+  if (!getToken()) {
+    redirectToLogin();
+    throw { code: 401, message: '请先登录' } as ApiError;
+  }
+
+  let res = await uploadOnce(options);
+  if (res.statusCode === 401) {
+    try {
+      await refreshTokens();
+    } catch {
+      const err = authExpired(options);
+      throw err;
+    }
+    res = await uploadOnce(options);
+    if (res.statusCode === 401) {
+      throw authExpired(options);
+    }
+  }
+
+  return unwrap<T>(res.statusCode, res.data, options.silent);
+}

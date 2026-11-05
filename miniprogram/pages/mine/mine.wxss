@@ -1,0 +1,215 @@
+/* ============ 个人信息头 ============ */
+.mine-hero {
+  padding: 40rpx 40rpx 100rpx;
+  background: linear-gradient(160deg, #3D6EF7 0%, #5B8DFF 62%, #7BA0FF 100%);
+  border-radius: 0 0 44rpx 44rpx;
+}
+
+.mine-user {
+  display: flex;
+  align-items: center;
+}
+
+.mine-avatar {
+  background: rgba(255, 255, 255, 0.26);
+  border: 4rpx solid rgba(255, 255, 255, 0.5);
+  color: #FFFFFF;
+}
+
+.mine-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 28rpx;
+}
+
+.mine-name {
+  font-size: 42rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.mine-position {
+  margin-top: 12rpx;
+  font-size: 27rpx;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.mine-dept {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.mine-meta {
+  margin-top: 30rpx;
+  display: flex;
+  align-items: center;
+}
+
+.mine-meta-item {
+  height: 46rpx;
+  padding: 0 18rpx;
+  margin-right: 14rpx;
+  border-radius: 23rpx;
+  background: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+  font-size: 21rpx;
+  line-height: 46rpx;
+}
+
+.page-body {
+  margin-top: -64rpx;
+}
+
+/* ============ 统计卡 ============ */
+.stat-card {
+  display: flex;
+  padding: 32rpx 0;
+}
+
+.stat-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-cell-value {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #1A1D26;
+  line-height: 1.15;
+}
+
+.c-blue {
+  color: #3D6EF7;
+}
+
+.c-orange {
+  color: #F79009;
+}
+
+.stat-cell-label {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #9AA1AC;
+}
+
+/* ============ 考勤概览 ============ */
+.att-summary {
+  display: flex;
+  align-items: center;
+  padding: 30rpx 32rpx;
+}
+
+.att-summary-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.att-summary-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1D26;
+}
+
+.att-summary-sub {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #9AA1AC;
+}
+
+/* ============ 菜单 ============ */
+.menu-row {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 0;
+  min-height: 108rpx;
+}
+
+.menu-row + .menu-row {
+  border-top: 2rpx solid #F2F4F8;
+}
+
+.menu-icon {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 20rpx;
+  flex-shrink: 0;
+  background-color: #EAF0FF;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 34rpx 34rpx;
+}
+
+.menu-icon.is-danger {
+  background-color: #FFEDEC;
+}
+
+.menu-icon-doc {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.2 3.6h8.9L20.4 8.9V19a1.6 1.6 0 0 1-1.6 1.6H6.2A1.6 1.6 0 0 1 4.6 19V5.2A1.6 1.6 0 0 1 6.2 3.6Z'/%3E%3Cpath d='M15.1 3.6v5.3h5.3'/%3E%3Cpath d='M8.8 14.2l1.9 1.9 4-4.2'/%3E%3C/svg%3E");
+}
+
+.menu-icon-clock {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.2'/%3E%3Cpath d='M12 7.6V12l3 1.9'/%3E%3C/svg%3E");
+}
+
+.menu-icon-bell {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.6 10.2a5.4 5.4 0 0 1 10.8 0c0 3.9 1.4 5.1 1.9 5.9H4.7c.5-.8 1.9-2 1.9-5.9Z'/%3E%3Cpath d='M10.2 19.2a2 2 0 0 0 3.6 0'/%3E%3C/svg%3E");
+}
+
+.menu-icon-info {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.2'/%3E%3Cpath d='M12 11.2v5.2'/%3E%3Cpath d='M12 7.8h.01'/%3E%3C/svg%3E");
+}
+
+.menu-icon-swap {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.4 8.8h13.2l-2.8-2.8'/%3E%3Cpath d='M19.6 15.2H6.4l2.8 2.8'/%3E%3C/svg%3E");
+}
+
+.menu-icon-logout {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F04438' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.6 7.2V5.4a1.6 1.6 0 0 0-1.6-1.6H5.8A1.6 1.6 0 0 0 4.2 5.4v13.2a1.6 1.6 0 0 0 1.6 1.6H13a1.6 1.6 0 0 0 1.6-1.6v-1.8'/%3E%3Cpath d='M10.2 12h9.6'/%3E%3Cpath d='M17.2 9.4 19.8 12l-2.6 2.6'/%3E%3C/svg%3E");
+}
+
+.menu-icon-refresh {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F04438' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.6 12a7.6 7.6 0 1 1-2.7-5.8'/%3E%3Cpath d='M19.8 4.4v4.4h-4.4'/%3E%3C/svg%3E");
+}
+
+.menu-icon-qr {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D6EF7' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.4' y='3.4' width='6.2' height='6.2' rx='1.4'/%3E%3Crect x='14.4' y='3.4' width='6.2' height='6.2' rx='1.4'/%3E%3Crect x='3.4' y='14.4' width='6.2' height='6.2' rx='1.4'/%3E%3Cpath d='M14.6 14.6h2.4v2.4h-2.4z'/%3E%3Cpath d='M18.8 18.8h2v2h-2z'/%3E%3Cpath d='M17.6 14.4h1.6'/%3E%3Cpath d='M14.4 20.6h2'/%3E%3C/svg%3E");
+}
+
+.menu-main {
+  flex: 1;
+  min-width: 0;
+  margin: 0 20rpx;
+}
+
+.menu-name {
+  font-size: 30rpx;
+  color: #1A1D26;
+}
+
+.menu-desc {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+/* ============ 底部信息 ============ */
+.mine-foot {
+  padding: 40rpx 0 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mine-foot-name {
+  font-size: 26rpx;
+  color: #9AA1AC;
+}
+
+.mine-foot-tip {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #C4CAD6;
+}

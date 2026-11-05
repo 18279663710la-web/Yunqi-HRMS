@@ -1,0 +1,124 @@
+<view class="page">
+  <!-- ============ 时钟头部 ============ -->
+  <view class="att-hero">
+    <view class="clock">{{time}}</view>
+    <view class="clock-date">{{date}} · {{weekday}}</view>
+    <view class="clock-status">
+      <view class="status-dot {{attendance.status === 'absent' || attendance.status === 'missing_in' || attendance.status === 'missing_out' ? 'is-warn' : ''}}"></view>
+      <text>{{attendance.statusText}}</text>
+    </view>
+  </view>
+
+  <view class="page-body">
+    <!-- ============ 打卡地点 ============ -->
+    <view class="card loc-card" bindtap="onTapLocation" hover-class="card-hover">
+      <view class="loc-icon"></view>
+      <view class="flex-1 loc-main">
+        <view class="loc-title ellipsis">{{site ? site.address + (site.floor ? ' · ' + site.floor : '') : '管理员尚未设置打卡地点'}}</view>
+        <view class="loc-sub ellipsis">{{locationText}}</view>
+      </view>
+      <view class="loc-action">
+        <view class="tag {{location.ok ? 'tag-green' : 'tag-gray'}}">{{location.ok ? '已定位' : '未定位'}}</view>
+      </view>
+    </view>
+
+    <!-- ============ 打卡按钮 ============ -->
+    <view class="punch-wrap">
+      <view class="punch-halo {{attendance.canPunch ? 'is-active' : ''}}"></view>
+      <view
+        class="punch-btn {{attendance.canPunch ? '' : 'is-disabled'}} {{punchSuccess ? 'is-success' : ''}}"
+        bindtap="onPunch"
+        hover-class="{{attendance.canPunch ? 'punch-btn-hover' : ''}}"
+      >
+        <view class="punch-btn-label">{{attendance.nextText}}</view>
+        <view class="punch-btn-time">{{timeShort}}</view>
+      </view>
+    </view>
+    <view class="punch-tip">{{punchTip}}</view>
+
+    <view class="card" wx:if="{{overtime.length}}">
+      <view class="section-title">加班打卡</view>
+      <view class="today-foot" wx:for="{{overtime}}" wx:key="approvalId">
+        <view>申请开始：{{item.start}}</view>
+        <view wx:if="{{item.checkIn}}">上班打卡：{{item.checkIn}}</view>
+        <button size="mini" disabled="{{!item.canPunch || punching}}" data-id="{{item.approvalId}}" bindtap="onOvertimePunch">{{item.nextType === 'in' ? '加班上班打卡' : '加班下班打卡'}}</button>
+      </view>
+    </view>
+
+    <!-- ============ 今日打卡 ============ -->
+    <view class="card">
+      <view class="flex-between">
+        <view class="section-title">今日打卡</view>
+        <view class="tag {{attendance.todayStatusClass}}">{{attendance.statusText}}</view>
+      </view>
+
+      <view class="today-row">
+        <view class="today-col">
+          <view class="today-label">上班打卡</view>
+          <view class="today-time {{attendance.checkIn ? '' : 'is-empty'}}">{{attendance.checkIn || '--:--'}}</view>
+          <view class="today-note {{attendance.inLate ? 'is-warn' : ''}}">{{attendance.inNote}}</view>
+        </view>
+        <view class="today-divider"></view>
+        <view class="today-col">
+          <view class="today-label">下班打卡</view>
+          <view class="today-time {{attendance.checkOut ? '' : 'is-empty'}}">{{attendance.checkOut || '--:--'}}</view>
+          <view class="today-note">{{attendance.outNote}}</view>
+        </view>
+      </view>
+
+      <view class="today-foot">
+        <text>办公时间 {{attendance.workTime}}</text>
+      </view>
+    </view>
+
+    <!-- ============ 本周统计 ============ -->
+    <view class="card">
+      <view class="flex-between">
+        <view class="section-title">本周统计</view>
+        <view class="section-more" bindtap="goRecord">考勤明细 ›</view>
+      </view>
+
+      <view class="stat-grid">
+        <view class="stat-item">
+          <view class="stat-value c-green">{{stats.week.normal}}</view>
+          <view class="stat-label">正常</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value c-orange">{{stats.week.missingIn}}</view>
+          <view class="stat-label">未打上班卡</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value c-orange">{{stats.week.missingOut}}</view>
+          <view class="stat-label">未打下班卡</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value c-red">{{stats.week.absent}}</view>
+          <view class="stat-label">缺卡</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value c-blue">{{stats.week.leave}}</view>
+          <view class="stat-label">请假</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value">{{stats.week.rest}}</view>
+          <view class="stat-label">休息</view>
+        </view>
+      </view>
+
+      <view class="stat-summary">
+        <view class="stat-summary-item">
+          <text class="stat-summary-label">出勤天数</text>
+          <text class="stat-summary-value">{{stats.week.presentDays}} / {{stats.week.workdays}}</text>
+        </view>
+        <view class="stat-summary-item">
+          <text class="stat-summary-label">日均工时</text>
+          <text class="stat-summary-value">{{stats.avgHours}} h</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="tip-note">
+      <text>考勤数据由系统自动汇总，如有异议可在次月 5 日前提交补卡申请。</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,143 @@
+.sum-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  row-gap: 24rpx;
+  margin-top: 28rpx;
+}
+
+.sum-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sum-value {
+  font-size: 46rpx;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sum-label {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #9AA1AC;
+}
+
+.c-green {
+  color: #16B364;
+}
+
+.c-orange {
+  color: #F79009;
+}
+
+.c-red {
+  color: #F04438;
+}
+
+.c-blue {
+  color: #3D6EF7;
+}
+
+.sum-foot {
+  margin-top: 28rpx;
+  padding-top: 22rpx;
+  border-top: 2rpx solid #F2F4F8;
+  text-align: center;
+  font-size: 22rpx;
+  color: #9AA1AC;
+}
+
+.sum-foot-sep {
+  margin: 0 16rpx;
+  color: #DDE2EB;
+}
+
+/* 筛选栏 */
+.filter-bar {
+  display: flex;
+  margin: 4rpx 0 20rpx;
+}
+
+.filter-item {
+  height: 60rpx;
+  padding: 0 30rpx;
+  margin-right: 16rpx;
+  border-radius: 30rpx;
+  background: #FFFFFF;
+  font-size: 26rpx;
+  color: #5A6472;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-item.active {
+  background: #EAF0FF;
+  color: #3D6EF7;
+  font-weight: 600;
+}
+
+/* 明细行 */
+.rec-row {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+}
+
+.rec-row + .rec-row {
+  border-top: 2rpx solid #F2F4F8;
+}
+
+.rec-date {
+  width: 92rpx;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rec-day {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1A1D26;
+  line-height: 1.1;
+}
+
+.rec-day.is-today {
+  color: #3D6EF7;
+}
+
+.rec-week {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #9AA1AC;
+}
+
+.rec-main {
+  flex: 1;
+  min-width: 0;
+  padding: 0 20rpx;
+}
+
+.rec-time {
+  font-size: 30rpx;
+  color: #1A1D26;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-time .is-empty {
+  color: #C4CAD6;
+}
+
+.rec-dash {
+  margin: 0 12rpx;
+  color: #C4CAD6;
+}
+
+.rec-duration {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9AA1AC;
+}

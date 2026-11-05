@@ -1,0 +1,276 @@
+import type { PoolConnection } from 'mysql2/promise';
+
+import { queryOne, transaction } from './pool';
+import {
+  approvalTypes as approvalTypesSeed,
+  company as companySeed,
+  departments as departmentsSeed,
+  employees as employeesSeed,
+  notices as noticesSeed,
+  quickActions as quickActionsSeed,
+} from './seedData';
+import { config } from '../../config';
+import { hashPassword } from '../utils/password';
+import { seedAttendanceForEmployees, seedTodayCheckIns } from './attendanceSeed';
+
+interface SeedDepartment {
+  id: string;
+  parentId: string;
+  name: string;
+  leaderId: string;
+  order: number;
+}
+
+interface SeedEmployee {
+  id: string;
+  name: string;
+  pinyin: string;
+  deptId: string;
+  deptName: string;
+  position: string;
+  level: string;
+  employeeNo: string;
+  phone: string;
+  email: string;
+  joinDate: string;
+  isLeader: boolean;
+  seat: string;
+}
+
+interface SeedApprovalType {
+  key: string;
+  name: string;
+  color: string;
+  desc: string;
+  fields: unknown[];
+}
+
+interface SeedQuickAction {
+  key: string;
+  name: string;
+  icon: string;
+  color: string;
+  url: string;
+  tab?: boolean;
+}
+
+interface SeedNotice {
+  id: string;
+  title: string;
+  category: string;
+  categoryName: string;
+  isTop: boolean;
+  isRead: boolean;
+  publishTime: string;
+  publisher: string;
+  publisherDept: string;
+  banner: string;
+  summary: string;
+  readCount: number;
+  totalCount: number;
+  blocks: unknown[];
+  attachments: unknown[];
+}
+
+const departments = departmentsSeed as SeedDepartment[];
+const employees = employeesSeed as SeedEmployee[];
+const approvalTypes = approvalTypesSeed as SeedApprovalType[];
+const quickActions = quickActionsSeed as SeedQuickAction[];
+const notices = noticesSeed as unknown as SeedNotice[];
+
+const DATA_VERSION = '1';
+const READ_EMPLOYEE_ID = 'U001';
+
+async function clearAll(conn: PoolConnection): Promise<void> {
+  const tables = [
+    'expense_ai_jobs',
+    'expense_attachments',
+    'expense_uploads',
+    'admin_operation_logs',
+    'approval_approvers',
+    'approval_rules',
+    'chairperson_account',
+    'employee_accounts',
+    'admins',
+    'invoice_verifications',
+    'invoice_identity_locks',
+    'notice_reads',
+    'invoices',
+    'approval_timeline',
+    'attendance_overtime_punches',
+    'approvals',
+    'notices',
+    'attendance_punches',
+    'quick_actions',
+    'approval_types',
+    'employees',
+    'departments',
+    'companies',
+    'app_meta',
+  ];
+  for (const table of tables) {
+    await conn.query(`DELETE FROM \`${table}\``);
+  }
+}
+
+async function insertAll(conn: PoolConnection): Promise<void> {
+  await conn.query(
+    'INSERT INTO companies (id, name, short_name, logo_text, address, work_time, flexible) VALUES (1, ?, ?, ?, ?, ?, ?)',
+    [companySeed.name, companySeed.shortName, companySeed.logoText, companySeed.address, companySeed.workTime, companySeed.flexible]
+  );
+
+  for (const d of departments) {
+    await conn.query(
+      'INSERT INTO departments (id, parent_id, name, leader_id, sort_order) VALUES (?, ?, ?, ?, ?)',
+      [d.id, d.parentId || null, d.name, d.leaderId || null, d.order]
+    );
+  }
+
+  const deptMap = new Map(departments.map((d) => [d.id, d]));
+  const resolveLeaderId = (employee: SeedEmployee): string | null => {
+    let dept = deptMap.get(employee.deptId);
+    const visited = new Set<string>();
+    while (dept && !visited.has(dept.id)) {
+      visited.add(dept.id);
+      if (dept.leaderId && dept.leaderId !== employee.id) return dept.leaderId;
+      dept = dept.parentId ? deptMap.get(dept.parentId) : undefined;
+    }
+    return null;
+  };
+
+  for (const e of employees) {
+    await conn.query(
+      `INSERT INTO employees
+        (id, name, pinyin, gender, dept_id, position, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        e.id,
+        e.name,
+        e.pinyin,
+        null,
+        e.deptId,
+        e.position,
+        e.level,
+        e.employeeNo,
+        e.phone,
+        e.email,
+        e.joinDate,
+        e.isLeader ? 1 : 0,
+        e.seat,
+        resolveLeaderId(e),
+      ]
+    );
+  }
+
+  // 给保留的演示员工预置小程序登录账号（密码见 DEMO_EMPLOYEE_PASSWORD）
+  const demoAccountIds = employees.map((employee) => employee.id);
+  const demoPasswordHash = hashPassword(config.demoEmployeePassword);
+  for (const employeeId of demoAccountIds) {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) continue;
+    await conn.query(
+      `INSERT INTO employee_accounts
+        (employee_id, login_name, password_hash, status, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, 'active', NULL, NOW(), NOW())`,
+      [employeeId, employee.pinyin, demoPasswordHash]
+    );
+  }
+
+  for (let i = 0; i < approvalTypes.length; i += 1) {
+    const t = approvalTypes[i];
+    await conn.query(
+      'INSERT INTO approval_types (`key`, `name`, color, description, fields_json, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+      [t.key, t.name, t.color, t.desc, JSON.stringify(t.fields), i + 1]
+    );
+  }
+
+  for (let i = 0; i < quickActions.length; i += 1) {
+    const q = quickActions[i];
+    await conn.query(
+      'INSERT INTO quick_actions (`key`, `name`, icon, color, url, is_tab, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [q.key, q.name, q.icon, q.color, q.url, q.tab ? 1 : 0, i + 1]
+    );
+  }
+
+  await insertNotices(conn);
+  // 完整重播保留考勤配置时，同步公司展示时间。
+  await conn.query("UPDATE companies c JOIN attendance_settings s ON s.id = 1 SET c.work_time = CONCAT(s.start_time, ' - ', s.end_time) WHERE c.id = 1");
+  await touchMeta(conn);
+}
+
+async function insertNotices(conn: PoolConnection): Promise<void> {
+  for (const n of notices) {
+    await conn.query(
+      `INSERT INTO notices
+        (id, title, category, category_name, is_top, publish_time, publisher, publisher_dept, banner,
+         summary, read_count, total_count, blocks_json, attachments_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        n.id,
+        n.title,
+        n.category,
+        n.categoryName,
+        n.isTop ? 1 : 0,
+        n.publishTime,
+        n.publisher,
+        n.publisherDept,
+        n.banner,
+        n.summary,
+        n.readCount,
+        n.totalCount,
+        JSON.stringify(n.blocks),
+        JSON.stringify(n.attachments),
+      ]
+    );
+
+    // 演示账号 U001 的已读状态（原 mock 里的 isRead）
+    if (n.isRead) {
+      await conn.query(
+        'INSERT IGNORE INTO notice_reads (notice_id, employee_id, read_at) VALUES (?, ?, NOW())',
+        [n.id, READ_EMPLOYEE_ID]
+      );
+    }
+  }
+}
+
+async function touchMeta(conn: PoolConnection): Promise<void> {
+  await conn.query(
+    'INSERT INTO app_meta (`k`, `v`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `v` = VALUES(`v`)',
+    ['data_version', DATA_VERSION]
+  );
+}
+
+/**
+ * 小程序「重置演示数据」：重置公告、考勤和查验缓存，保留审批、发票及员工账号。
+ */
+export async function resetDemoContent(): Promise<void> {
+  await transaction(async (conn) => {
+    const tables = [
+      'invoice_verifications',
+      'notice_reads',
+      'notices',
+      'attendance_punches',
+    ];
+    for (const table of tables) {
+      await conn.query(`DELETE FROM \`${table}\``);
+    }
+    await insertNotices(conn);
+    await touchMeta(conn);
+  });
+
+  const seedEmployeeIds = employees.map((e) => e.id);
+  await seedAttendanceForEmployees(seedEmployeeIds);
+  await seedTodayCheckIns(seedEmployeeIds);
+}
+
+/** 首次启动播种：companies 已有数据时跳过；force=true 时清空后重播（会清空员工与账号） */
+export async function seedDatabase(force = false): Promise<boolean> {
+  const row = await queryOne<{ total: number }>('SELECT COUNT(*) AS total FROM companies');
+  if (!force && row && Number(row.total) > 0) return false;
+
+  await transaction(async (conn) => {
+    if (force) await clearAll(conn);
+    await insertAll(conn);
+  });
+  return true;
+}

@@ -1,0 +1,97 @@
+<view class="page">
+  <!-- 搜索 -->
+  <view class="search-bar">
+    <view class="search-box">
+      <view class="search-icon"></view>
+      <input
+        class="search-input"
+        placeholder="搜索姓名 / 职位 / 手机号"
+        placeholder-class="search-placeholder"
+        value="{{keyword}}"
+        confirm-type="search"
+        bindinput="onSearch"
+      />
+      <view class="search-clear" wx:if="{{keyword}}" bindtap="clearSearch">✕</view>
+    </view>
+  </view>
+
+  <!-- 部门筛选 -->
+  <scroll-view class="dept-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+    <view
+      class="dept-item {{activeDept === '' ? 'active' : ''}}"
+      data-id=""
+      bindtap="onDept"
+    >
+      全部
+    </view>
+    <view
+      class="dept-item {{activeDept === item.id ? 'active' : ''}}"
+      wx:for="{{departments}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="onDept"
+    >
+      {{item.name}}
+    </view>
+  </scroll-view>
+
+  <view class="count-tip">
+    <text class="count-name">{{activeDeptName}}</text>
+    <text class="count-num">共 {{total}} 人</text>
+  </view>
+
+  <view class="page-body">
+    <block wx:if="{{groups.length}}">
+      <view class="letter-group" wx:for="{{groups}}" wx:key="letter" id="letter-{{item.letter}}">
+        <view class="letter-head">{{item.letter}}</view>
+        <view class="card card-tight">
+          <view
+            class="emp-item"
+            wx:for="{{item.list}}"
+            wx:for-item="emp"
+            wx:key="id"
+            data-id="{{emp.id}}"
+            bindtap="goDetail"
+            hover-class="row-item-hover"
+            hover-stay-time="60"
+          >
+            <view class="avatar avatar-md">{{emp.initial}}</view>
+            <view class="emp-main">
+              <view class="emp-name">
+                {{emp.name}}
+                <text class="emp-leader" wx:if="{{emp.isLeader}}">负责人</text>
+              </view>
+              <view class="emp-meta ellipsis">{{emp.deptName}} · {{emp.position}}</view>
+            </view>
+            <view
+              class="emp-call"
+              data-phone="{{emp.phone}}"
+              catchtap="onCall"
+              hover-class="emp-call-hover"
+            ></view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="empty" wx:else>
+      <view class="empty-icon">🔍</view>
+      <view class="empty-text">没有找到匹配的同事</view>
+    </view>
+
+    <view class="tabbar-holder"></view>
+  </view>
+
+  <!-- 字母索引 -->
+  <view class="letter-index" wx:if="{{groups.length}}">
+    <view
+      class="letter-index-item"
+      wx:for="{{letters}}"
+      wx:key="*this"
+      data-letter="{{item}}"
+      bindtap="onLetterTap"
+    >
+      {{item}}
+    </view>
+  </view>
+</view>

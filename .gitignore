@@ -1,0 +1,19 @@
+node_modules/
+server/node_modules/
+miniprogram/node_modules/
+web/dist/
+web/node_modules/
+server/dist/
+server/uploads/*
+!server/uploads/.gitkeep
+.env
+.env.local
+*.log
+.DS_Store
+
+# 本机配置、历史快照和运行时材料
+/代码备份/
+/发票样本/
+/.playwright-cli/
+/.zcode/
+/project.private.config.json

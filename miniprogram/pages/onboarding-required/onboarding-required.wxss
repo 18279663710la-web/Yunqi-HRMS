@@ -1,0 +1,9 @@
+.required-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40rpx; background: #f5f7fb; }
+.required-card { width: 100%; max-width: 640rpx; padding: 56rpx 40rpx 40rpx; background: #fff; border: 1rpx solid #e7edf6; border-radius: 24rpx; text-align: center; box-shadow: 0 12rpx 40rpx rgba(34, 55, 92, .06); }
+.required-icon { display: flex; width: 96rpx; height: 96rpx; margin: 0 auto 30rpx; align-items: center; justify-content: center; border-radius: 24rpx; color: #3d6ef7; background: #edf3ff; font-size: 42rpx; font-weight: 600; }
+.required-title { color: #192840; font-size: 36rpx; font-weight: 600; }
+.required-description { margin: 18rpx 0 38rpx; color: #718096; font-size: 27rpx; line-height: 1.7; }
+.required-button { margin: 0; border-radius: 12rpx; color: #fff; background: #3d6ef7; font-size: 29rpx; font-weight: 600; line-height: 84rpx; }
+.required-button::after { border: 0; }
+.required-switch { margin-top: 20rpx; color: #718096; background: transparent; font-size: 25rpx; line-height: 64rpx; }
+.required-switch::after { border: 0; }
