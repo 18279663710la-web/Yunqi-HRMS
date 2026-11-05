@@ -3,7 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import { App } from 'antd';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ModelsFormulasView } from '../src/pages/ModelsFormulas';
+import { ModelsFormulasView } from '../src/modules/models-formulas/ModelsFormulas';
 
 test('超级管理员查看出勤率绩效时只展示对应规则', () => {
   const html = renderToStaticMarkup(<App><ModelsFormulasView role="super_admin" section="attendance" /></App>);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildAttendanceRules, formatAttendanceRules, normalizeAttendanceRules, validateAttendanceRules } from '../src/utils/attendanceRules';
+import { buildAttendanceRules, formatAttendanceRules, normalizeAttendanceRules, validateAttendanceRules } from '../src/modules/models-formulas/attendance/attendanceRules';
 
 test('出勤率规则闭环：全勤置顶、区间首尾相接并覆盖 0–100%', () => {
   const legacy = [{ minRate: 0, maxRate: 90, adjustment: -200 }, { minRate: 90, maxRate: 100, adjustment: 0 }, { minRate: 100, maxRate: 100, adjustment: 150 }];

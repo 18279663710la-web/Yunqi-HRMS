@@ -7,6 +7,7 @@
 ## 主要内容
 
 - 主要文件：`overtimePayrollService.ts`、`payrollAttendanceService.ts`、`payrollAutoService.ts`、`payrollModelCalculation.ts`、`payrollWorkflowRepository.ts`、`payrollWorkflowService.ts`、`salaryModelRepository.ts`、`salaryModelSchema.ts`等。
+- `attendanceRuleConfig.ts` 与 `attendanceRuleConfigRepository.ts` 管理出勤绩效规则的模式校验和存储。
 - `salaryModelService.ts` 管理薪资模型读取和字段规则；`salaryModelUpdateService.ts` 处理模型变更和员工定薪同步。`payrollWorkflowService.ts` 与 `payrollWorkflowRepository.ts` 分别负责流程业务和存储。
 
 ## 维护约束

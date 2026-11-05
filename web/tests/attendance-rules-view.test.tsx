@@ -3,7 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Form } from 'antd';
-import { AttendanceRulesFields } from '../src/components/AttendanceRulesFields';
+import { AttendanceRulesFields } from '../src/modules/models-formulas/attendance/AttendanceRulesFields';
 
 test('出勤率规则以全勤规则开头，保留区间和调整金额编辑', () => {
   const html = renderToStaticMarkup(<Form initialValues={{ attendanceRules: [{ minRate: 100, maxRate: 100, adjustment: 150 }, { minRate: 0, maxRate: 100, adjustment: -200 }] }}><AttendanceRulesFields /></Form>);

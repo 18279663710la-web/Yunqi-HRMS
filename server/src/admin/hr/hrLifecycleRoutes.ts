@@ -14,6 +14,8 @@ import { taskSchema, completionSchema } from './hrOnboardingService';
 import { cancelTransition, listTransitions, submitTransition, transitionSchema } from './hrTransitionService';
 import { cancelDeparture, finalizeDeparture } from './hrDepartureService';
 import { defaultOvertimeRules, overtimeRulesKey, overtimeRulesSchema } from '../../domains/payroll/overtimePayrollService';
+import { attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
+import { ATTENDANCE_RULE_CONFIG_KEY, readAttendanceRuleConfig, saveAttendanceRuleConfig } from '../../domains/payroll/attendanceRuleConfigRepository';
 
 const router = Router();
 const monthSchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) });
@@ -118,10 +120,24 @@ async function loadAttendancePayrollRules() {
   }
   return setting ? parse(attendanceRulesSchema, json(setting.value_json)) : [];
 }
-router.get('/attendance-payroll-rules', asyncHandler(async (_req, res) => { success(res, await loadAttendancePayrollRules()); }));
+router.get('/attendance-payroll-rule-config', asyncHandler(async (_req, res) => {
+  const stored = await readAttendanceRuleConfig();
+  success(res, stored ?? { mode: 'rate_attendance', rules: await loadAttendancePayrollRules() });
+}));
+router.put('/attendance-payroll-rule-config', asyncHandler(async (req, res) => {
+  const config = parse(attendanceRuleConfigSchema, req.body);
+  await saveAttendanceRuleConfig(config);
+  await recordAdminLog(req.admin!, '设置全员出勤绩效规则', 'hr_settings', ATTENDANCE_RULE_CONFIG_KEY, { mode: config.mode, count: config.rules.length });
+  success(res, config);
+}));
+router.get('/attendance-payroll-rules', asyncHandler(async (_req, res) => {
+  const config = await readAttendanceRuleConfig();
+  if (config && config.mode !== 'rate_attendance') throw conflict('当前规则不是按比例出勤配置，请使用新版接口');
+  success(res, await loadAttendancePayrollRules());
+}));
 router.put('/attendance-payroll-rules', asyncHandler(async (req, res) => {
   const rules = parse(payrollAttendanceRulesSchema, req.body);
-  await execute('INSERT INTO hr_settings (setting_key, value_json, updated_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()', [attendanceRulesKey, JSON.stringify(rules)]);
+  await saveAttendanceRuleConfig({ mode: 'rate_attendance', rules });
   await recordAdminLog(req.admin!, '设置全员出勤率绩效规则', 'hr_settings', attendanceRulesKey, { count: rules.length });
   success(res, rules);
 }));

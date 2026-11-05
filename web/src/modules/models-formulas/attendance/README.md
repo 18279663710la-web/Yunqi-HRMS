@@ -2,11 +2,11 @@
 
 ## 职责
 
-出勤率绩效规则页面、字段与工具。
+出勤绩效规则页面，支持比例/天数及出勤/缺勤组合、区间编辑和旧规则兼容。
 
 ## 主要内容
 
-- 主要文件：`attendanceRules.ts`、`AttendanceRulesFields.tsx`、`PayrollAttendanceRules.tsx`。
+- 主要文件：`attendanceRules.ts`、`attendanceRuleModes.ts`、`AttendanceRulesFields.tsx`、`AttendanceModeRulesFields.tsx`、`PayrollAttendanceRules.tsx`。
 
 ## 维护约束
 
