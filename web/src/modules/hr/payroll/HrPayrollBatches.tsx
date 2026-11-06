@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { App, Button, DatePicker, Descriptions, Dropdown, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { type Dayjs } from 'dayjs';
 import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollFixed, updatePayrollDeduction, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
 import { getPayrollPage } from './payrollPagination';
 import { payrollFieldNames } from './payrollFieldOrder';
+import { buildPayrollExportData } from './payrollExportData';
 import { buildInlinePayrollUpdate, buildFixedPayrollUpdate, parseManualDeduction, previewInlinePayrollTotals } from './payrollInlineEdit';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 
@@ -28,10 +29,12 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [autoLoading, setAutoLoading] = useState(false);
   const [cellEdit, setCellEdit] = useState<CellEdit>();
   const [cellSaving, setCellSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [legacyItem, setLegacyItem] = useState<PayrollBatchItem>();
   const [form] = Form.useForm<{ employeeId: string }>();
   const cellEditRef = useRef<CellEdit>();
   const cellSavingRef = useRef(false);
+  const exportingRef = useRef(false);
   const nextCellRef = useRef<{ batchId: number; itemId: number; fieldName: string; fixed?: boolean; manualDeduction?: boolean }>();
   const itemsRef = useRef<PayrollBatchItem[]>([]);
   const itemsEpoch = useRef(0);
@@ -174,7 +177,17 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
   };
   const fieldNames = payrollFieldNames(model, items.map(item => item.modelSnapshot));
-  const editingBusy = !!cellEdit || cellSaving;
+  const editingBusy = !!cellEdit || cellSaving || exporting;
+  const exportBatch = async (format: 'pdf' | 'xlsx') => {
+    if (!current || !items.length || !model || loading || cellEditRef.current || cellSavingRef.current || exportingRef.current) return;
+    exportingRef.current = true; setExporting(true);
+    try {
+      const data = buildPayrollExportData(current, items, model);
+      if (format === 'pdf') await (await import('./payrollExportPdf')).downloadPayrollPdf(data);
+      else await (await import('./payrollExportXlsx')).downloadPayrollXlsx(data);
+    } catch (error) { message.error((error as Error).message || '输出失败，请重试'); }
+    finally { exportingRef.current = false; setExporting(false); }
+  };
   const previewSnapshot = cellEdit?.conflict ? cellEdit.latestSnapshot : cellEdit?.snapshot;
   const preview = cellEdit && previewSnapshot ? previewInlinePayrollTotals(previewSnapshot, cellEdit.fieldName, cellEdit.value, cellEdit.manualDeduction, cellEdit.fixed) : undefined;
   const previewRow = cellEdit && preview ? items.find(item => item.id === cellEdit.itemId) : undefined;
@@ -199,7 +212,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
           onChange={event => { const edit = cellEditRef.current; if (edit) updateEdit({ ...edit, value: event.target.value, error: edit.conflict ? edit.error : undefined }); }}
           onBlur={() => void saveCell(false)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveCell(true); } else if (event.key === 'Escape' && !cellSavingRef.current) { event.preventDefault(); nextCellRef.current = undefined; updateEdit(); } }}
         />;
-        return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${name}`} title={fixed?.manualAdjustment ? `已手动调整，原值：${fixed.manualAdjustment.originalValue}` : undefined} disabled={loading || cellSaving} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
+        return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${name}`} title={fixed?.manualAdjustment ? `已手动调整，原值：${fixed.manualAdjustment.originalValue}` : undefined} disabled={loading || cellSaving || exporting} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
           if (cellSavingRef.current || !selected || !row.modelSnapshot) return;
           const edit = cellEditRef.current;
           if (edit) {
@@ -217,7 +230,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       if (cellEdit?.itemId === row.id && cellEdit.manualDeduction) return <Input autoFocus size="small" className="payroll-cell-input" aria-label={`编辑${row.name}的扣除`} aria-invalid={!!cellEdit.error} aria-busy={cellSaving} title={cellEdit.error} status={cellEdit.error ? 'error' : undefined} value={cellEdit.value} disabled={cellSaving} inputMode="decimal"
         onChange={event => { const edit = cellEditRef.current; if (edit) updateEdit({ ...edit, value: event.target.value, error: edit.conflict ? edit.error : undefined }); }}
         onBlur={() => void saveCell(false)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveCell(true); } else if (event.key === 'Escape' && !cellSavingRef.current) { event.preventDefault(); nextCellRef.current = undefined; updateEdit(); } }} />;
-      return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的扣除`} disabled={loading || cellSaving} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
+      return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的扣除`} disabled={loading || cellSaving || exporting} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
         if (cellSavingRef.current || !selected || !row.modelSnapshot) return;
         const edit = cellEditRef.current;
         const next = { batchId: selected, itemId: row.id, fieldName: '扣除', manualDeduction: true };
@@ -238,6 +251,9 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       <button type="button" className="salary-model-entry" onClick={() => setHistoryOpen(true)} disabled={loading || editingBusy}>历史工资批次</button>
       <Popconfirm title="确认复核该批次？复核后不能修改。" onConfirm={() => void review()} okText="确认" cancelText="取消" disabled={loading || editingBusy || current?.status !== 'draft' || !items.length}><button type="button" className="salary-model-entry" disabled={loading || editingBusy || current?.status !== 'draft' || !items.length}>复核并锁定</button></Popconfirm>
       <Popconfirm title="删除该草稿及其全部工资明细？" onConfirm={() => void removeDraft()} okText="删除" cancelText="取消" disabled={loading || editingBusy || current?.status !== 'draft'}><button type="button" className="salary-model-entry salary-model-entry-danger" disabled={loading || editingBusy || current?.status !== 'draft'}>删除草稿</button></Popconfirm>
+      <Dropdown trigger={['click']} disabled={loading || editingBusy || !current || !items.length || !model} menu={{ items: [{ key: 'pdf', label: 'PDF' }, { key: 'xlsx', label: 'XLSX' }], onClick: ({ key }) => void exportBatch(key as 'pdf' | 'xlsx') }}>
+        <button type="button" className="salary-model-entry payroll-export-action" disabled={loading || editingBusy || !current || !items.length || !model}>输出</button>
+      </Dropdown>
     </div>
     {current && <div className="payroll-batches-content">
       <div className="payroll-batches-current"><Typography.Text strong>{current.month} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text></div>
