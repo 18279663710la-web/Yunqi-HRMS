@@ -1,4 +1,5 @@
 import type { PayrollModelSnapshot } from '../api';
+import { calculateSalaryTotals } from '../../models-formulas/salary/salaryCalculation';
 
 export function parseManualDeduction(rawValue: string): number {
   const trimmed = rawValue.trim();
@@ -24,16 +25,6 @@ export function buildInlinePayrollUpdate(snapshot: PayrollModelSnapshot, fieldNa
 export function previewInlinePayrollTotals(snapshot: PayrollModelSnapshot, fieldName: string, rawValue: string, manual = false) {
   try {
     const values = new Map((manual ? snapshot.extended : buildInlinePayrollUpdate(snapshot, fieldName, rawValue).values).map(field => [field.name, field.value]));
-    let gross = Math.round(snapshot.fixedTotal * 100);
-    const deductions = Math.round((manual ? parseManualDeduction(rawValue) : snapshot.manualDeduction ?? 0) * 100);
-    for (const field of snapshot.fixed) if (field.category === 'deduction' && typeof field.value === 'number') gross -= Math.round(field.value * 100);
-    for (const field of snapshot.extended) {
-      const value = values.get(field.name);
-      if (typeof value !== 'number') continue;
-      if (field.category === 'income') gross += Math.round(value * 100);
-      if (field.category === 'deduction') gross -= Math.round(value * 100);
-    }
-    if (gross < 0 || gross > 999999999999 || deductions > gross) return undefined;
-    return { gross: gross / 100, deductions: deductions / 100, net: (gross - deductions) / 100 };
+    return calculateSalaryTotals(snapshot, values, manual ? parseManualDeduction(rawValue) : snapshot.manualDeduction ?? 0);
   } catch { return undefined; }
 }

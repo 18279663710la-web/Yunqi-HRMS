@@ -43,6 +43,16 @@ test('工资明细自动读取员工月度考勤，阻止不完整打卡并保�
     await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT1','U001','2020-02-29 23:30:00','2020-03-01 01:00:00'), ('OT2','U013','2020-02-03 19:00:00',NULL)`);
     await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT3','U001','2020-02-20 19:00:00','2020-02-20 21:00:00')`);
     const batch = (await call('/admin/hr/payroll-batches', 'POST', { month: '2020-02' })).body.data.id;
+    const [numberRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT employee_no FROM \`${database}\`.employees WHERE id='U013'`);
+    await conn.query(`UPDATE \`${database}\`.employees SET employee_no=(SELECT employee_no FROM (SELECT employee_no FROM \`${database}\`.employees WHERE id='U001') source_employee) WHERE id='U013'`);
+    const ambiguous = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`);
+    assert.equal(ambiguous.status, 400);
+    assert.match(ambiguous.body.message || '', /员工号/);
+    await conn.query(`UPDATE \`${database}\`.employees SET employee_no='' WHERE id='U013'`);
+    const missingNumber = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`);
+    assert.equal(missingNumber.status, 400);
+    assert.match(missingNumber.body.message || '', /员工号/);
+    await conn.query(`UPDATE \`${database}\`.employees SET employee_no=? WHERE id='U013'`, [numberRows[0].employee_no]);
     const broken = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`);
     assert.equal(broken.status, 400); assert.match(broken.body.message || '', /打卡/);
     assert.equal((await call(`/admin/hr/payroll-batches/${batch}/auto-items`, 'POST', {})).status, 400);
@@ -58,6 +68,8 @@ test('工资明细自动读取员工月度考勤，阻止不完整打卡并保�
     const preview = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`); assert.equal(preview.status, 200, JSON.stringify(preview.body));
     const one = preview.body.data.candidates.find((candidate: any) => candidate.employeeId === 'U001');
     assert.equal(one.modelSnapshot.fixed.find((field: any) => field.name === '出勤天数').value, 1);
+    assert.equal(one.modelSnapshot.fixed.find((field: any) => field.name === '出勤天数').attendanceEmployeeNo, one.employeeNo);
+    assert.equal(one.modelSnapshot.fixed.find((field: any) => field.name === '出勤天数').attendancePeriod, '2020-02');
     assert.equal(one.modelSnapshot.extended[0].value, 3.5);
     assert.equal(one.modelSnapshot.extended[0].attendanceMetric, 'overtimeHours');
     assert.equal(one.modelSnapshot.extended[1].value, 30);

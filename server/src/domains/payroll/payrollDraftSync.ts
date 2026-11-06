@@ -1,7 +1,7 @@
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { transaction } from '../../shared/db/pool';
 import { badRequest } from '../../shared/utils/errors';
-import { calculateExtendedSalary, type PayrollModelSnapshot, type PayrollValue } from './payrollModelCalculation';
+import { calculateExtendedSalary, calculateFixedIncome, type PayrollModelSnapshot, type PayrollValue } from './payrollModelCalculation';
 import { readSalaryModel, salaryAmountFields, type SalaryModel, type SalaryModelField } from './salaryModelService';
 
 export function synchronizeDraftSnapshot(snapshot: PayrollModelSnapshot, model: SalaryModel): PayrollModelSnapshot | undefined {
@@ -18,7 +18,7 @@ export function synchronizeDraftSnapshot(snapshot: PayrollModelSnapshot, model: 
   const fixed = update(snapshot.fixed, salaryAmountFields(model), 'income');
   const extended = update(snapshot.extended, model.extendedFields, 'info');
   if (!changed) return undefined;
-  const fixedTotal = fixed.reduce((sum, field) => sum + (typeof field.value === 'number' && (field.category ?? 'income') === 'income' ? Math.round(field.value * 100) : 0), 0) / 100;
+  const fixedTotal = calculateFixedIncome(fixed);
   return { ...snapshot, fixed, extended, fixedTotal, manualDeduction: snapshot.manualDeduction ?? 0, revision: (snapshot.revision ?? 0) + 1 };
 }
 

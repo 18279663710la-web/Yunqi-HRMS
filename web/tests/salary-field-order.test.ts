@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { moveSalaryField, orderedSalaryFields } from '../src/utils/salaryModel';
+import { moveSalaryField, orderedSalaryFields } from '../src/modules/models-formulas/salary/salaryModel';
 import type { SalaryComponentModel } from '../src/api/hr';
 
 const model: SalaryComponentModel = {

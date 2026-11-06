@@ -13,6 +13,7 @@
 - `salaryModelService.ts` 管理薪资模型读取和字段规则；`salaryModelUpdateService.ts` 处理模型变更和员工定薪同步。`payrollWorkflowService.ts` 与 `payrollWorkflowRepository.ts` 分别负责流程业务和存储。
 - `payrollDraftSync.ts` 在模型保存及草稿访问时同步同名字段用途、重算金额并更新版本；旧草稿首次同步清零原自动扣除，已复核及无快照明细保持不变。
 - `payrollModelCalculation.ts` 将模型收入减模型扣款作为应发，管理员手填扣除后计算实发。
+- `salaryModelAttendance.ts` 按模型字段配置、员工号和月份解析考勤数据，调用考勤来源并保存结果快照；员工号为空或不唯一时拒绝取数。
 
 ## 维护约束
 

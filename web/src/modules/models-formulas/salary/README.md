@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 主要文件：`salaryModel.ts`、`salaryInterfaceConfig.ts`、`SalaryModels.tsx`。
+- 主要文件：`salaryModel.ts`、`salaryInterfaceConfig.ts`、`salaryCalculation.ts`、`SalaryModels.tsx`；金额预览依据模型字段用途计算并供工资批次调用。
 
 ## 维护约束
 

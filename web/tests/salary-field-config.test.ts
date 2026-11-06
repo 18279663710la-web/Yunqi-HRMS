@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildSalaryModelGroups } from '../src/utils/salaryModel';
+import { buildSalaryModelGroups } from '../src/modules/models-formulas/salary/salaryModel';
 
 test('字段配置保留类型、用途和考勤接口', () => {
   const groups = buildSalaryModelGroups([{ name: '说明', type: 'text', category: 'info', interfaceSource: 'attendance' }], [{ name: '工时', type: 'number', category: 'info', interfaceSource: 'attendance' }]);

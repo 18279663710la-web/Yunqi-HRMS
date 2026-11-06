@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SALARY_IDENTITY_FIELDS, buildSalaryModelGroups } from '../src/utils/salaryModel';
+import { SALARY_IDENTITY_FIELDS, buildSalaryModelGroups } from '../src/modules/models-formulas/salary/salaryModel';
 
 test('固定模型注入姓名、员工号及职务并允许没有金额字段', () => {
   assert.deepEqual(SALARY_IDENTITY_FIELDS.map(field => field.name), ['姓名', '员工号', '职务']);

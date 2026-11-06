@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildSalaryModelGroups, SALARY_IDENTITY_FIELDS } from '../src/utils/salaryModel';
+import { buildSalaryModelGroups, SALARY_IDENTITY_FIELDS } from '../src/modules/models-formulas/salary/salaryModel';
 
 test('固定、扩展和身份字段的显示设置能够保留', () => {
   const identities = SALARY_IDENTITY_FIELDS.map((field, index) => index === 0 ? { ...field, displaySetting: 'display' as const } : field);
