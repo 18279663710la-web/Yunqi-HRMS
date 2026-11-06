@@ -98,5 +98,38 @@ test('工资明细自动读取员工月度考勤，阻止不完整打卡并保�
     const fixedItem = (await call(`/admin/hr/payroll-batches/${fixedBatch}/items`)).body.data[0];
     assert.equal(fixedItem.modelSnapshot.fixed.find((field: any) => field.name === '加班费').value, 100);
     assert.equal(fixedItem.gross, 1100);
+
+    const model2 = (await call('/admin/hr/salary-model')).body.data;
+    const calculatedModel = await call('/admin/hr/salary-model', 'PUT', { version: model2.version, fixedFields: [{ name: '基本工资', type: 'number', category: 'income', required: true }], extendedFields: [
+      { name: '出勤绩效', type: 'number', category: 'income', required: true, interfaceSource: 'attendance', attendanceMetric: 'presentDays', calculationRule: 'attendance' },
+      { name: '加班费', type: 'number', category: 'income', required: true, interfaceSource: 'attendance', attendanceMetric: 'overtimeHours', calculationRule: 'overtime' },
+      { name: '全部加班时长', type: 'number', category: 'info', required: true, interfaceSource: 'attendance', attendanceMetric: 'overtimeHours', calculationRule: 'direct' },
+    ] });
+    assert.equal(calculatedModel.status, 200, JSON.stringify(calculatedModel.body));
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', 'PUT', { mode: 'days_absence', calculation: 'unit', unitAdjustment: -10 })).status, 200);
+    await conn.query(`UPDATE \`${database}\`.employees SET join_date='2020-06-15' WHERE id='U001'`);
+    await conn.query(`INSERT INTO \`${database}\`.hr_employee_departures (offboarding_id,employee_id,last_date,status,created_by,created_at) VALUES (900,'U001','2020-06-24','departed',1,NOW())`);
+    await conn.query(`UPDATE \`${database}\`.attendance_settings SET rest_dates=? WHERE id=1`, [JSON.stringify(['2020-06-16', '2020-06-18'])]);
+    await conn.query(`INSERT INTO \`${database}\`.attendance_punches (employee_id,punch_date,check_in,check_out,source,created_at,updated_at) VALUES ('U001','2020-06-15','09:00','18:00','admin',NOW(),NOW()),('U001','2020-06-17','09:00','18:00','admin',NOW(),NOW()),('U001','2020-06-19','09:00','18:00','admin',NOW(),NOW())`);
+    await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('OT5','overtime','加班','加班','approved','U001','员工','','员工',?,NOW()),('OT6','overtime','加班','加班','approved','U001','员工','','员工',?,NOW())`, [JSON.stringify([{ label: '补偿方式', value: '加班费' }]), JSON.stringify([{ label: '补偿方式', value: '调休' }])]);
+    await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT5','U001','2020-06-20 19:00:00','2020-06-20 21:00:00'),('OT6','U001','2020-06-21 19:00:00','2020-06-21 20:00:00')`);
+    await conn.query(`DELETE FROM \`${database}\`.hr_employee_records WHERE employee_id='U013' AND section='salary'`);
+    const rulesBatch = (await call('/admin/hr/payroll-batches', 'POST', { month: '2020-06' })).body.data.id;
+    const rulesPreview = await call(`/admin/hr/payroll-batches/${rulesBatch}/auto-preview`);
+    assert.equal(rulesPreview.status, 200, JSON.stringify(rulesPreview.body));
+    const candidate = rulesPreview.body.data.candidates[0];
+    assert.equal(candidate.modelSnapshot.extended[0].value, -50);
+    assert.equal(candidate.modelSnapshot.extended[0].attendanceCalculation.workdays, 8);
+    assert.equal(candidate.modelSnapshot.extended[0].attendanceCalculation.presentDays, 3);
+    assert.equal(candidate.modelSnapshot.extended[1].value, 100);
+    assert.equal(candidate.modelSnapshot.extended[2].value, 3);
+    assert.equal(candidate.gross, 1050);
+    assert.equal((await call(`/admin/hr/payroll-batches/${rulesBatch}/items`, 'POST', { employeeId: 'U001' })).status, 200);
+    const rulesItem = (await call(`/admin/hr/payroll-batches/${rulesBatch}/items`)).body.data[0];
+    assert.equal(rulesItem.gross, 1050);
+    assert.equal((await call(`/admin/hr/payroll-batches/${rulesBatch}/items/${rulesItem.id}/extended`, 'PUT', { revision: 0, values: [{ name: '出勤绩效', value: -50 }, { name: '加班费', value: 100 }, { name: '全部加班时长', value: 3 }] })).status, 200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${rulesBatch}/items/${rulesItem.id}/extended`, 'PUT', { revision: 1, values: [{ name: '出勤绩效', value: -20 }, { name: '加班费', value: 100 }, { name: '全部加班时长', value: 3 }] })).status, 400);
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', 'PUT', { mode: 'days_absence', calculation: 'unit', unitAdjustment: -20 })).status, 200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${rulesBatch}/items`)).body.data[0].modelSnapshot.extended[0].value, -50);
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });

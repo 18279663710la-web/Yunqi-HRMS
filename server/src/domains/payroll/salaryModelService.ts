@@ -6,6 +6,7 @@ export type SalaryFieldType = 'number' | 'text';
 export type SalaryFieldRole = 'name' | 'employeeNo' | 'position' | 'base' | 'allowance' | 'performance';
 export type SalaryFieldCategory = 'income' | 'deduction' | 'info';
 export type AttendanceMetric = 'presentDays' | 'overtimeHours' | 'overtimePay';
+export type SalaryCalculationRule = 'direct' | 'attendance' | 'overtime';
 export type SalaryDisplaySetting = 'none' | 'display' | 'output';
 
 export interface SalaryModelField {
@@ -16,6 +17,7 @@ export interface SalaryModelField {
   category?: SalaryFieldCategory;
   interfaceSource?: 'attendance';
   attendanceMetric?: AttendanceMetric;
+  calculationRule?: SalaryCalculationRule;
   displaySetting?: SalaryDisplaySetting;
 }
 
@@ -76,11 +78,17 @@ function parseField(raw: unknown, strict: boolean): SalaryModelField | null {
   const interfaceSource = source.interfaceSource;
   const displaySetting = source.displaySetting;
   const attendanceMetric = source.attendanceMetric;
+  const calculationRule = source.calculationRule;
   if (strict && category !== undefined && category !== 'income' && category !== 'deduction' && category !== 'info') throw badRequest('字段用途无效');
   if (strict && rawType === 'text' && category !== undefined && category !== 'info' && !identity) throw badRequest('字符串字段用途只能是仅记录');
   if (strict && interfaceSource !== undefined && interfaceSource !== 'none' && interfaceSource !== 'attendance') throw badRequest('接口配置无效');
   if (strict && attendanceMetric !== undefined && attendanceMetric !== 'presentDays' && attendanceMetric !== 'overtimeHours' && attendanceMetric !== 'overtimePay') throw badRequest('考勤数据项目无效');
-  if (strict && attendanceMetric !== undefined && (interfaceSource !== 'attendance' || rawType !== 'number' || category !== (attendanceMetric === 'overtimePay' ? 'income' : 'info') || identity)) throw badRequest('考勤数据字段类型或用途无效');
+  if (strict && calculationRule !== undefined && calculationRule !== 'direct' && calculationRule !== 'attendance' && calculationRule !== 'overtime') throw badRequest('计算规则无效');
+  const effectiveRule = attendanceMetric === 'overtimePay' ? 'overtime' : calculationRule ?? 'direct';
+  if (strict && calculationRule !== undefined && (interfaceSource !== 'attendance' || !attendanceMetric)) throw badRequest('计算规则必须绑定考勤数据');
+  if (strict && attendanceMetric === 'overtimePay' && calculationRule !== undefined) throw badRequest('旧加班费字段不能单独设置计算规则');
+  if (strict && ((effectiveRule === 'attendance' && attendanceMetric !== 'presentDays') || (effectiveRule === 'overtime' && attendanceMetric !== 'overtimeHours' && attendanceMetric !== 'overtimePay'))) throw badRequest('考勤数据与计算规则不匹配');
+  if (strict && attendanceMetric !== undefined && (interfaceSource !== 'attendance' || rawType !== 'number' || category !== (effectiveRule === 'direct' ? 'info' : 'income') || identity)) throw badRequest('考勤数据字段类型或用途无效');
   if (strict && displaySetting !== undefined && displaySetting !== 'none' && displaySetting !== 'display' && displaySetting !== 'output') throw badRequest('显示设置无效');
   return {
     name: identity ? IDENTITY_FIELDS.find(field => field.role === role)!.name : name,
@@ -91,6 +99,7 @@ function parseField(raw: unknown, strict: boolean): SalaryModelField | null {
     ...(!identity && rawType === 'text' ? { category: 'info' as const } : {}),
     ...(!identity && interfaceSource === 'attendance' ? { interfaceSource: 'attendance' as const } : {}),
     ...(!identity && interfaceSource === 'attendance' && (attendanceMetric === 'presentDays' || attendanceMetric === 'overtimeHours' || attendanceMetric === 'overtimePay') ? { attendanceMetric } : {}),
+    ...(!identity && interfaceSource === 'attendance' && (calculationRule === 'direct' || calculationRule === 'attendance' || calculationRule === 'overtime') ? { calculationRule } : {}),
     ...(displaySetting === 'display' || displaySetting === 'output' ? { displaySetting } : {}),
   };
 }
@@ -138,7 +147,7 @@ export function normalizeStoredModel(value: unknown): SalaryModel {
     const role = field.role && AMOUNT_ROLES.has(field.role) && !roles.has(field.role) ? field.role : undefined;
     if (role) roles.add(role);
     names.add(field.name);
-    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.calculationRule ? { calculationRule: field.calculationRule } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
     if (amountFields.length >= 48) break;
   }
   const extendedFields: SalaryModelField[] = [];
@@ -148,7 +157,7 @@ export function normalizeStoredModel(value: unknown): SalaryModel {
     if (names.has(field.name)) continue;
     if (IDENTITY_FIELDS.length + amountFields.length + extendedFields.length >= 51) break;
     names.add(field.name);
-    extendedFields.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    extendedFields.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.calculationRule ? { calculationRule: field.calculationRule } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
   const fixedFields = [...identityFields, ...amountFields];
   const namesInModel = [...fixedFields, ...extendedFields].map(field => field.name);
@@ -174,7 +183,7 @@ export function normalizeModelInput(fixedFields: unknown, extendedFields: unknow
     const role = field.role && AMOUNT_ROLES.has(field.role) && !roles.has(field.role) ? field.role : undefined;
     if (role) roles.add(role);
     names.add(field.name);
-    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    amountFields.push({ name: field.name, type: field.type, required: field.required, ...(role ? { role } : {}), ...(field.category ? { category: field.category } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.calculationRule ? { calculationRule: field.calculationRule } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
   const normalizedExtended: SalaryModelField[] = [];
   for (const raw of asArray(extendedFields)) {
@@ -183,9 +192,10 @@ export function normalizeModelInput(fixedFields: unknown, extendedFields: unknow
     if (field.role && IDENTITY_ROLES.has(field.role)) throw badRequest('姓名、员工号和职务是固定字段，不能添加到扩展字段');
     if (names.has(field.name)) throw badRequest('字段名称不能重复');
     names.add(field.name);
-    normalizedExtended.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
+    normalizedExtended.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.calculationRule ? { calculationRule: field.calculationRule } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
-  if ([...amountFields, ...normalizedExtended].filter(field => field.attendanceMetric === 'overtimePay').length > 1) throw badRequest('加班费计算来源只能配置一个字段');
+  if ([...amountFields, ...normalizedExtended].filter(field => field.attendanceMetric === 'overtimePay' || field.calculationRule === 'overtime').length > 1) throw badRequest('加班费计算来源只能配置一个字段');
+  if ([...amountFields, ...normalizedExtended].filter(field => field.calculationRule === 'attendance').length > 1) throw badRequest('出勤绩效计算来源只能配置一个字段');
   if (IDENTITY_FIELDS.length + amountFields.length + normalizedExtended.length > 51) throw badRequest('最多配置 51 个字段');
   return {
     fixedFields: [...identityFields, ...amountFields],

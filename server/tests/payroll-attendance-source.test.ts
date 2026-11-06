@@ -29,3 +29,12 @@ test('加班费是唯一的数字收入字段，保存和读取时保留计算�
   assert.throws(() => normalizeModelInput([], [{ ...field, category: 'info' }]));
   assert.throws(() => normalizeModelInput([field], [{ ...field, name: '重复加班费' }]));
 });
+
+test('规则与数据项按组合保存，旧加班费字段可继续读取', () => {
+  const field = { name: '加班绩效', type: 'number', category: 'income', interfaceSource: 'attendance', attendanceMetric: 'overtimeHours', calculationRule: 'overtime' };
+  const result = normalizeModelInput([], [field]);
+  assert.equal(normalizeStoredModel({ version: 1, ...result }).extendedFields[0].calculationRule, 'overtime');
+  assert.throws(() => normalizeModelInput([], [{ ...field, attendanceMetric: 'presentDays' }]));
+  assert.throws(() => normalizeModelInput([], [{ ...field, calculationRule: 'direct' }]));
+  assert.throws(() => normalizeModelInput([], [field, { ...field, name: '重复' }]));
+});

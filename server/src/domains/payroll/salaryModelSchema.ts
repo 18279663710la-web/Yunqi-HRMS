@@ -11,6 +11,7 @@ const fieldSchema = z.union([
     category: z.enum(['income', 'deduction', 'info']).optional(),
     interfaceSource: z.enum(['none', 'attendance']).optional(),
     attendanceMetric: z.enum(['presentDays', 'overtimeHours', 'overtimePay']).optional(),
+    calculationRule: z.enum(['direct', 'attendance', 'overtime']).optional(),
     displaySetting: z.enum(['none', 'display', 'output']).optional(),
   }),
 ]);

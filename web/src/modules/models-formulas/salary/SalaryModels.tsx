@@ -39,7 +39,8 @@ export function SalaryModels() {
   const [editing, setEditing] = useState<Editor | null>(null);
   const [interfaceOpen, setInterfaceOpen] = useState(false);
   const [draftMetric, setDraftMetric] = useState<SalaryModelField['attendanceMetric']>();
-  const [interfaceError, setInterfaceError] = useState(false);
+  const [draftRule, setDraftRule] = useState<NonNullable<SalaryModelField['calculationRule']>>('direct');
+  const [interfaceError, setInterfaceError] = useState('');
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [orderSaving, setOrderSaving] = useState(false);
@@ -67,8 +68,10 @@ export function SalaryModels() {
     setEditing({ mode: field ? 'edit' : 'create', group, name: field?.name, identity: isSalaryIdentityField(field) });
   };
   const openInterface = () => {
-    setDraftMetric(form.getFieldValue('attendanceMetric'));
-    setInterfaceError(false);
+    const metric = form.getFieldValue('attendanceMetric');
+    setDraftMetric(metric === 'overtimePay' ? 'overtimeHours' : metric);
+    setDraftRule(metric === 'overtimePay' ? 'overtime' : form.getFieldValue('calculationRule') ?? 'direct');
+    setInterfaceError('');
     setInterfaceOpen(true);
   };
   const save = async (values: SalaryModelField) => {
@@ -160,12 +163,16 @@ export function SalaryModels() {
           <Form.Item name="category" label="字段用途" rules={[{ required: true }]}><Select disabled={editing?.identity || (watchedSource === 'attendance' && !!watchedMetric)} options={[{ value: 'income', label: '收入', disabled: watchedType === 'text' }, { value: 'deduction', label: '扣款', disabled: watchedType === 'text' }, { value: 'info', label: '仅记录' }]} /></Form.Item>
           <Form.Item label="接口配置" htmlFor="interfaceSource"><Space.Compact style={{ width: '100%' }}><Form.Item name="interfaceSource" noStyle><Select disabled={editing?.identity} onChange={(source: string) => { if (source === 'attendance') { form.setFieldValue('interfaceSource', watchedSource ?? 'none'); openInterface(); } else form.setFieldsValue(clearSalaryInterface()); }} options={[{ value: 'none', label: '无' }, { value: 'attendance', label: '考勤系统' }]} /></Form.Item>{watchedSource === 'attendance' && <Button onClick={openInterface}>配置</Button>}</Space.Compact></Form.Item>
           <Form.Item name="attendanceMetric" hidden rules={[{ validator: async (_, value) => { if (form.getFieldValue('interfaceSource') === 'attendance' && !value) throw new Error('请配置考勤数据'); } }]}><Input /></Form.Item>
+          <Form.Item name="calculationRule" hidden><Input /></Form.Item>
           <Form.Item name="displaySetting" label="显示设置"><Select options={DISPLAY_OPTIONS} /></Form.Item>
         </div>
       </Form>
     </Modal>
-    <Modal title="考勤系统接口配置" open={interfaceOpen} onCancel={() => setInterfaceOpen(false)} onOk={() => { try { form.setFieldsValue(applyAttendanceInterface(draftMetric)); setInterfaceOpen(false); } catch { setInterfaceError(true); } }} okText="确定" cancelText="取消" width={520}>
-      <Form layout="vertical"><Form.Item label="考勤数据" required htmlFor="salary-attendance-metric" validateStatus={interfaceError ? 'error' : undefined} help={interfaceError ? '请选择考勤数据' : undefined}><Select id="salary-attendance-metric" value={draftMetric} onChange={value => { setDraftMetric(value); setInterfaceError(false); }} placeholder="请选择考勤数据" options={[{ value: 'presentDays', label: '实际出勤天数' }, { value: 'overtimeHours', label: '实际加班时长（小时）' }, { value: 'overtimePay', label: '加班费（加班绩效规则）' }]} /></Form.Item></Form>
+    <Modal title="考勤系统接口配置" open={interfaceOpen} onCancel={() => setInterfaceOpen(false)} onOk={() => { try { form.setFieldsValue(applyAttendanceInterface(draftMetric, draftRule)); setInterfaceOpen(false); } catch (error) { setInterfaceError((error as Error).message); } }} okText="确定" cancelText="取消" width={520}>
+      <Form layout="vertical">
+        <Form.Item label="考勤数据" required htmlFor="salary-attendance-metric" validateStatus={interfaceError ? 'error' : undefined} help={interfaceError || undefined}><Select id="salary-attendance-metric" value={draftMetric} onChange={value => { setDraftMetric(value); setInterfaceError(''); }} placeholder="请选择考勤数据" options={[{ value: 'presentDays', label: '实际出勤天数' }, { value: 'overtimeHours', label: '实际加班时长（小时）' }]} /></Form.Item>
+        <Form.Item label="计算规则" required htmlFor="salary-calculation-rule"><Select id="salary-calculation-rule" value={draftRule} onChange={value => { setDraftRule(value); setInterfaceError(''); }} options={[{ value: 'direct', label: '直接输出' }, { value: 'attendance', label: '出勤率绩效规则' }, { value: 'overtime', label: '加班绩效规则' }]} /></Form.Item>
+      </Form>
     </Modal>
   </section>;
 }

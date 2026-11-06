@@ -53,17 +53,20 @@ async function collectCandidates(conn: PoolConnection, batchId: number, model: S
     candidates.push({ employeeId: String(row.id), name: String(row.name), employeeNo: String(row.employeeNo), position: String(row.position ?? ''), baseGross: modelSnapshot.fixedTotal, gross: 0, deductions: 0, net: 0, modelSnapshot });
   }
   const modelFields = [...model.fixedFields, ...model.extendedFields];
-  if (modelFields.some(field => field.attendanceMetric && (field.interfaceSource !== 'attendance' || field.type !== 'number' || field.category !== (field.attendanceMetric === 'overtimePay' ? 'income' : 'info'))) || modelFields.filter(field => field.attendanceMetric === 'overtimePay').length > 1) throw badRequest('考勤字段配置无效，请检查薪资构成模型');
-  const metrics = new Set<AttendanceMetric>([...model.fixedFields, ...model.extendedFields].flatMap(field => field.attendanceMetric ? [field.attendanceMetric] : []));
-  const attendance = await readPayrollAttendance(conn, candidates.map(candidate => ({ id: candidate.employeeId, name: `${candidate.name}（${candidate.employeeNo}）` })), month, metrics);
+  const ruleFor = (field: { attendanceMetric?: AttendanceMetric; calculationRule?: string }) => field.attendanceMetric === 'overtimePay' ? 'overtime' : field.calculationRule ?? 'direct';
+  if (modelFields.some(field => field.attendanceMetric && (field.interfaceSource !== 'attendance' || field.type !== 'number' || field.category !== (ruleFor(field) === 'direct' ? 'info' : 'income') || (ruleFor(field) === 'attendance' && field.attendanceMetric !== 'presentDays') || (ruleFor(field) === 'overtime' && !['overtimeHours', 'overtimePay'].includes(field.attendanceMetric)))) || ['attendance', 'overtime'].some(rule => modelFields.filter(field => field.attendanceMetric && ruleFor(field) === rule).length > 1)) throw badRequest('考勤字段配置无效，请检查薪资构成模型');
+  const metrics = new Set<AttendanceMetric>(modelFields.flatMap(field => !field.attendanceMetric ? [] : [ruleFor(field) === 'overtime' ? 'overtimePay' : field.attendanceMetric]));
+  const attendance = await readPayrollAttendance(conn, candidates.map(candidate => ({ id: candidate.employeeId, name: `${candidate.name}（${candidate.employeeNo}）` })), month, metrics, { attendanceRule: modelFields.some(field => ruleFor(field) === 'attendance') });
   for (const candidate of candidates) {
     for (const field of [...candidate.modelSnapshot.fixed, ...candidate.modelSnapshot.extended]) {
       if (!field.attendanceMetric) continue;
-      const value = attendance.get(candidate.employeeId)?.[field.attendanceMetric];
+      const rule = ruleFor(field);
+      const value = rule === 'attendance' ? attendance.get(candidate.employeeId)?.attendanceAdjustment : attendance.get(candidate.employeeId)?.[rule === 'overtime' ? 'overtimePay' : field.attendanceMetric];
       if (value === undefined) throw badRequest(`未能获取员工“${candidate.name}”的考勤数据`);
       field.value = value;
       field.attendancePeriod = month;
-      if (field.attendanceMetric === 'overtimePay') field.overtimeCalculation = attendance.get(candidate.employeeId)?.overtimeCalculation;
+      if (rule === 'attendance') field.attendanceCalculation = attendance.get(candidate.employeeId)?.attendanceCalculation;
+      if (rule === 'overtime') field.overtimeCalculation = attendance.get(candidate.employeeId)?.overtimeCalculation;
     }
     candidate.modelSnapshot.fixedTotal = candidate.modelSnapshot.fixed.reduce((sum, field) => sum + (typeof field.value === 'number' && (field.category ?? 'income') === 'income' ? Math.round(field.value * 100) : 0), 0) / 100;
     candidate.baseGross = candidate.modelSnapshot.fixedTotal;

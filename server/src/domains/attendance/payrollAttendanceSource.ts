@@ -5,8 +5,11 @@ import type { AttendanceSettings } from './attendanceSettings';
 import type { AttendanceMetric } from '../payroll/salaryModelService';
 import { calculateOvertimePay, isPaidOvertime, type OvertimeRuleConfig, type OvertimeRule } from '../payroll/overtimePayrollService';
 import { readOvertimeRuleConfig } from '../payroll/overtimeRuleConfigRepository';
+import { readAttendanceRuleConfigForPayroll } from '../payroll/attendanceRuleConfigRepository';
+import { calculateAttendanceRule } from '../payroll/attendanceRuleCalculation';
+import type { AttendanceRuleConfig } from '../payroll/attendanceRuleConfig';
 
-export interface PayrollAttendanceValues { presentDays?: number; overtimeHours?: number; overtimePay?: number; overtimeCalculation?: { seconds: number; config: OvertimeRuleConfig; matchedRule: OvertimeRule | null } }
+export interface PayrollAttendanceValues { presentDays?: number; overtimeHours?: number; overtimePay?: number; attendanceAdjustment?: number; attendanceCalculation?: { presentDays: number; workdays: number; input: number; periodStart: string; periodEnd: string; config: AttendanceRuleConfig; matchedRule: unknown }; overtimeCalculation?: { seconds: number; config: OvertimeRuleConfig; matchedRule: OvertimeRule | null } }
 
 function groupByEmployee(rows: RowDataPacket[]): Map<string, RowDataPacket[]> {
   const result = new Map<string, RowDataPacket[]>();
@@ -19,19 +22,21 @@ function groupByEmployee(rows: RowDataPacket[]): Map<string, RowDataPacket[]> {
 }
 
 /** 使用工资事务的连接读取批次月份；时长按上班卡日期归属，小时保留两位小数。 */
-export async function readPayrollAttendance(conn: PoolConnection, employees: Array<{ id: string; name: string }>, month: string, metrics: Set<AttendanceMetric>): Promise<Map<string, PayrollAttendanceValues>> {
+export async function readPayrollAttendance(conn: PoolConnection, employees: Array<{ id: string; name: string }>, month: string, metrics: Set<AttendanceMetric>, options: { attendanceRule?: boolean } = {}): Promise<Map<string, PayrollAttendanceValues>> {
   const result = new Map(employees.map(employee => [employee.id, {} as PayrollAttendanceValues]));
   if (!employees.length || !metrics.size) return result;
   const ids = employees.map(employee => employee.id);
   const placeholders = ids.map(() => '?').join(',');
   const start = `${month}-01`;
   if (metrics.has('presentDays')) {
+    const config = options.attendanceRule ? await readAttendanceRuleConfigForPayroll(conn) : undefined;
     const [settingsRows] = await conn.query<RowDataPacket[]>('SELECT rest_dates FROM attendance_settings WHERE id = 1');
     if (!settingsRows.length) throw badRequest('请先配置考勤规则，再获取出勤天数');
     const rawRestDates = settingsRows[0].rest_dates;
     const restDates: string[] = typeof rawRestDates === 'string' ? JSON.parse(rawRestDates) : rawRestDates ?? [];
     const settings = { restDates } as AttendanceSettings;
     const [rows] = await conn.query<RowDataPacket[]>(`SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') AS day, check_in, check_out, status_override, note, source FROM attendance_punches WHERE employee_id IN (${placeholders}) AND punch_date >= ? AND punch_date < DATE_ADD(?, INTERVAL 1 MONTH)`, [...ids, start, start]);
+    const [employment] = config ? await conn.query<RowDataPacket[]>(`SELECT e.id, DATE_FORMAT(e.join_date, '%Y-%m-%d') AS join_date, (SELECT DATE_FORMAT(MAX(d.last_date), '%Y-%m-%d') FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departure_date FROM employees e WHERE e.id IN (${placeholders})`, ids) : [[]];
     const rowsByEmployee = groupByEmployee(rows);
     for (const employee of employees) {
       const ownRows = rowsByEmployee.get(employee.id) ?? [];
@@ -40,6 +45,26 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
       const incomplete = records.find(record => record.status === 'missing_in' || record.status === 'missing_out');
       if (incomplete) throw badRequest(`员工“${employee.name}”${incomplete.date} 考勤打卡不完整，请先处理`);
       result.get(employee.id)!.presentDays = summarizeRecords(records).presentDays;
+      if (config) {
+        const dates = employment.find(row => String(row.id) === employee.id);
+        if (!dates?.join_date) throw badRequest(`员工“${employee.name}”缺少入职日期`);
+        const [year, monthNumber] = month.split('-').map(Number);
+        const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+        const last = `${month}-${String(lastDay).padStart(2, '0')}`;
+        const periodStart = String(dates.join_date) > start ? String(dates.join_date) : start;
+        const periodEnd = dates.departure_date && String(dates.departure_date) < last ? String(dates.departure_date) : last;
+        const rest = new Set(restDates);
+        let workdays = 0;
+        for (let day = 1; day <= lastDay; day++) {
+          const key = `${month}-${String(day).padStart(2, '0')}`;
+          if (key >= periodStart && key <= periodEnd && !rest.has(key)) workdays++;
+        }
+        const actual = records.filter(record => record.date >= periodStart && record.date <= periodEnd && !rest.has(record.date));
+        const presentDays = summarizeRecords(actual).presentDays;
+        const calculated = calculateAttendanceRule(config, presentDays, workdays);
+        result.get(employee.id)!.attendanceAdjustment = calculated.amount;
+        result.get(employee.id)!.attendanceCalculation = { presentDays, workdays, input: calculated.input, periodStart, periodEnd, config, matchedRule: calculated.matchedRule };
+      }
     }
   }
   if (metrics.has('overtimeHours') || metrics.has('overtimePay')) {

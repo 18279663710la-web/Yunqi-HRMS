@@ -225,7 +225,7 @@ router.delete('/payroll-batches/:id/items/:itemId', asyncHandler(async (req, res
   await recordAdminLog(req.admin!, '删除工资草稿明细', 'hr_payroll_batches', req.params.id, {}); success(res, {});
 }));
 router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (req, res) => {
-  const values = parse(z.array(z.object({ name: z.string().min(1).max(60), value: z.union([z.number().finite().min(0).max(9999999999.99), z.string().max(200)]) })).max(51), req.body.values);
+  const values = parse(z.array(z.object({ name: z.string().min(1).max(60), value: z.union([z.number().finite().min(-9999999999.99).max(9999999999.99), z.string().max(200)]) })).max(51), req.body.values);
   const revision = parse(z.number().int().nonnegative(), req.body.revision);
   await transaction(async conn => {
     const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
