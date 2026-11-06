@@ -4,6 +4,8 @@
 
 薪资构成模型页面、字段处理和独立考勤接口配置弹窗；出勤天数和加班时长可直接输出或分别绑定相应绩效规则。
 
+删除确认框内的操作不会清除所选字段；删除成功后才清除选择。
+
 ## 主要内容
 
 - 主要文件：`salaryModel.ts`、`salaryInterfaceConfig.ts`、`salaryCalculation.ts`、`SalaryModels.tsx`；金额预览依据模型字段用途计算并供工资批次调用。

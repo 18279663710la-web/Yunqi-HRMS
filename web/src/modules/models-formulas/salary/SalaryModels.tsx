@@ -132,14 +132,14 @@ export function SalaryModels() {
   };
 
   return <section className="salary-model-page" aria-label="薪资构成模型" onPointerDown={event => {
-    if (!(event.target as HTMLElement).closest('.salary-model-field-list, .salary-model-entries, .ant-modal-root')) setSelectedName(null);
+    if (!(event.target as HTMLElement).closest('.salary-model-field-list, .salary-model-entries, .salary-model-delete-confirm, .ant-modal-root')) setSelectedName(null);
   }}>
     <Spin spinning={loading}>
       <div className="salary-model-entries">
         <button className="salary-model-entry" type="button" disabled={loading || failed || orderSaving || saving || fields.length >= 51} onClick={() => openEditor('fixed')}>创建固定字段</button>
         <button className="salary-model-entry" type="button" disabled={loading || failed || orderSaving || saving || fields.length >= 51} onClick={() => openEditor('extended')}>创建扩展字段</button>
         <button className="salary-model-entry" type="button" disabled={!selected || !selectedGroup || orderSaving || saving} onClick={() => { if (selected && selectedGroup) openEditor(selectedGroup, selected); }}>编辑</button>
-        <Popconfirm title={`删除字段“${selected?.name ?? ''}”？`} description={selectedGroup === 'fixed' ? '该字段及其已有员工定薪值会被删除。' : undefined} okText="删除" cancelText="取消" okButtonProps={{ danger: true, loading: saving }} onConfirm={() => void removeSelected()} disabled={!selected || identity || orderSaving || saving}>
+        <Popconfirm classNames={{ root: 'salary-model-delete-confirm' }} title={`删除字段“${selected?.name ?? ''}”？`} description={selectedGroup === 'fixed' ? '该字段及其已有员工定薪值会被删除。' : undefined} okText="删除" cancelText="取消" okButtonProps={{ danger: true, loading: saving }} onConfirm={() => void removeSelected()} disabled={!selected || identity || orderSaving || saving}>
           <button className="salary-model-entry salary-model-entry-danger" type="button" disabled={!selected || identity || orderSaving || saving}>删除</button>
         </Popconfirm>
       </div>
