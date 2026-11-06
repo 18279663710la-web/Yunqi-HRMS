@@ -12,6 +12,9 @@ export interface PayrollBatch { id: number; month: string; status: 'draft' | 're
 export interface PayrollFieldValue { name: string; value: number | string; type?: 'number' | 'text'; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'attendance'; attendanceMetric?: 'presentDays' | 'overtimeHours' | 'overtimePay'; calculationRule?: SalaryCalculationRule; attendancePeriod?: string; manualAdjustment?: { originalValue: number | string; updatedAt: string; updatedBy: number } }
 export interface PayrollModelSnapshot { version: number; revision: number; position?: string; fixedTotal: number; manualDeduction?: number; fixed: PayrollFieldValue[]; extended: (PayrollFieldValue & { category: 'income' | 'deduction' | 'info' })[] }
 export interface PayrollBatchItem { id: number; employeeId: string; name: string; employeeNo: string; position: string; gross: number; baseGross: number | null; attendanceRate: number | null; attendanceAdjustment: number; overtimeSeconds: number; overtimePay: number; deductions: number; net: number; note: string; modelSnapshot: PayrollModelSnapshot | null }
+export interface DisbursementField { id: number; name: string; category: 'income' | 'deduction' | 'info'; required: boolean; displaySetting: 'none' | 'display' | 'output' }
+export interface DisbursementState { fields: DisbursementField[]; rows: { itemId: number; net: number; values: { fieldId: number; value: number; revision: number }[] }[] }
+export type DisbursementFieldInput = Omit<DisbursementField, 'id'>;
 export interface AutoPayrollCandidate { employeeId: string; name: string; employeeNo: string; position: string; baseGross: number; gross: number; deductions: number; net: number; modelSnapshot: PayrollModelSnapshot }
 export interface AutoPayrollTotals { baseGross: number; gross: number; deductions: number; net: number }
 export interface AutoPayrollPreview { month: string; candidates: AutoPayrollCandidate[]; existingCount: number; totals: AutoPayrollTotals }
@@ -68,6 +71,9 @@ export const deletePayrollBatch = (id: number) => request(`/admin/hr/payroll-bat
 export const getPayrollBatches = (month?: string) => request<PayrollBatch[]>(`/admin/hr/payroll-batches${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const createPayrollBatch = (month: string) => request<{ id: number }>('/admin/hr/payroll-batches', { method: 'POST', body: { month } });
 export const getPayrollBatchItems = (id: number) => request<PayrollBatchItem[]>(`/admin/hr/payroll-batches/${id}/items`);
+export const getDisbursement = (id: number) => request<DisbursementState>(`/admin/hr/payroll-batches/${id}/disbursement`);
+export const addDisbursementField = (id: number, body: DisbursementFieldInput) => request<{ id: number }>(`/admin/hr/payroll-batches/${id}/disbursement/fields`, { method: 'POST', body });
+export const saveDisbursementValue = (batchId: number, itemId: number, fieldId: number, value: number, revision: number) => request<DisbursementState>(`/admin/hr/payroll-batches/${batchId}/disbursement/items/${itemId}/fields/${fieldId}`, { method: 'PUT', body: { value, revision } });
 export const addPayrollBatchItem = (id: number, body: unknown) => request(`/admin/hr/payroll-batches/${id}/items`, { method: 'POST', body });
 export const previewAutoPayrollItems = (id: number) => request<AutoPayrollPreview>(`/admin/hr/payroll-batches/${id}/auto-preview`);
 export const addAutoPayrollItems = (id: number) => request<AutoPayrollAddResult>(`/admin/hr/payroll-batches/${id}/auto-items`, { method: 'POST', body: {} });

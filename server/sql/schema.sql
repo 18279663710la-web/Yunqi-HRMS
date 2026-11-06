@@ -213,6 +213,28 @@ CREATE TABLE IF NOT EXISTS `hr_payroll_batch_items` (
   UNIQUE KEY `idx_hr_batch_employee` (`batch_id`, `employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `hr_payroll_disbursement_fields` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `name` VARCHAR(60) NOT NULL,
+  `category` ENUM('income','deduction','info') NOT NULL,
+  `required` TINYINT(1) NOT NULL DEFAULT 1,
+  `display_setting` ENUM('none','display','output') NOT NULL DEFAULT 'none',
+  `created_at` DATETIME NOT NULL,
+  UNIQUE KEY `idx_hr_disbursement_field_name` (`batch_id`, `name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `hr_payroll_disbursement_values` (
+  `field_id` BIGINT NOT NULL,
+  `item_id` BIGINT NOT NULL,
+  `value` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `revision` INT NOT NULL DEFAULT 0,
+  `updated_at` DATETIME NOT NULL,
+  `updated_by` INT NOT NULL,
+  PRIMARY KEY (`field_id`, `item_id`),
+  KEY `idx_hr_disbursement_value_item` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `hr_offboarding` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
   `employee_id` VARCHAR(10) NOT NULL,
