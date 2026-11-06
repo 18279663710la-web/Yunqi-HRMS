@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { type Dayjs } from 'dayjs';
-import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
+import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollDeduction, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
 import { getPayrollPage } from './payrollPagination';
-import { buildInlinePayrollUpdate } from './payrollInlineEdit';
+import { buildInlinePayrollUpdate, parseManualDeduction, previewInlinePayrollTotals } from './payrollInlineEdit';
 import { salaryAmountFields } from '../../models-formulas/salary/salaryModel';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 
 const money = (value: number | null | undefined) => value == null ? '—' : `¥${Number(value).toFixed(2)}`;
-type CellEdit = { batchId: number; itemId: number; fieldName: string; value: string; snapshot: PayrollModelSnapshot; error?: string; conflict?: boolean; latestSnapshot?: PayrollModelSnapshot };
+type CellEdit = { batchId: number; itemId: number; fieldName: string; manualDeduction?: boolean; value: string; snapshot: PayrollModelSnapshot; error?: string; conflict?: boolean; latestSnapshot?: PayrollModelSnapshot };
 
 export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const { message } = App.useApp();
@@ -32,7 +32,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [form] = Form.useForm<{ employeeId: string }>();
   const cellEditRef = useRef<CellEdit>();
   const cellSavingRef = useRef(false);
-  const nextCellRef = useRef<{ batchId: number; itemId: number; fieldName: string }>();
+  const nextCellRef = useRef<{ batchId: number; itemId: number; fieldName: string; manualDeduction?: boolean }>();
   const itemsRef = useRef<PayrollBatchItem[]>([]);
   const itemsEpoch = useRef(0);
   const selectedRef = useRef<number>();
@@ -50,7 +50,8 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     if (!next || selectedRef.current !== next.batchId) return;
     const row = itemsRef.current.find(item => item.id === next.itemId);
     const field = row?.modelSnapshot?.extended.find(item => item.name === next.fieldName);
-    if (row?.modelSnapshot && field && !field.attendanceMetric) updateEdit({ ...next, value: String(field.value), snapshot: row.modelSnapshot });
+    if (row?.modelSnapshot && next.manualDeduction) updateEdit({ ...next, value: String(row.modelSnapshot.manualDeduction ?? 0), snapshot: row.modelSnapshot });
+    else if (row?.modelSnapshot && field && !field.attendanceMetric) updateEdit({ ...next, value: String(field.value), snapshot: row.modelSnapshot });
   };
   const loadItems = async (id: number) => { const epoch = itemsEpoch.current; const rows = await getPayrollBatchItems(id); if (selectedRef.current === id && epoch === itemsEpoch.current) replaceItems(rows); };
   useEffect(() => {
@@ -126,15 +127,16 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       return;
     }
     const snapshot = edit.conflict ? edit.latestSnapshot! : edit.snapshot;
-    let payload;
-    try { payload = buildInlinePayrollUpdate(snapshot, edit.fieldName, edit.value); }
+    let payload: ReturnType<typeof buildInlinePayrollUpdate> | undefined;
+    let deduction: number | undefined;
+    try { if (edit.manualDeduction) deduction = parseManualDeduction(edit.value); else payload = buildInlinePayrollUpdate(snapshot, edit.fieldName, edit.value); }
     catch (error) { nextCellRef.current = undefined; const text = (error as Error).message; updateEdit({ ...edit, error: text }); message.error(text); return; }
-    const previousValue = snapshot.extended.find(field => field.name === edit.fieldName)?.value;
-    const nextValue = payload.values.find(field => field.name === edit.fieldName)?.value;
+    const previousValue = edit.manualDeduction ? snapshot.manualDeduction ?? 0 : snapshot.extended.find(field => field.name === edit.fieldName)?.value;
+    const nextValue = edit.manualDeduction ? deduction : payload!.values.find(field => field.name === edit.fieldName)?.value;
     if (previousValue === nextValue) { updateEdit(); openNextCell(); return; }
     cellSavingRef.current = true; setCellSaving(true); itemsEpoch.current++;
     try {
-      const result = await updatePayrollExtended(edit.batchId, edit.itemId, payload);
+      const result = edit.manualDeduction ? await updatePayrollDeduction(edit.batchId, edit.itemId, { revision: snapshot.revision ?? 0, deduction: deduction! }) : await updatePayrollExtended(edit.batchId, edit.itemId, payload!);
       itemsEpoch.current++;
       if (selectedRef.current === edit.batchId) replaceItems(itemsRef.current.map(row => row.id === edit.itemId ? { ...row, ...result } : row));
       if (cellEditRef.current === edit) { updateEdit(); openNextCell(); }
@@ -174,6 +176,12 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const snapshotFields = items.flatMap(item => [...(item.modelSnapshot?.fixed ?? []), ...(item.modelSnapshot?.extended ?? [])].map(field => field.name));
   const fieldNames = [...new Set([...modelFields, ...snapshotFields])];
   const editingBusy = !!cellEdit || cellSaving;
+  const previewSnapshot = cellEdit?.conflict ? cellEdit.latestSnapshot : cellEdit?.snapshot;
+  const preview = cellEdit && previewSnapshot ? previewInlinePayrollTotals(previewSnapshot, cellEdit.fieldName, cellEdit.value, cellEdit.manualDeduction) : undefined;
+  const previewRow = cellEdit && preview ? items.find(item => item.id === cellEdit.itemId) : undefined;
+  const previewChanged = !!previewRow && !!preview && (Number(previewRow.gross) !== preview.gross || Number(previewRow.deductions) !== preview.deductions || Number(previewRow.net) !== preview.net);
+  const displayTotal = (row: PayrollBatchItem, key: 'gross' | 'deductions' | 'net') => previewChanged && row.id === cellEdit?.itemId ? preview![key] : Number(row[key]);
+  const previewMark = previewChanged ? <span title="未保存的实时预览" aria-label="未保存的实时预览">*</span> : null;
   const columns = [
     { title: '姓名', dataIndex: 'name', width: 100, fixed: 'left' as const },
     { title: '员工号', dataIndex: 'employeeNo', width: 110 },
@@ -183,7 +191,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       if (!field) return '—';
       const extended = row.modelSnapshot?.extended.find(item => item.name === name);
       if (current?.status === 'draft' && extended && !extended.attendanceMetric) {
-        if (cellEdit?.itemId === row.id && cellEdit.fieldName === name) return <Input
+        if (cellEdit?.itemId === row.id && !cellEdit.manualDeduction && cellEdit.fieldName === name) return <Input
           autoFocus size="small" className="payroll-cell-input" aria-label={`编辑${row.name}的${name}`} aria-invalid={!!cellEdit.error} aria-busy={cellSaving} title={cellEdit.error}
           status={cellEdit.error ? 'error' : undefined} value={cellEdit.value} disabled={cellSaving} maxLength={extended.type === 'text' ? 200 : undefined} inputMode={extended.type === 'text' ? 'text' : 'decimal'}
           onChange={event => { const edit = cellEditRef.current; if (edit) updateEdit({ ...edit, value: event.target.value, error: edit.conflict ? edit.error : undefined }); }}
@@ -201,9 +209,21 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       }
       return typeof field.value === 'number' ? field.value.toFixed(2) : field.value || '—';
     } })),
-    { title: '应发', dataIndex: 'gross', width: 120, render: (value: number) => money(value) },
-    { title: '扣除', dataIndex: 'deductions', width: 120, render: (value: number) => money(value) },
-    { title: '实发', dataIndex: 'net', width: 120, render: (value: number) => money(value) },
+    { title: '应发', dataIndex: 'gross', width: 120, render: (_: number, row: PayrollBatchItem) => <>{money(displayTotal(row, 'gross'))}{previewChanged && row.id === cellEdit?.itemId && previewMark}</> },
+    { title: '扣除', dataIndex: 'deductions', width: 120, render: (_: number, row: PayrollBatchItem) => {
+      if (current?.status !== 'draft' || !row.modelSnapshot) return money(row.deductions);
+      if (cellEdit?.itemId === row.id && cellEdit.manualDeduction) return <Input autoFocus size="small" className="payroll-cell-input" aria-label={`编辑${row.name}的扣除`} aria-invalid={!!cellEdit.error} aria-busy={cellSaving} title={cellEdit.error} status={cellEdit.error ? 'error' : undefined} value={cellEdit.value} disabled={cellSaving} inputMode="decimal"
+        onChange={event => { const edit = cellEditRef.current; if (edit) updateEdit({ ...edit, value: event.target.value, error: edit.conflict ? edit.error : undefined }); }}
+        onBlur={() => void saveCell(false)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveCell(true); } else if (event.key === 'Escape' && !cellSavingRef.current) { event.preventDefault(); nextCellRef.current = undefined; updateEdit(); } }} />;
+      return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的扣除`} disabled={loading || cellSaving} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
+        if (cellSavingRef.current || !selected || !row.modelSnapshot) return;
+        const edit = cellEditRef.current;
+        const next = { batchId: selected, itemId: row.id, fieldName: '扣除', manualDeduction: true };
+        if (edit) { if (edit.conflict) { message.warning('请核对当前修改并按回车保存，或按 Esc 取消'); return; } nextCellRef.current = next; void saveCell(true); return; }
+        updateEdit({ ...next, value: String(row.modelSnapshot.manualDeduction ?? 0), snapshot: row.modelSnapshot });
+      }}>{money(displayTotal(row, 'deductions'))}</button>;
+    } },
+    { title: '实发', dataIndex: 'net', width: 120, render: (_: number, row: PayrollBatchItem) => <>{money(displayTotal(row, 'net'))}{previewChanged && row.id === cellEdit?.itemId && previewMark}</> },
     { title: '操作', key: 'actions', width: 180, fixed: 'right' as const, render: (_: unknown, row: PayrollBatchItem) => <Space>
       {!row.modelSnapshot && <Button type="link" onClick={() => setLegacyItem(row)}>查看原明细</Button>}
       {current?.status === 'draft' && <Popconfirm title="删除此草稿明细？" onConfirm={() => void remove(row.id)} okText="删除" cancelText="取消" disabled={editingBusy || loading}><Button type="link" danger disabled={editingBusy || loading}>删除</Button></Popconfirm>}
@@ -225,7 +245,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
           {items.length > 0 && <Pagination size="small" current={pageData.page} total={items.length} pageSize={10} showSizeChanger={false} onChange={setPage} disabled={editingBusy} />}
           <div className="payroll-batches-footer">
             {current.status === 'draft' && <Button type="primary" size="small" disabled={editingBusy} onClick={() => { form.resetFields(); setOpen(true); }}>添加工资明细</Button>}
-            {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text>应发 {money(items.reduce((sum, item) => sum + Number(item.gross), 0))}</Typography.Text><Typography.Text>扣除 {money(items.reduce((sum, item) => sum + Number(item.deductions), 0))}</Typography.Text><Typography.Text strong>实发 {money(items.reduce((sum, item) => sum + Number(item.net), 0))}</Typography.Text></Space>}
+            {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text>应发 {money(items.reduce((sum, item) => sum + displayTotal(item, 'gross'), 0))}</Typography.Text><Typography.Text>扣除 {money(items.reduce((sum, item) => sum + displayTotal(item, 'deductions'), 0))}</Typography.Text><Typography.Text strong>实发 {money(items.reduce((sum, item) => sum + displayTotal(item, 'net'), 0))}{previewMark}</Typography.Text></Space>}
           </div>
         </div>
       </div>

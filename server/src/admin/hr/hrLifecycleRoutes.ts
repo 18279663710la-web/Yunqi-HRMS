@@ -8,6 +8,7 @@ import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 import { attendanceRulesSchema, payrollAttendanceRulesSchema } from './hrPolicy';
 import { calculateExtendedSalary, type PayrollModelSnapshot } from '../../domains/payroll/payrollModelCalculation';
+import { syncDraftBatch } from '../../domains/payroll/payrollDraftSync';
 import { addAutoPayrollItems, previewAutoPayrollItems } from '../../domains/payroll/payrollAutoService';
 import { success } from '../../shared/utils/response';
 import { taskSchema, completionSchema } from './hrOnboardingService';
@@ -193,7 +194,9 @@ router.delete('/payroll-batches/:id', asyncHandler(async (req, res) => {
   success(res, {});
 }));
 router.get('/payroll-batches/:id/items', asyncHandler(async (req, res) => {
-  if (!await queryOne('SELECT id FROM hr_payroll_batches WHERE id = ?', [req.params.id])) throw notFound('工资批次不存在');
+  const batchId = parse(batchIdSchema, req.params.id);
+  if (!await queryOne('SELECT id FROM hr_payroll_batches WHERE id = ?', [batchId])) throw notFound('工资批次不存在');
+  await syncDraftBatch(batchId);
   const rows = await queryRows<{ modelSnapshot: unknown }>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, e.position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id WHERE i.batch_id = ? ORDER BY i.id', [req.params.id]);
   success(res, rows.map(row => ({ ...row, modelSnapshot: row.modelSnapshot ? json(row.modelSnapshot) : null })));
 }));
@@ -227,6 +230,7 @@ router.delete('/payroll-batches/:id/items/:itemId', asyncHandler(async (req, res
 router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (req, res) => {
   const values = parse(z.array(z.object({ name: z.string().min(1).max(60), value: z.union([z.number().finite().min(-9999999999.99).max(9999999999.99), z.string().max(200)]) })).max(51), req.body.values);
   const revision = parse(z.number().int().nonnegative(), req.body.revision);
+  await syncDraftBatch(parse(batchIdSchema, req.params.id));
   const updated = await transaction(async conn => {
     const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
     if (!batches.length) throw notFound('工资批次不存在');
@@ -252,7 +256,29 @@ router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (re
   await recordAdminLog(req.admin!, '编辑工资批次扩展字段', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId });
   success(res, updated);
 }));
+router.put('/payroll-batches/:id/items/:itemId/deduction', asyncHandler(async (req, res) => {
+  const input = parse(z.object({ revision: z.number().int().nonnegative(), deduction: z.number().finite().min(0).max(9999999999.99) }).strict(), req.body);
+  await syncDraftBatch(parse(batchIdSchema, req.params.id));
+  const updated = await transaction(async conn => {
+    const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
+    if (!batches.length) throw notFound('工资批次不存在');
+    if (batches[0].status !== 'draft') throw badRequest('已复核的批次不能修改');
+    const [items] = await conn.query<RowDataPacket[]>('SELECT model_snapshot FROM hr_payroll_batch_items WHERE id = ? AND batch_id = ? FOR UPDATE', [req.params.itemId, req.params.id]);
+    if (!items.length) throw notFound('工资明细不存在');
+    if (!items[0].model_snapshot) throw badRequest('历史工资明细不能编辑');
+    const snapshot = json(items[0].model_snapshot) as PayrollModelSnapshot;
+    if ((snapshot.revision ?? 0) !== input.revision) throw conflict('工资明细已被修改，请刷新后重试');
+    snapshot.manualDeduction = input.deduction;
+    snapshot.revision = input.revision + 1;
+    const totals = calculateExtendedSalary(snapshot);
+    await conn.execute('UPDATE hr_payroll_batch_items SET model_snapshot = ?, gross = ?, deductions = ?, net = ? WHERE id = ?', [JSON.stringify(snapshot), totals.gross, totals.deductions, totals.net, req.params.itemId]);
+    return { modelSnapshot: snapshot, ...totals };
+  });
+  await recordAdminLog(req.admin!, '编辑工资批次扣除', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId });
+  success(res, updated);
+}));
 router.post('/payroll-batches/:id/review', asyncHandler(async (req, res) => {
+  await syncDraftBatch(parse(batchIdSchema, req.params.id));
   await transaction(async (conn) => {
     const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
     if (!batches.length) throw notFound('工资批次不存在'); if (batches[0].status !== 'draft') throw badRequest('批次已经复核');

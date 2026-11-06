@@ -3,6 +3,7 @@ import { conflict } from '../../shared/utils/errors';
 import { normalizeModelInput, normalizeStoredModel, readSalaryModel, reconcileSalaryFieldOrder, synchronizeSalaryRecord, validateSalaryFieldOrder } from './salaryModelService';
 import type { SalaryModelInput } from './salaryModelSchema';
 import * as repository from './salaryModelRepository';
+import { syncDraftsWithModel } from './payrollDraftSync';
 
 export const SALARY_MODEL_KEY = 'salary_component_model';
 
@@ -30,6 +31,7 @@ export async function saveSalaryModel(input: SalaryModelInput) {
         await repository.updateSalaryRecord(conn, row.employee_id, updated);
       }
     }
+    await syncDraftsWithModel(conn, next);
     await repository.updateModel(conn, SALARY_MODEL_KEY, next);
     return next;
   });

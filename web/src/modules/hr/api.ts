@@ -10,7 +10,7 @@ export interface HrTransition { id: number; type: 'promotion' | 'transfer'; effe
 export interface HrHistory { id: number; data: Record<string, unknown>; createdAt: string }
 export interface PayrollBatch { id: number; month: string; status: 'draft' | 'reviewed'; createdAt: string; reviewedAt: string | null }
 export interface PayrollFieldValue { name: string; value: number | string; type?: 'number' | 'text'; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'attendance'; attendanceMetric?: 'presentDays' | 'overtimeHours' | 'overtimePay'; calculationRule?: SalaryCalculationRule; attendancePeriod?: string }
-export interface PayrollModelSnapshot { version: number; revision: number; position?: string; fixedTotal: number; fixed: PayrollFieldValue[]; extended: (PayrollFieldValue & { category: 'income' | 'deduction' | 'info' })[] }
+export interface PayrollModelSnapshot { version: number; revision: number; position?: string; fixedTotal: number; manualDeduction?: number; fixed: PayrollFieldValue[]; extended: (PayrollFieldValue & { category: 'income' | 'deduction' | 'info' })[] }
 export interface PayrollBatchItem { id: number; employeeId: string; name: string; employeeNo: string; position: string; gross: number; baseGross: number | null; attendanceRate: number | null; attendanceAdjustment: number; overtimeSeconds: number; overtimePay: number; deductions: number; net: number; note: string; modelSnapshot: PayrollModelSnapshot | null }
 export interface AutoPayrollCandidate { employeeId: string; name: string; employeeNo: string; position: string; baseGross: number; gross: number; deductions: number; net: number; modelSnapshot: PayrollModelSnapshot }
 export interface AutoPayrollTotals { baseGross: number; gross: number; deductions: number; net: number }
@@ -74,6 +74,7 @@ export const addAutoPayrollItems = (id: number) => request<AutoPayrollAddResult>
 export const removePayrollBatchItem = (id: number, itemId: number) => request(`/admin/hr/payroll-batches/${id}/items/${itemId}`, { method: 'DELETE' });
 export const reviewPayrollBatch = (id: number) => request(`/admin/hr/payroll-batches/${id}/review`, { method: 'POST', body: {} });
 export const updatePayrollExtended = (id: number, itemId: number, body: { revision: number; values: { name: string; value: number | string }[] }) => request<{ modelSnapshot: PayrollModelSnapshot; gross: number; deductions: number; net: number }>(`/admin/hr/payroll-batches/${id}/items/${itemId}/extended`, { method: 'PUT', body });
+export const updatePayrollDeduction = (id: number, itemId: number, body: { revision: number; deduction: number }) => request<{ modelSnapshot: PayrollModelSnapshot; gross: number; deductions: number; net: number }>(`/admin/hr/payroll-batches/${id}/items/${itemId}/deduction`, { method: 'PUT', body });
 export const getOffboarding = () => request<OffboardingRecord[]>('/admin/hr/offboarding');
 export const createOffboarding = (body: unknown) => request<{ id: number }>('/admin/hr/offboarding', { method: 'POST', body });
 export const getOffboardingTasks = (id: number) => request<OnboardingTask[]>(`/admin/hr/offboarding/${id}/tasks`);

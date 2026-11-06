@@ -9,6 +9,7 @@ export interface PayrollModelSnapshot {
   fixed: PayrollValue[];
   extended: PayrollExtendedValue[];
   fixedTotal: number;
+  manualDeduction?: number;
   revision?: number;
   position?: string;
 }
@@ -30,21 +31,24 @@ export function fixedSalarySnapshot(record: Record<string, unknown>, model: Sala
   });
   const cents = fixed.reduce((sum, field) => sum + (typeof field.value === 'number' && (field.category ?? 'income') === 'income' ? Math.round(field.value * 100) : 0), 0);
   if (cents > 999999999999) throw badRequest('固定薪资合计超出允许范围');
-  return { version: model.version, fixed, fixedTotal: cents / 100, extended: model.extendedFields.map(field => ({ name: field.name, value: field.type === 'text' ? '' : 0, category: field.category ?? 'info', ...(field.type === 'text' ? { type: 'text' as const } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.calculationRule ? { calculationRule: field.calculationRule } : {}) })) };
+  return { version: model.version, fixed, fixedTotal: cents / 100, manualDeduction: 0, extended: model.extendedFields.map(field => ({ name: field.name, value: field.type === 'text' ? '' : 0, category: field.category ?? 'info', ...(field.type === 'text' ? { type: 'text' as const } : {}), ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.calculationRule ? { calculationRule: field.calculationRule } : {}) })) };
 }
 
 export function calculateExtendedSalary(snapshot: PayrollModelSnapshot) {
-  let income = 0; let deductions = 0;
+  let income = 0; let modelDeductions = 0;
   for (const field of snapshot.fixed) {
     checkValue(field);
-    if (field.category === 'deduction' && typeof field.value === 'number') deductions += Math.round(field.value * 100);
+    if (field.category === 'deduction' && typeof field.value === 'number') modelDeductions += Math.round(field.value * 100);
   }
   for (const field of snapshot.extended) {
     checkValue(field);
     if (field.category === 'income' && typeof field.value === 'number') income += Math.round(field.value * 100);
-    if (field.category === 'deduction' && typeof field.value === 'number') deductions += Math.round(field.value * 100);
+    if (field.category === 'deduction' && typeof field.value === 'number') modelDeductions += Math.round(field.value * 100);
   }
-  const gross = Math.round(snapshot.fixedTotal * 100) + income;
+  const manualDeduction = snapshot.manualDeduction ?? 0;
+  if (!Number.isFinite(manualDeduction) || manualDeduction < 0 || manualDeduction > 9999999999.99 || Math.abs(manualDeduction * 100 - Math.round(manualDeduction * 100)) > 1e-7) throw badRequest('扣除金额无效');
+  const deductions = Math.round(manualDeduction * 100);
+  const gross = Math.round(snapshot.fixedTotal * 100) + income - modelDeductions;
   if (gross < 0 || gross > 999999999999 || deductions > gross) throw badRequest('工资合计超出范围或扣款超过应发金额');
   return { gross: gross / 100, deductions: deductions / 100, net: (gross - deductions) / 100 };
 }

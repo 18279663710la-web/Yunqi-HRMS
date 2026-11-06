@@ -19,11 +19,12 @@ test('旧定薪兼容角色镜像，缺失的新字段为零，非法值不能�
   assert.throws(() => fixedSalarySnapshot({ values: { 基本工资: -1 } }, model));
 });
 
-test('扩展字段按类别计入，拒绝超额扣款或超出分精度的数字', () => {
+test('模型扣款从应发减去，手填扣除独立计算实发', () => {
   const model = normalizeStoredModel({ fixedFields: [{ name: '基本工资' }], extendedFields: [{ name: '加班费', category: 'income' }, { name: '扣社保', category: 'deduction' }, { name: '出勤天', category: 'info' }] });
   const snapshot = fixedSalarySnapshot({ values: { 基本工资: 100.1 } }, model);
   snapshot.extended[0].value = 10.2; snapshot.extended[1].value = 3.3; snapshot.extended[2].value = 22;
-  assert.deepEqual(calculateExtendedSalary(snapshot), { gross: 110.3, deductions: 3.3, net: 107 });
+  snapshot.manualDeduction = 2.5;
+  assert.deepEqual(calculateExtendedSalary(snapshot), { gross: 107, deductions: 2.5, net: 104.5 });
   snapshot.extended[1].value = 111; assert.throws(() => calculateExtendedSalary(snapshot));
   snapshot.extended[1].value = 0.001; assert.throws(() => calculateExtendedSalary(snapshot));
 });
