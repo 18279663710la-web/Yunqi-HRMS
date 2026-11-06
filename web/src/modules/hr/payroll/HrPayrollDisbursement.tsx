@@ -1,13 +1,44 @@
 import { useEffect, useState } from 'react';
-import { App, Table } from 'antd';
-import dayjs from 'dayjs';
+import { App, Button, DatePicker, Modal, Table } from 'antd';
+import dayjs, { type Dayjs } from 'dayjs';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
-import { getPayrollRecords, type PayrollRecord } from '../api';
+import { getPayrollBatches, getPayrollRecords, type PayrollBatch, type PayrollRecord } from '../api';
 
 export function HrPayrollDisbursement() {
+  const { message } = App.useApp();
+  const workspaceActive = useWorkspaceActive();
+  const [month, setMonth] = useState<Dayjs | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<PayrollBatch>();
+  const [batches, setBatches] = useState<PayrollBatch[]>([]);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const selectedMonth = month?.format('YYYY-MM');
+
+  useEffect(() => {
+    if (!workspaceActive || !batchOpen || !selectedMonth) return;
+    let active = true;
+    setLoading(true);
+    setBatches([]);
+    getPayrollBatches(selectedMonth).then(rows => {
+      if (active) setBatches(rows.filter(batch => batch.month === selectedMonth && batch.status === 'reviewed'));
+    }).catch((error: Error) => { if (active) message.error(error.message); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [workspaceActive, batchOpen, selectedMonth]);
+
   return <section aria-label="工资发放">
-    <div className="salary-model-entries payroll-disbursement-toolbar" aria-hidden="true" />
+    <div className="salary-model-entries payroll-disbursement-toolbar">
+      <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} onChange={value => { setMonth(value); setSelectedBatch(undefined); setBatchOpen(false); }} />
+      <button type="button" className="salary-model-entry" disabled={!selectedMonth} onClick={() => setBatchOpen(true)}>选择批次</button>
+      {selectedBatch && <span>{selectedBatch.month} · 已复核</span>}
+    </div>
+    <Modal title="选择工资批次" open={batchOpen} onCancel={() => setBatchOpen(false)} footer={<Button onClick={() => setBatchOpen(false)}>关闭</Button>} width={600}>
+      <Table rowKey="id" dataSource={batches} loading={loading} pagination={{ pageSize: 10 }} size="small" columns={[
+        { title: '工资月份', dataIndex: 'month' },
+        { title: '状态', render: () => '已复核' },
+        { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setSelectedBatch(batch); setBatchOpen(false); }}>选择</Button> },
+      ]} />
+    </Modal>
   </section>;
 }
 

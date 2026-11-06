@@ -174,8 +174,10 @@ router.put('/overtime-payroll-rules', asyncHandler(async (req, res) => {
   await recordAdminLog(req.admin!, '设置加班绩效规则', 'hr_settings', overtimeRulesKey, { count: overtimeRules.length });
   success(res, overtimeRules);
 }));
-router.get('/payroll-batches', asyncHandler(async (_req, res) => {
-  success(res, await queryRows('SELECT id, payroll_month AS month, status, created_at AS createdAt, reviewed_at AS reviewedAt, reviewed_by AS reviewedBy FROM hr_payroll_batches ORDER BY payroll_month DESC LIMIT 200'));
+router.get('/payroll-batches', asyncHandler(async (req, res) => {
+  const month = req.query.month === undefined ? undefined : parse(monthSchema, { month: req.query.month }).month;
+  const columns = 'SELECT id, payroll_month AS month, status, created_at AS createdAt, reviewed_at AS reviewedAt, reviewed_by AS reviewedBy FROM hr_payroll_batches';
+  success(res, month ? await queryRows(`${columns} WHERE payroll_month = ?`, [month]) : await queryRows(`${columns} ORDER BY payroll_month DESC LIMIT 200`));
 }));
 router.post('/payroll-batches', asyncHandler(async (req, res) => {
   const input = parse(monthSchema, req.body); const result = await execute("INSERT INTO hr_payroll_batches (payroll_month, status, created_at) VALUES (?, 'draft', NOW())", [input.month]);

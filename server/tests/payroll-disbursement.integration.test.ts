@@ -5,7 +5,7 @@ import test from 'node:test';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
-test('工资发放登记接口已移除，历史记录仍可查询', async () => {
+test('工资批次按月份查询，历史发放记录保持只读', async () => {
   const database = `yunqi_disbursement_${randomBytes(8).toString('hex')}`;
   const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
   let created = false; let closePool: (() => Promise<void>) | undefined; let closeServer: (() => Promise<void>) | undefined;
@@ -29,6 +29,12 @@ test('工资发放登记接口已移除，历史记录仍可查询', async () =>
     assert.ok([401, 404].includes((await call('/payroll/batch', 'POST', { batchId: 1 })).status));
     const records = (await call('/payroll')).body.data;
     assert.deepEqual(records.map((r: any) => [r.employeeId, r.month, Number(r.amount), r.note]), [['U001', '2026-02', 100.25, '历史记录']]);
+    await conn.query(`INSERT INTO \`${database}\`.hr_payroll_batches (payroll_month, status, created_at) VALUES ('2026-01', 'draft', NOW()), ('2026-02', 'reviewed', NOW())`);
+    const batches = await call('/payroll-batches?month=2026-02');
+    assert.equal(batches.status, 200);
+    assert.deepEqual(batches.body.data.map((batch: any) => [batch.month, batch.status]), [['2026-02', 'reviewed']]);
+    assert.equal((await call('/payroll-batches?month=2026-13')).status, 400);
+    assert.equal((await call('/payroll-batches')).body.data.length, 2);
   } finally {
     if (closeServer) await closeServer(); if (closePool) await closePool();
     if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end();

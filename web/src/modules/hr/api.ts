@@ -65,7 +65,7 @@ export interface PayrollWorkflow { version: number; nodes: PayrollWorkflowNodeSn
 export const getPayrollWorkflow = () => request<PayrollWorkflow>('/admin/hr/payroll-workflow');
 export const savePayrollWorkflow = (input: PayrollWorkflow) => request<PayrollWorkflow>('/admin/hr/payroll-workflow', { method: 'PUT', body: input });
 export const deletePayrollBatch = (id: number) => request(`/admin/hr/payroll-batches/${id}`, { method: 'DELETE' });
-export const getPayrollBatches = () => request<PayrollBatch[]>('/admin/hr/payroll-batches');
+export const getPayrollBatches = (month?: string) => request<PayrollBatch[]>(`/admin/hr/payroll-batches${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const createPayrollBatch = (month: string) => request<{ id: number }>('/admin/hr/payroll-batches', { method: 'POST', body: { month } });
 export const getPayrollBatchItems = (id: number) => request<PayrollBatchItem[]>(`/admin/hr/payroll-batches/${id}/items`);
 export const addPayrollBatchItem = (id: number, body: unknown) => request(`/admin/hr/payroll-batches/${id}/items`, { method: 'POST', body });
