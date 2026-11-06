@@ -803,6 +803,10 @@ code {
 .payroll-batches-table .ant-table-tbody > tr:nth-child(even) > td { background: #f3f5f8; }
 .payroll-batches-table .ant-table-tbody > tr:hover > td { background: #eaf1ff !important; }
 .payroll-batches-table .ant-table-tbody .ant-btn-link { height: 24px; padding: 0 4px; font-size: 13px; }
+.payroll-cell-edit { display: block; width: 100%; min-height: 22px; padding: 0 4px; overflow: hidden; border: 1px solid transparent; border-radius: 3px; background: transparent; color: inherit; font: inherit; text-align: center; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.payroll-cell-edit:hover:not(:disabled), .payroll-cell-edit:focus-visible { border-color: #91aff8; outline: none; background: #f7faff; }
+.payroll-cell-edit:disabled { cursor: default; }
+.payroll-batches-table .payroll-cell-input { width: 100%; min-width: 0; text-align: center; }
 .payroll-batches-bottom { position: absolute; right: 0; bottom: 16px; left: 0; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
 .payroll-batches-bottom .ant-pagination, .payroll-batches-footer > * { pointer-events: auto; }
 .payroll-batches-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 0 0 12px; }

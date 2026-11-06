@@ -227,7 +227,7 @@ router.delete('/payroll-batches/:id/items/:itemId', asyncHandler(async (req, res
 router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (req, res) => {
   const values = parse(z.array(z.object({ name: z.string().min(1).max(60), value: z.union([z.number().finite().min(-9999999999.99).max(9999999999.99), z.string().max(200)]) })).max(51), req.body.values);
   const revision = parse(z.number().int().nonnegative(), req.body.revision);
-  await transaction(async conn => {
+  const updated = await transaction(async conn => {
     const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
     if (!batches.length) throw notFound('工资批次不存在');
     if (batches[0].status !== 'draft') throw badRequest('已复核的批次不能修改');
@@ -247,9 +247,10 @@ router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (re
     snapshot.revision = revision + 1;
     const totals = calculateExtendedSalary(snapshot);
     await conn.execute('UPDATE hr_payroll_batch_items SET model_snapshot = ?, gross = ?, deductions = ?, net = ? WHERE id = ?', [JSON.stringify(snapshot), totals.gross, totals.deductions, totals.net, req.params.itemId]);
+    return { modelSnapshot: snapshot, ...totals };
   });
   await recordAdminLog(req.admin!, '编辑工资批次扩展字段', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId });
-  success(res, {});
+  success(res, updated);
 }));
 router.post('/payroll-batches/:id/review', asyncHandler(async (req, res) => {
   await transaction(async (conn) => {

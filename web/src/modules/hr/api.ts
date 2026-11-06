@@ -73,7 +73,7 @@ export const previewAutoPayrollItems = (id: number) => request<AutoPayrollPrevie
 export const addAutoPayrollItems = (id: number) => request<AutoPayrollAddResult>(`/admin/hr/payroll-batches/${id}/auto-items`, { method: 'POST', body: {} });
 export const removePayrollBatchItem = (id: number, itemId: number) => request(`/admin/hr/payroll-batches/${id}/items/${itemId}`, { method: 'DELETE' });
 export const reviewPayrollBatch = (id: number) => request(`/admin/hr/payroll-batches/${id}/review`, { method: 'POST', body: {} });
-export const updatePayrollExtended = (id: number, itemId: number, body: { revision: number; values: { name: string; value: number | string }[] }) => request(`/admin/hr/payroll-batches/${id}/items/${itemId}/extended`, { method: 'PUT', body });
+export const updatePayrollExtended = (id: number, itemId: number, body: { revision: number; values: { name: string; value: number | string }[] }) => request<{ modelSnapshot: PayrollModelSnapshot; gross: number; deductions: number; net: number }>(`/admin/hr/payroll-batches/${id}/items/${itemId}/extended`, { method: 'PUT', body });
 export const getOffboarding = () => request<OffboardingRecord[]>('/admin/hr/offboarding');
 export const createOffboarding = (body: unknown) => request<{ id: number }>('/admin/hr/offboarding', { method: 'POST', body });
 export const getOffboardingTasks = (id: number) => request<OnboardingTask[]>(`/admin/hr/offboarding/${id}/tasks`);
