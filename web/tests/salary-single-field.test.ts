@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applySalaryFieldChange } from '../src/utils/salaryModel';
-import type { SalaryComponentModel } from '../src/api/hr';
+import { applySalaryFieldChange } from '../src/modules/models-formulas/salary/salaryModel';
+import type { SalaryComponentModel } from '../src/modules/hr/api';
 
 const model: SalaryComponentModel = {
   version: 4,

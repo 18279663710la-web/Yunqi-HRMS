@@ -22,7 +22,7 @@ export type OvertimeRuleConfig = z.infer<typeof overtimeRuleConfigSchema>;
 export const overtimeRulesKey = 'payroll_overtime_rules';
 export const overtimeRuleConfigKey = 'payroll_overtime_rule_config';
 export const defaultOvertimeRules: OvertimeRule[] = [{ minHours: 0, maxHours: null, hourlyRate: 0 }];
-function isPaidOvertime(value: unknown): boolean {
+export function isPaidOvertime(value: unknown): boolean {
   let form = value;
   if (typeof form === 'string') { try { form = JSON.parse(form); } catch { return false; } }
   const compensation = Array.isArray(form) ? form.filter((item: { label?: string }) => item?.label === '补偿方式') : [];

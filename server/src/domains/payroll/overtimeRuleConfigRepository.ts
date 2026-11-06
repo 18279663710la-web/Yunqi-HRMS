@@ -1,13 +1,14 @@
+import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { queryRows, transaction } from '../../shared/db/pool';
 import { defaultOvertimeRules, overtimeRuleConfigKey, overtimeRuleConfigSchema, overtimeRulesKey, overtimeRulesSchema, type OvertimeRuleConfig } from './overtimePayrollService';
 
 export const OVERTIME_RULE_CONFIG_KEY = overtimeRuleConfigKey;
 const decode = (value: unknown) => typeof value === 'string' ? JSON.parse(value) : value;
 
-export async function readOvertimeRuleConfig(): Promise<OvertimeRuleConfig> {
-  const rows = await queryRows<{ setting_key: string; value_json: unknown }>(
-    'SELECT setting_key, value_json FROM hr_settings WHERE setting_key IN (?, ?)', [OVERTIME_RULE_CONFIG_KEY, overtimeRulesKey],
-  );
+export async function readOvertimeRuleConfig(conn?: PoolConnection): Promise<OvertimeRuleConfig> {
+  const sql = 'SELECT setting_key, value_json FROM hr_settings WHERE setting_key IN (?, ?)';
+  const params = [OVERTIME_RULE_CONFIG_KEY, overtimeRulesKey];
+  const rows = conn ? (await conn.query<RowDataPacket[]>(sql, params))[0] : await queryRows<{ setting_key: string; value_json: unknown }>(sql, params);
   const config = rows.find(row => row.setting_key === OVERTIME_RULE_CONFIG_KEY);
   if (config) return overtimeRuleConfigSchema.parse(decode(config.value_json));
   const legacy = rows.find(row => row.setting_key === overtimeRulesKey);

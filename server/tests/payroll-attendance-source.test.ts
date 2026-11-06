@@ -21,3 +21,11 @@ test('旧的未选择考勤项目的字段仍可读取和保存', () => {
   assert.equal(model.extendedFields[0].interfaceSource, 'attendance');
   assert.deepEqual(normalizeModelInput(model.fixedFields, model.extendedFields).extendedFields, model.extendedFields);
 });
+
+test('加班费是唯一的数字收入字段，保存和读取时保留计算来源', () => {
+  const field = { name: '加班费', type: 'number', category: 'income', interfaceSource: 'attendance', attendanceMetric: 'overtimePay' };
+  const model = normalizeModelInput([], [field]);
+  assert.equal(normalizeStoredModel({ version: 1, ...model }).extendedFields[0].attendanceMetric, 'overtimePay');
+  assert.throws(() => normalizeModelInput([], [{ ...field, category: 'info' }]));
+  assert.throws(() => normalizeModelInput([field], [{ ...field, name: '重复加班费' }]));
+});

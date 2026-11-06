@@ -2,11 +2,11 @@
 
 ## 职责
 
-薪资构成模型页面、字段处理、考勤数据项目配置和共享薪资模型工具。
+薪资构成模型页面、字段处理和独立考勤接口配置弹窗；考勤数据支持出勤天数、加班时长和按规则计算的加班费。
 
 ## 主要内容
 
-- 主要文件：`salaryModel.ts`、`SalaryModels.tsx`。
+- 主要文件：`salaryModel.ts`、`salaryInterfaceConfig.ts`、`SalaryModels.tsx`。
 
 ## 维护约束
 

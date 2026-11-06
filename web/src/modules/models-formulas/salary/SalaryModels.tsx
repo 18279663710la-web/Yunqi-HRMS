@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { App, Checkbox, Empty, Form, Input, Modal, Popconfirm, Select, Spin } from 'antd';
+import { App, Button, Checkbox, Empty, Form, Input, Modal, Popconfirm, Select, Space, Spin } from 'antd';
 import { HolderOutlined } from '@ant-design/icons';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -7,6 +7,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ApiError } from '../../../api/client';
 import { getSalaryComponentModel, saveSalaryComponentModel, type SalaryComponentModel, type SalaryModelField } from '../../hr/api';
 import { SALARY_IDENTITY_FIELDS, applySalaryFieldChange, isSalaryIdentityField, moveSalaryField, orderedSalaryFields } from './salaryModel';
+import { applyAttendanceInterface, clearSalaryInterface } from './salaryInterfaceConfig';
 
 type FieldGroup = 'fixed' | 'extended';
 type Editor = { mode: 'create' | 'edit'; group: FieldGroup; name?: string; identity?: boolean };
@@ -36,6 +37,9 @@ export function SalaryModels() {
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Editor | null>(null);
+  const [interfaceOpen, setInterfaceOpen] = useState(false);
+  const [draftMetric, setDraftMetric] = useState<SalaryModelField['attendanceMetric']>();
+  const [interfaceError, setInterfaceError] = useState(false);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [orderSaving, setOrderSaving] = useState(false);
@@ -61,6 +65,11 @@ export function SalaryModels() {
     form.resetFields();
     form.setFieldsValue(field ? { ...field, category: field.category ?? (isSalaryIdentityField(field) || field.type === 'text' || group === 'extended' ? 'info' : 'income'), interfaceSource: field.interfaceSource ?? 'none', displaySetting: field.displaySetting ?? 'none' } : { name: '', type: 'number', required: true, category: group === 'fixed' ? 'income' : 'info', interfaceSource: 'none', displaySetting: 'none' });
     setEditing({ mode: field ? 'edit' : 'create', group, name: field?.name, identity: isSalaryIdentityField(field) });
+  };
+  const openInterface = () => {
+    setDraftMetric(form.getFieldValue('attendanceMetric'));
+    setInterfaceError(false);
+    setInterfaceOpen(true);
   };
   const save = async (values: SalaryModelField) => {
     if (!editing || !model) return;
@@ -149,11 +158,14 @@ export function SalaryModels() {
           <Form.Item className="salary-single-field-required" name="required" valuePropName="checked"><Checkbox disabled={editing?.identity}>必填</Checkbox></Form.Item>
           <Form.Item name="type" label="字段类型" rules={[{ required: true }]}><Select disabled={editing?.identity || (watchedSource === 'attendance' && !!watchedMetric)} onChange={(type: 'number' | 'text') => { if (type === 'text') form.setFieldValue('category', 'info'); }} options={[{ value: 'number', label: '数字' }, { value: 'text', label: '字符串' }]} /></Form.Item>
           <Form.Item name="category" label="字段用途" rules={[{ required: true }]}><Select disabled={editing?.identity || (watchedSource === 'attendance' && !!watchedMetric)} options={[{ value: 'income', label: '收入', disabled: watchedType === 'text' }, { value: 'deduction', label: '扣款', disabled: watchedType === 'text' }, { value: 'info', label: '仅记录' }]} /></Form.Item>
-          <Form.Item name="interfaceSource" label="接口配置"><Select disabled={editing?.identity} onChange={(source: string) => { if (source === 'attendance') form.setFieldsValue({ type: 'number', category: 'info' }); else form.setFieldValue('attendanceMetric', undefined); }} options={[{ value: 'none', label: '无' }, { value: 'attendance', label: '考勤系统' }]} /></Form.Item>
-          {watchedSource === 'attendance' && <Form.Item name="attendanceMetric" label="考勤数据" rules={[{ required: true, message: '请选择考勤数据' }]}><Select onChange={() => form.setFieldsValue({ type: 'number', category: 'info' })} options={[{ value: 'presentDays', label: '实际出勤天数' }, { value: 'overtimeHours', label: '实际加班时长（小时）' }]} /></Form.Item>}
+          <Form.Item label="接口配置" htmlFor="interfaceSource"><Space.Compact style={{ width: '100%' }}><Form.Item name="interfaceSource" noStyle><Select disabled={editing?.identity} onChange={(source: string) => { if (source === 'attendance') { form.setFieldValue('interfaceSource', watchedSource ?? 'none'); openInterface(); } else form.setFieldsValue(clearSalaryInterface()); }} options={[{ value: 'none', label: '无' }, { value: 'attendance', label: '考勤系统' }]} /></Form.Item>{watchedSource === 'attendance' && <Button onClick={openInterface}>配置</Button>}</Space.Compact></Form.Item>
+          <Form.Item name="attendanceMetric" hidden rules={[{ validator: async (_, value) => { if (form.getFieldValue('interfaceSource') === 'attendance' && !value) throw new Error('请配置考勤数据'); } }]}><Input /></Form.Item>
           <Form.Item name="displaySetting" label="显示设置"><Select options={DISPLAY_OPTIONS} /></Form.Item>
         </div>
       </Form>
+    </Modal>
+    <Modal title="考勤系统接口配置" open={interfaceOpen} onCancel={() => setInterfaceOpen(false)} onOk={() => { try { form.setFieldsValue(applyAttendanceInterface(draftMetric)); setInterfaceOpen(false); } catch { setInterfaceError(true); } }} okText="确定" cancelText="取消" width={520}>
+      <Form layout="vertical"><Form.Item label="考勤数据" required htmlFor="salary-attendance-metric" validateStatus={interfaceError ? 'error' : undefined} help={interfaceError ? '请选择考勤数据' : undefined}><Select id="salary-attendance-metric" value={draftMetric} onChange={value => { setDraftMetric(value); setInterfaceError(false); }} placeholder="请选择考勤数据" options={[{ value: 'presentDays', label: '实际出勤天数' }, { value: 'overtimeHours', label: '实际加班时长（小时）' }, { value: 'overtimePay', label: '加班费（加班绩效规则）' }]} /></Form.Item></Form>
     </Modal>
   </section>;
 }

@@ -5,7 +5,7 @@ import { badRequest } from '../../shared/utils/errors';
 export type SalaryFieldType = 'number' | 'text';
 export type SalaryFieldRole = 'name' | 'employeeNo' | 'position' | 'base' | 'allowance' | 'performance';
 export type SalaryFieldCategory = 'income' | 'deduction' | 'info';
-export type AttendanceMetric = 'presentDays' | 'overtimeHours';
+export type AttendanceMetric = 'presentDays' | 'overtimeHours' | 'overtimePay';
 export type SalaryDisplaySetting = 'none' | 'display' | 'output';
 
 export interface SalaryModelField {
@@ -79,8 +79,8 @@ function parseField(raw: unknown, strict: boolean): SalaryModelField | null {
   if (strict && category !== undefined && category !== 'income' && category !== 'deduction' && category !== 'info') throw badRequest('字段用途无效');
   if (strict && rawType === 'text' && category !== undefined && category !== 'info' && !identity) throw badRequest('字符串字段用途只能是仅记录');
   if (strict && interfaceSource !== undefined && interfaceSource !== 'none' && interfaceSource !== 'attendance') throw badRequest('接口配置无效');
-  if (strict && attendanceMetric !== undefined && attendanceMetric !== 'presentDays' && attendanceMetric !== 'overtimeHours') throw badRequest('考勤数据项目无效');
-  if (strict && attendanceMetric !== undefined && (interfaceSource !== 'attendance' || rawType !== 'number' || category !== 'info' || identity)) throw badRequest('考勤数据字段必须为数字且用途为仅记录');
+  if (strict && attendanceMetric !== undefined && attendanceMetric !== 'presentDays' && attendanceMetric !== 'overtimeHours' && attendanceMetric !== 'overtimePay') throw badRequest('考勤数据项目无效');
+  if (strict && attendanceMetric !== undefined && (interfaceSource !== 'attendance' || rawType !== 'number' || category !== (attendanceMetric === 'overtimePay' ? 'income' : 'info') || identity)) throw badRequest('考勤数据字段类型或用途无效');
   if (strict && displaySetting !== undefined && displaySetting !== 'none' && displaySetting !== 'display' && displaySetting !== 'output') throw badRequest('显示设置无效');
   return {
     name: identity ? IDENTITY_FIELDS.find(field => field.role === role)!.name : name,
@@ -90,7 +90,7 @@ function parseField(raw: unknown, strict: boolean): SalaryModelField | null {
     ...(!identity && (category === 'income' || category === 'deduction' || category === 'info') && rawType === 'number' ? { category } : {}),
     ...(!identity && rawType === 'text' ? { category: 'info' as const } : {}),
     ...(!identity && interfaceSource === 'attendance' ? { interfaceSource: 'attendance' as const } : {}),
-    ...(!identity && interfaceSource === 'attendance' && (attendanceMetric === 'presentDays' || attendanceMetric === 'overtimeHours') ? { attendanceMetric } : {}),
+    ...(!identity && interfaceSource === 'attendance' && (attendanceMetric === 'presentDays' || attendanceMetric === 'overtimeHours' || attendanceMetric === 'overtimePay') ? { attendanceMetric } : {}),
     ...(displaySetting === 'display' || displaySetting === 'output' ? { displaySetting } : {}),
   };
 }
@@ -185,6 +185,7 @@ export function normalizeModelInput(fixedFields: unknown, extendedFields: unknow
     names.add(field.name);
     normalizedExtended.push({ name: field.name, type: field.type, required: field.required, category: field.category ?? 'info', ...(field.interfaceSource ? { interfaceSource: field.interfaceSource } : {}), ...(field.attendanceMetric ? { attendanceMetric: field.attendanceMetric } : {}), ...(field.displaySetting ? { displaySetting: field.displaySetting } : {}) });
   }
+  if ([...amountFields, ...normalizedExtended].filter(field => field.attendanceMetric === 'overtimePay').length > 1) throw badRequest('加班费计算来源只能配置一个字段');
   if (IDENTITY_FIELDS.length + amountFields.length + normalizedExtended.length > 51) throw badRequest('最多配置 51 个字段');
   return {
     fixedFields: [...identityFields, ...amountFields],

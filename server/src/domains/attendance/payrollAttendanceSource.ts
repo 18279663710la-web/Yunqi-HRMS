@@ -3,8 +3,10 @@ import { badRequest } from '../../shared/utils/errors';
 import { buildDayRecord, summarizeRecords, type DayOverride } from './attendanceService';
 import type { AttendanceSettings } from './attendanceSettings';
 import type { AttendanceMetric } from '../payroll/salaryModelService';
+import { calculateOvertimePay, isPaidOvertime, type OvertimeRuleConfig, type OvertimeRule } from '../payroll/overtimePayrollService';
+import { readOvertimeRuleConfig } from '../payroll/overtimeRuleConfigRepository';
 
-export interface PayrollAttendanceValues { presentDays?: number; overtimeHours?: number }
+export interface PayrollAttendanceValues { presentDays?: number; overtimeHours?: number; overtimePay?: number; overtimeCalculation?: { seconds: number; config: OvertimeRuleConfig; matchedRule: OvertimeRule | null } }
 
 function groupByEmployee(rows: RowDataPacket[]): Map<string, RowDataPacket[]> {
   const result = new Map<string, RowDataPacket[]>();
@@ -40,15 +42,26 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
       result.get(employee.id)!.presentDays = summarizeRecords(records).presentDays;
     }
   }
-  if (metrics.has('overtimeHours')) {
-    const [rows] = await conn.query<RowDataPacket[]>(`SELECT p.employee_id, p.check_out, TIMESTAMPDIFF(SECOND, p.check_in, p.check_out) AS seconds FROM attendance_overtime_punches p JOIN approvals a ON a.id = p.approval_id WHERE p.employee_id IN (${placeholders}) AND p.check_in >= ? AND p.check_in < DATE_ADD(?, INTERVAL 1 MONTH) AND a.type = 'overtime' AND a.status = 'approved'`, [...ids, start, start]);
+  if (metrics.has('overtimeHours') || metrics.has('overtimePay')) {
+    const config = metrics.has('overtimePay') ? await readOvertimeRuleConfig(conn) : undefined;
+    const [rows] = await conn.query<RowDataPacket[]>(`SELECT p.employee_id, p.check_out, a.form_json, TIMESTAMPDIFF(SECOND, p.check_in, p.check_out) AS seconds FROM attendance_overtime_punches p JOIN approvals a ON a.id = p.approval_id WHERE p.employee_id IN (${placeholders}) AND p.check_in >= ? AND p.check_in < DATE_ADD(?, INTERVAL 1 MONTH) AND a.type = 'overtime' AND a.status = 'approved'`, [...ids, start, start]);
     const rowsByEmployee = groupByEmployee(rows);
     for (const employee of employees) {
       const ownRows = rowsByEmployee.get(employee.id) ?? [];
-      if (ownRows.some(row => !row.check_out)) throw badRequest(`员工“${employee.name}”在 ${month} 存在未完成的加班打卡，请先处理`);
-      if (ownRows.some(row => row.seconds === null || !Number.isFinite(Number(row.seconds)) || Number(row.seconds) < 0)) throw badRequest(`员工“${employee.name}”的加班时长无效`);
-      const seconds = ownRows.reduce((sum, row) => sum + Number(row.seconds), 0);
-      result.get(employee.id)!.overtimeHours = Math.round(seconds / 3600 * 100) / 100;
+      const relevant = metrics.has('overtimeHours') ? ownRows : ownRows.filter(row => isPaidOvertime(row.form_json));
+      if (relevant.some(row => !row.check_out)) throw badRequest(`员工“${employee.name}”在 ${month} 存在未完成的加班打卡，请先处理`);
+      if (relevant.some(row => row.seconds === null || !Number.isFinite(Number(row.seconds)) || Number(row.seconds) < 0)) throw badRequest(`员工“${employee.name}”的加班时长无效`);
+      if (metrics.has('overtimeHours')) {
+        const seconds = ownRows.reduce((sum, row) => sum + Number(row.seconds), 0);
+        result.get(employee.id)!.overtimeHours = Math.round(seconds / 3600 * 100) / 100;
+      }
+      if (config) {
+        const seconds = ownRows.filter(row => isPaidOvertime(row.form_json)).reduce((sum, row) => sum + Number(row.seconds), 0);
+        const rules = config.calculation === 'range' ? config.rules : [{ minHours: 0, maxHours: null, hourlyRate: config.hourlyRate }];
+        const calculated = calculateOvertimePay(seconds, rules);
+        result.get(employee.id)!.overtimePay = calculated.amount;
+        result.get(employee.id)!.overtimeCalculation = { seconds, config, matchedRule: calculated.matchedRule };
+      }
     }
   }
   return result;

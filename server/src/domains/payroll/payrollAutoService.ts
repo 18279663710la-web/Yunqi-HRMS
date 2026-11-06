@@ -50,10 +50,10 @@ async function collectCandidates(conn: PoolConnection, batchId: number, model: S
     const modelSnapshot = fixedSalarySnapshot(salary, model);
     modelSnapshot.position = String(row.position ?? '');
     modelSnapshot.revision = 0;
-    const totals = calculateExtendedSalary(modelSnapshot);
-    candidates.push({ employeeId: String(row.id), name: String(row.name), employeeNo: String(row.employeeNo), position: String(row.position ?? ''), baseGross: modelSnapshot.fixedTotal, ...totals, modelSnapshot });
+    candidates.push({ employeeId: String(row.id), name: String(row.name), employeeNo: String(row.employeeNo), position: String(row.position ?? ''), baseGross: modelSnapshot.fixedTotal, gross: 0, deductions: 0, net: 0, modelSnapshot });
   }
-  if ([...model.fixedFields, ...model.extendedFields].some(field => field.attendanceMetric && (field.interfaceSource !== 'attendance' || field.type !== 'number' || field.category !== 'info'))) throw badRequest('考勤字段配置无效，请检查薪资构成模型');
+  const modelFields = [...model.fixedFields, ...model.extendedFields];
+  if (modelFields.some(field => field.attendanceMetric && (field.interfaceSource !== 'attendance' || field.type !== 'number' || field.category !== (field.attendanceMetric === 'overtimePay' ? 'income' : 'info'))) || modelFields.filter(field => field.attendanceMetric === 'overtimePay').length > 1) throw badRequest('考勤字段配置无效，请检查薪资构成模型');
   const metrics = new Set<AttendanceMetric>([...model.fixedFields, ...model.extendedFields].flatMap(field => field.attendanceMetric ? [field.attendanceMetric] : []));
   const attendance = await readPayrollAttendance(conn, candidates.map(candidate => ({ id: candidate.employeeId, name: `${candidate.name}（${candidate.employeeNo}）` })), month, metrics);
   for (const candidate of candidates) {
@@ -63,7 +63,11 @@ async function collectCandidates(conn: PoolConnection, batchId: number, model: S
       if (value === undefined) throw badRequest(`未能获取员工“${candidate.name}”的考勤数据`);
       field.value = value;
       field.attendancePeriod = month;
+      if (field.attendanceMetric === 'overtimePay') field.overtimeCalculation = attendance.get(candidate.employeeId)?.overtimeCalculation;
     }
+    candidate.modelSnapshot.fixedTotal = candidate.modelSnapshot.fixed.reduce((sum, field) => sum + (typeof field.value === 'number' && (field.category ?? 'income') === 'income' ? Math.round(field.value * 100) : 0), 0) / 100;
+    candidate.baseGross = candidate.modelSnapshot.fixedTotal;
+    Object.assign(candidate, calculateExtendedSalary(candidate.modelSnapshot));
   }
   return { candidates, existingCount };
 }
