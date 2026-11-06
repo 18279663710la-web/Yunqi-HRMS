@@ -31,11 +31,15 @@ export async function createPayrollWorkbook(data: PayrollExportData): Promise<Ex
   total[data.headers.length - 1] = data.totals[0];
   const totalRow = sheet.addRow(total);
   totalRow.font = { bold: true };
+  const labelColumns = Math.min(3, fieldCount);
+  if (labelColumns > 1) sheet.mergeCells(totalRow.number, 1, totalRow.number, labelColumns);
+  if (fieldCount - labelColumns > 1) sheet.mergeCells(totalRow.number, labelColumns + 1, totalRow.number, fieldCount);
   const textWidth = (value: string) => Array.from(value).reduce((size, char) => size + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
   sheet.columns.forEach((column, index) => {
     const displayWidth = (value: string | number) => textWidth(typeof value === 'number' ? value.toFixed(2) : value);
     const maxWidth = data.rows.reduce((width, row) => Math.max(width, displayWidth(row[index] ?? '')), Math.max(textWidth(data.headers[index]), displayWidth(total[index])));
-    column.width = Math.max(10, Math.min(26, maxWidth + 3));
+    const width = Math.max(10, Math.min(26, maxWidth + 3));
+    column.width = index === data.headers.length - 1 ? Math.min(30, Math.max(16, width + 4)) : width;
   });
   data.rows.forEach((values, rowIndex) => {
     const lines = values.reduce<number>((max, value, index) => {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import ExcelJS from 'exceljs';
 import { createPayrollWorkbook } from '../src/modules/hr/payroll/payrollExportXlsx';
+import { buildPayrollPdfLayout } from '../src/modules/hr/payroll/payrollPdfLayout';
 
 test('Excel 可读取全部明细、数值和合计，文本按原样存储', async () => {
   const rows = Array.from({ length: 12 }, (_, i) => [`00${i}`, '=文本', 100.25, 100.25]);
@@ -36,4 +37,21 @@ test('应发列预留合计金额所需宽度', async () => {
   const book = await createPayrollWorkbook({ title: '工资表', periodLabel: '2026（10）月份应发工资奖金补贴及其他', columnNumbers: ['', '1', ''], filename: '测试', headers: ['姓名', '工资', '应发'], rows: [['测试', 1, 1]], totals: [9876543210.12] });
   const sheet = book.getWorksheet('工资明细')!;
   assert.ok(sheet.getColumn(3).width! >= '9876543210.12'.length + 3);
+});
+
+test('合计行前三列及中间列分别合并，应发独立加宽，PDF 读取相同合并区域', async () => {
+  const headers = ['姓名', '员工号', '职务', '基本工资', '津贴', '奖励', '应发'];
+  const book = await createPayrollWorkbook({ title: '工资表', periodLabel: '2026（10）月份应发工资奖金补贴及其他', columnNumbers: ['', '', '', '1', '2', '3', ''], filename: '测试', headers, rows: [['小陈', 'E001', '职员', 100, 20, 5, 125]], totals: [125] });
+  const read = new ExcelJS.Workbook();
+  await read.xlsx.load(await book.xlsx.writeBuffer());
+  const sheet = read.getWorksheet('工资明细')!;
+  assert.equal(sheet.getCell('A6').value, '本批次合计');
+  assert.equal(sheet.getCell('C6').master.address, 'A6');
+  assert.equal(sheet.getCell('F6').master.address, 'D6');
+  assert.equal(sheet.getCell('G6').value, 125);
+  assert.equal(sheet.getCell('G6').isMerged, false);
+  assert.ok(sheet.getColumn(7).width! > sheet.getColumn(4).width!);
+  const layout = buildPayrollPdfLayout(sheet);
+  assert.ok(layout.merges.some(m => m.top === 6 && m.left === 1 && m.right === 3));
+  assert.ok(layout.merges.some(m => m.top === 6 && m.left === 4 && m.right === 6));
 });
