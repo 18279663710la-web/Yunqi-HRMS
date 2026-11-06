@@ -102,6 +102,22 @@ test('工资批次按固定模型算薪，扩展字段手工填写并锁定快�
     assert.equal(reviewed.net, 1179.75);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 4, deduction: 5 })).status, 400);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/extended`, 'PUT', { revision: 1, values })).status, 400);
+
+    // 修改固定字段只作用于当前草稿，使用新值重算金额并防止并发覆盖。
+    const fixedBatch = (await call('/admin/hr/payroll-batches', 'POST', { month: '2026-10' })).body.data.id;
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/items`, 'POST', { employeeId: 'U001' })).status, 200);
+    const fixedItem = (await call(`/admin/hr/payroll-batches/${fixedBatch}/items`)).body.data[0];
+    const fixedUpdate = await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 0, name: '基本工资', value: 1500.5 });
+    assert.equal(fixedUpdate.status, 200, JSON.stringify(fixedUpdate.body));
+    assert.deepEqual({ gross: fixedUpdate.body.data.gross, deductions: fixedUpdate.body.data.deductions, net: fixedUpdate.body.data.net }, { gross: 1730.5, deductions: 0, net: 1730.5 });
+    assert.equal(fixedUpdate.body.data.modelSnapshot.fixed.find((field: any) => field.name === '基本工资').value, 1500.5);
+    assert.equal(fixedUpdate.body.data.modelSnapshot.revision, 1);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 0, name: '基本工资', value: 1200 })).status, 409);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 1, name: '基本工资', value: -1 })).status, 400);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 1, name: '姓名', value: '他人' })).status, 400);
+    assert.equal((await call('/admin/hr/employees/U001/salary')).body.data.values.基本工资, 1000);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/review`, 'POST', {})).status, 200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 1, name: '基本工资', value: 1200 })).status, 400);
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });
 

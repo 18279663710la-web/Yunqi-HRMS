@@ -22,9 +22,22 @@ export function buildInlinePayrollUpdate(snapshot: PayrollModelSnapshot, fieldNa
   return { revision: snapshot.revision ?? 0, values: snapshot.extended.map(item => ({ name: item.name, value: item.name === fieldName ? value : item.value })) };
 }
 
-export function previewInlinePayrollTotals(snapshot: PayrollModelSnapshot, fieldName: string, rawValue: string, manual = false) {
+export function buildFixedPayrollUpdate(snapshot: PayrollModelSnapshot, fieldName: string, rawValue: string) {
+  const field = snapshot.fixed.find(item => item.name === fieldName);
+  if (!field || ['姓名', '员工号', '职务'].includes(fieldName)) throw new Error('固定字段不存在或不能修改');
+  let value: number | string = rawValue;
+  if (field.type === 'text') {
+    if (rawValue.length > 200) throw new Error('最多输入 200 个字符');
+  } else if (field.calculationRule === 'attendance' && rawValue.trim().startsWith('-')) {
+    value = -parseManualDeduction(rawValue.trim().slice(1));
+  } else value = parseManualDeduction(rawValue);
+  return { revision: snapshot.revision ?? 0, name: fieldName, value };
+}
+
+export function previewInlinePayrollTotals(snapshot: PayrollModelSnapshot, fieldName: string, rawValue: string, manual = false, fixed = false) {
   try {
-    const values = new Map((manual ? snapshot.extended : buildInlinePayrollUpdate(snapshot, fieldName, rawValue).values).map(field => [field.name, field.value]));
-    return calculateSalaryTotals(snapshot, values, manual ? parseManualDeduction(rawValue) : snapshot.manualDeduction ?? 0);
+    const values = new Map((manual || fixed ? snapshot.extended : buildInlinePayrollUpdate(snapshot, fieldName, rawValue).values).map(field => [field.name, field.value]));
+    const fixedValues = fixed ? new Map([[fieldName, buildFixedPayrollUpdate(snapshot, fieldName, rawValue).value]]) : undefined;
+    return calculateSalaryTotals(snapshot, values, manual ? parseManualDeduction(rawValue) : snapshot.manualDeduction ?? 0, fixedValues);
   } catch { return undefined; }
 }

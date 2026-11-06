@@ -7,7 +7,7 @@ import { recordAdminLog } from '../../domains/audit/adminLogService';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 import { attendanceRulesSchema, payrollAttendanceRulesSchema } from './hrPolicy';
-import { calculateExtendedSalary, type PayrollModelSnapshot } from '../../domains/payroll/payrollModelCalculation';
+import { calculateExtendedSalary, calculateFixedIncome, type PayrollModelSnapshot } from '../../domains/payroll/payrollModelCalculation';
 import { syncDraftBatch } from '../../domains/payroll/payrollDraftSync';
 import { addAutoPayrollItems, previewAutoPayrollItems } from '../../domains/payroll/payrollAutoService';
 import { success } from '../../shared/utils/response';
@@ -254,6 +254,31 @@ router.put('/payroll-batches/:id/items/:itemId/extended', asyncHandler(async (re
     return { modelSnapshot: snapshot, ...totals };
   });
   await recordAdminLog(req.admin!, '编辑工资批次扩展字段', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId });
+  success(res, updated);
+}));
+router.put('/payroll-batches/:id/items/:itemId/fixed', asyncHandler(async (req, res) => {
+  const input = parse(z.object({ revision: z.number().int().nonnegative(), name: z.string().min(1).max(60), value: z.union([z.number().finite().min(-9999999999.99).max(9999999999.99), z.string().max(200)]) }).strict(), req.body);
+  if (['姓名', '员工号', '职务'].includes(input.name)) throw badRequest('员工身份字段不能在工资批次中修改');
+  await syncDraftBatch(parse(batchIdSchema, req.params.id));
+  const updated = await transaction(async conn => {
+    const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
+    if (!batches.length) throw notFound('工资批次不存在');
+    if (batches[0].status !== 'draft') throw badRequest('已复核的批次不能修改');
+    const [items] = await conn.query<RowDataPacket[]>('SELECT model_snapshot FROM hr_payroll_batch_items WHERE id = ? AND batch_id = ? FOR UPDATE', [req.params.itemId, req.params.id]);
+    if (!items.length) throw notFound('工资明细不存在');
+    if (!items[0].model_snapshot) throw badRequest('历史工资明细不能按新模型编辑');
+    const snapshot = json(items[0].model_snapshot) as PayrollModelSnapshot;
+    if ((snapshot.revision ?? 0) !== input.revision) throw conflict('工资明细已被修改，请刷新后重试');
+    const field = snapshot.fixed.find(item => item.name === input.name);
+    if (!field) throw badRequest('固定字段不存在');
+    snapshot.fixed = snapshot.fixed.map(item => item.name === input.name ? { ...item, value: input.value, manualAdjustment: { originalValue: item.manualAdjustment?.originalValue ?? item.value, updatedAt: new Date().toISOString(), updatedBy: req.admin!.id } } : item);
+    snapshot.fixedTotal = calculateFixedIncome(snapshot.fixed);
+    snapshot.revision = input.revision + 1;
+    const totals = calculateExtendedSalary(snapshot);
+    await conn.execute('UPDATE hr_payroll_batch_items SET model_snapshot = ?, gross = ?, deductions = ?, net = ? WHERE id = ?', [JSON.stringify(snapshot), totals.gross, totals.deductions, totals.net, req.params.itemId]);
+    return { modelSnapshot: snapshot, ...totals };
+  });
+  await recordAdminLog(req.admin!, '编辑工资批次固定字段', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId, field: input.name });
   success(res, updated);
 }));
 router.put('/payroll-batches/:id/items/:itemId/deduction', asyncHandler(async (req, res) => {

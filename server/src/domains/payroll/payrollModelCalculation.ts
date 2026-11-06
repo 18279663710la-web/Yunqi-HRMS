@@ -2,7 +2,7 @@ import { buildSalaryValues, salaryAmountFields, type SalaryFieldCategory, type S
 import { badRequest } from '../../shared/utils/errors';
 import type { PayrollAttendanceValues } from '../attendance/payrollAttendanceSource';
 
-export interface PayrollValue { name: string; value: number | string; category?: SalaryFieldCategory; type?: 'number' | 'text'; interfaceSource?: 'attendance'; attendanceMetric?: AttendanceMetric; calculationRule?: SalaryCalculationRule; attendanceEmployeeNo?: string; attendancePeriod?: string; attendanceCalculation?: PayrollAttendanceValues['attendanceCalculation']; overtimeCalculation?: PayrollAttendanceValues['overtimeCalculation'] }
+export interface PayrollValue { name: string; value: number | string; category?: SalaryFieldCategory; type?: 'number' | 'text'; interfaceSource?: 'attendance'; attendanceMetric?: AttendanceMetric; calculationRule?: SalaryCalculationRule; attendanceEmployeeNo?: string; attendancePeriod?: string; attendanceCalculation?: PayrollAttendanceValues['attendanceCalculation']; overtimeCalculation?: PayrollAttendanceValues['overtimeCalculation']; manualAdjustment?: { originalValue: number | string; updatedAt: string; updatedBy: number } }
 export interface PayrollExtendedValue extends PayrollValue { category: SalaryFieldCategory }
 export interface PayrollModelSnapshot {
   version: number;

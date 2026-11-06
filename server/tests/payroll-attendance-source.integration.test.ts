@@ -121,6 +121,21 @@ test('工资明细按月读取考勤，普通单卡按零出勤计算并保留�
     const fixedItem = (await call(`/admin/hr/payroll-batches/${fixedBatch}/items`)).body.data[0];
     assert.equal(fixedItem.modelSnapshot.fixed.find((field: any) => field.name === '加班费').value, 100);
     assert.equal(fixedItem.gross, 1100);
+    const editedFixed = await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 0, name: '加班费', value: 80 });
+    assert.equal(editedFixed.status, 200, JSON.stringify(editedFixed.body));
+    assert.equal(editedFixed.body.data.gross, 1080);
+    const editedOvertime = editedFixed.body.data.modelSnapshot.fixed.find((field: any) => field.name === '加班费');
+    assert.equal(editedOvertime.value, 80);
+    assert.equal(editedOvertime.manualAdjustment.originalValue, 100);
+    assert.equal(editedOvertime.overtimeCalculation.seconds, 7200);
+    const editedAgain = await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 1, name: '加班费', value: 70 });
+    assert.equal(editedAgain.status, 200);
+    assert.equal(editedAgain.body.data.gross, 1070);
+    assert.equal(editedAgain.body.data.modelSnapshot.fixed.find((field: any) => field.name === '加班费').manualAdjustment.originalValue, 100);
+    const [sourceRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT TIMESTAMPDIFF(SECOND, check_in, check_out) AS seconds FROM \`${database}\`.attendance_overtime_punches WHERE approval_id='OT4'`);
+    assert.equal(sourceRows[0].seconds, 7200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/review`, 'POST', {})).status, 200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${fixedBatch}/items/${fixedItem.id}/fixed`, 'PUT', { revision: 2, name: '加班费', value: 60 })).status, 400);
 
     const model2 = (await call('/admin/hr/salary-model')).body.data;
     const calculatedModel = await call('/admin/hr/salary-model', 'PUT', { version: model2.version, fixedFields: [{ name: '基本工资', type: 'number', category: 'income', required: true }], extendedFields: [

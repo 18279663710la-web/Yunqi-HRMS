@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildInlinePayrollUpdate, previewInlinePayrollTotals, parseManualDeduction } from '../src/modules/hr/payroll/payrollInlineEdit';
+import { buildInlinePayrollUpdate, buildFixedPayrollUpdate, previewInlinePayrollTotals, parseManualDeduction } from '../src/modules/hr/payroll/payrollInlineEdit';
 import type { PayrollModelSnapshot } from '../src/modules/hr/api';
 
 const snapshot: PayrollModelSnapshot = { version: 1, revision: 3, fixedTotal: 1000, manualDeduction: 7, fixed: [{ name: '基本工资', value: 1000, category: 'income' }], extended: [
@@ -19,7 +19,7 @@ test('单元格更新保留其他字段和版本，数字与文本按快照类�
   assert.equal(buildInlinePayrollUpdate(snapshot, '备注', '').values[2].value, '');
 });
 
-test('拒绝修改固定字段、考勤字段及无效金额', () => {
+test('扩展字段编辑拒绝固定字段、考勤来源字段及无效金额', () => {
   for (const value of ['', '-1', '1.234', '10000000000', 'abc']) assert.throws(() => buildInlinePayrollUpdate(snapshot, '补贴', value));
   assert.throws(() => buildInlinePayrollUpdate(snapshot, '出勤天数', '10'), /不能手工修改/);
   assert.throws(() => buildInlinePayrollUpdate(snapshot, '基本工资', '10'), /扩展字段/);
@@ -39,4 +39,25 @@ test('手工扣除金额按非负金额及分精度校验', () => {
   assert.equal(parseManualDeduction('350.25'), 350.25);
   assert.equal(parseManualDeduction('0'), 0);
   for (const value of ['', '-1', '1.234', '10000000000', 'abc']) assert.throws(() => parseManualDeduction(value));
+});
+
+test('固定薪资调整即时预览，并保留其他工资字段', () => {
+  assert.deepEqual(buildFixedPayrollUpdate(snapshot, '基本工资', '1200.50'), { revision: 3, name: '基本工资', value: 1200.5 });
+  assert.deepEqual(previewInlinePayrollTotals(snapshot, '基本工资', '1200.50', false, true), { gross: 1195.5, deductions: 7, net: 1188.5 });
+  assert.equal(snapshot.fixed[0].value, 1000);
+  for (const value of ['', '-1', '1.234', '10000000000', 'abc']) assert.throws(() => buildFixedPayrollUpdate(snapshot, '基本工资', value));
+  assert.throws(() => buildFixedPayrollUpdate(snapshot, '不存在', '10'));
+});
+
+test('固定扣款、文本和考勤绩效按各自类型预览', () => {
+  const withFixed = { ...snapshot, fixedTotal: 950, fixed: [snapshot.fixed[0],
+    { name: '固定扣款', value: 100, category: 'deduction' as const },
+    { name: '考勤绩效', value: -50, category: 'income' as const, attendanceMetric: 'presentDays' as const, calculationRule: 'attendance' as const },
+    { name: '说明', value: '原值', type: 'text' as const, category: 'info' as const },
+  ] };
+  assert.deepEqual(previewInlinePayrollTotals(withFixed, '固定扣款', '150', false, true), { gross: 795, deductions: 7, net: 788 });
+  assert.deepEqual(previewInlinePayrollTotals(withFixed, '考勤绩效', '-80', false, true), { gross: 815, deductions: 7, net: 808 });
+  assert.equal(buildFixedPayrollUpdate(withFixed, '说明', '新值').value, '新值');
+  assert.throws(() => buildFixedPayrollUpdate(withFixed, '考勤绩效', '-1.234'));
+  assert.throws(() => buildFixedPayrollUpdate(withFixed, '说明', '字'.repeat(201)));
 });

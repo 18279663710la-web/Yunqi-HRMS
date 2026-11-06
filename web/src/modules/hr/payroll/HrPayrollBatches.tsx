@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { App, Button, DatePicker, Descriptions, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { type Dayjs } from 'dayjs';
-import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollDeduction, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
+import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollFixed, updatePayrollDeduction, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
 import { getPayrollPage } from './payrollPagination';
 import { payrollFieldNames } from './payrollFieldOrder';
-import { buildInlinePayrollUpdate, parseManualDeduction, previewInlinePayrollTotals } from './payrollInlineEdit';
+import { buildInlinePayrollUpdate, buildFixedPayrollUpdate, parseManualDeduction, previewInlinePayrollTotals } from './payrollInlineEdit';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 
 const money = (value: number | null | undefined) => value == null ? '—' : `¥${Number(value).toFixed(2)}`;
-type CellEdit = { batchId: number; itemId: number; fieldName: string; manualDeduction?: boolean; value: string; snapshot: PayrollModelSnapshot; error?: string; conflict?: boolean; latestSnapshot?: PayrollModelSnapshot };
+type CellEdit = { batchId: number; itemId: number; fieldName: string; fixed?: boolean; manualDeduction?: boolean; value: string; snapshot: PayrollModelSnapshot; error?: string; conflict?: boolean; latestSnapshot?: PayrollModelSnapshot };
 
 export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const { message } = App.useApp();
@@ -32,7 +32,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [form] = Form.useForm<{ employeeId: string }>();
   const cellEditRef = useRef<CellEdit>();
   const cellSavingRef = useRef(false);
-  const nextCellRef = useRef<{ batchId: number; itemId: number; fieldName: string; manualDeduction?: boolean }>();
+  const nextCellRef = useRef<{ batchId: number; itemId: number; fieldName: string; fixed?: boolean; manualDeduction?: boolean }>();
   const itemsRef = useRef<PayrollBatchItem[]>([]);
   const itemsEpoch = useRef(0);
   const selectedRef = useRef<number>();
@@ -49,9 +49,9 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     const next = nextCellRef.current; nextCellRef.current = undefined;
     if (!next || selectedRef.current !== next.batchId) return;
     const row = itemsRef.current.find(item => item.id === next.itemId);
-    const field = row?.modelSnapshot?.extended.find(item => item.name === next.fieldName);
+    const field = (next.fixed ? row?.modelSnapshot?.fixed : row?.modelSnapshot?.extended)?.find(item => item.name === next.fieldName);
     if (row?.modelSnapshot && next.manualDeduction) updateEdit({ ...next, value: String(row.modelSnapshot.manualDeduction ?? 0), snapshot: row.modelSnapshot });
-    else if (row?.modelSnapshot && field && !field.attendanceMetric) updateEdit({ ...next, value: String(field.value), snapshot: row.modelSnapshot });
+    else if (row?.modelSnapshot && field && (next.fixed || !field.attendanceMetric)) updateEdit({ ...next, value: String(field.value), snapshot: row.modelSnapshot });
   };
   const loadItems = async (id: number) => { const epoch = itemsEpoch.current; const rows = await getPayrollBatchItems(id); if (selectedRef.current === id && epoch === itemsEpoch.current) replaceItems(rows); };
   useEffect(() => {
@@ -128,15 +128,16 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     }
     const snapshot = edit.conflict ? edit.latestSnapshot! : edit.snapshot;
     let payload: ReturnType<typeof buildInlinePayrollUpdate> | undefined;
+    let fixedPayload: ReturnType<typeof buildFixedPayrollUpdate> | undefined;
     let deduction: number | undefined;
-    try { if (edit.manualDeduction) deduction = parseManualDeduction(edit.value); else payload = buildInlinePayrollUpdate(snapshot, edit.fieldName, edit.value); }
+    try { if (edit.manualDeduction) deduction = parseManualDeduction(edit.value); else if (edit.fixed) fixedPayload = buildFixedPayrollUpdate(snapshot, edit.fieldName, edit.value); else payload = buildInlinePayrollUpdate(snapshot, edit.fieldName, edit.value); }
     catch (error) { nextCellRef.current = undefined; const text = (error as Error).message; updateEdit({ ...edit, error: text }); message.error(text); return; }
-    const previousValue = edit.manualDeduction ? snapshot.manualDeduction ?? 0 : snapshot.extended.find(field => field.name === edit.fieldName)?.value;
-    const nextValue = edit.manualDeduction ? deduction : payload!.values.find(field => field.name === edit.fieldName)?.value;
+    const previousValue = edit.manualDeduction ? snapshot.manualDeduction ?? 0 : (edit.fixed ? snapshot.fixed : snapshot.extended).find(field => field.name === edit.fieldName)?.value;
+    const nextValue = edit.manualDeduction ? deduction : edit.fixed ? fixedPayload!.value : payload!.values.find(field => field.name === edit.fieldName)?.value;
     if (previousValue === nextValue) { updateEdit(); openNextCell(); return; }
     cellSavingRef.current = true; setCellSaving(true); itemsEpoch.current++;
     try {
-      const result = edit.manualDeduction ? await updatePayrollDeduction(edit.batchId, edit.itemId, { revision: snapshot.revision ?? 0, deduction: deduction! }) : await updatePayrollExtended(edit.batchId, edit.itemId, payload!);
+      const result = edit.manualDeduction ? await updatePayrollDeduction(edit.batchId, edit.itemId, { revision: snapshot.revision ?? 0, deduction: deduction! }) : edit.fixed ? await updatePayrollFixed(edit.batchId, edit.itemId, fixedPayload!) : await updatePayrollExtended(edit.batchId, edit.itemId, payload!);
       itemsEpoch.current++;
       if (selectedRef.current === edit.batchId) replaceItems(itemsRef.current.map(row => row.id === edit.itemId ? { ...row, ...result } : row));
       if (cellEditRef.current === edit) { updateEdit(); openNextCell(); }
@@ -175,7 +176,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const fieldNames = payrollFieldNames(model, items.map(item => item.modelSnapshot));
   const editingBusy = !!cellEdit || cellSaving;
   const previewSnapshot = cellEdit?.conflict ? cellEdit.latestSnapshot : cellEdit?.snapshot;
-  const preview = cellEdit && previewSnapshot ? previewInlinePayrollTotals(previewSnapshot, cellEdit.fieldName, cellEdit.value, cellEdit.manualDeduction) : undefined;
+  const preview = cellEdit && previewSnapshot ? previewInlinePayrollTotals(previewSnapshot, cellEdit.fieldName, cellEdit.value, cellEdit.manualDeduction, cellEdit.fixed) : undefined;
   const previewRow = cellEdit && preview ? items.find(item => item.id === cellEdit.itemId) : undefined;
   const previewChanged = !!previewRow && !!preview && (Number(previewRow.gross) !== preview.gross || Number(previewRow.deductions) !== preview.deductions || Number(previewRow.net) !== preview.net);
   const displayTotal = (row: PayrollBatchItem, key: 'gross' | 'deductions' | 'net') => previewChanged && row.id === cellEdit?.itemId ? preview![key] : Number(row[key]);
@@ -188,23 +189,25 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       return { title: name, key: name, width: 120, render: (_: unknown, row: PayrollBatchItem) => {
       const field = [...(row.modelSnapshot?.fixed ?? []), ...(row.modelSnapshot?.extended ?? [])].find(item => item.name === name);
       if (!field) return '—';
+      const fixed = row.modelSnapshot?.fixed.find(item => item.name === name);
       const extended = row.modelSnapshot?.extended.find(item => item.name === name);
-      if (current?.status === 'draft' && extended && !extended.attendanceMetric) {
+      const editable = fixed ?? (extended && !extended.attendanceMetric ? extended : undefined);
+      if (current?.status === 'draft' && editable) {
         if (cellEdit?.itemId === row.id && !cellEdit.manualDeduction && cellEdit.fieldName === name) return <Input
           autoFocus size="small" className="payroll-cell-input" aria-label={`编辑${row.name}的${name}`} aria-invalid={!!cellEdit.error} aria-busy={cellSaving} title={cellEdit.error}
-          status={cellEdit.error ? 'error' : undefined} value={cellEdit.value} disabled={cellSaving} maxLength={extended.type === 'text' ? 200 : undefined} inputMode={extended.type === 'text' ? 'text' : 'decimal'}
+          status={cellEdit.error ? 'error' : undefined} value={cellEdit.value} disabled={cellSaving} maxLength={editable.type === 'text' ? 200 : undefined} inputMode={editable.type === 'text' ? 'text' : 'decimal'}
           onChange={event => { const edit = cellEditRef.current; if (edit) updateEdit({ ...edit, value: event.target.value, error: edit.conflict ? edit.error : undefined }); }}
           onBlur={() => void saveCell(false)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveCell(true); } else if (event.key === 'Escape' && !cellSavingRef.current) { event.preventDefault(); nextCellRef.current = undefined; updateEdit(); } }}
         />;
-        return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${name}`} disabled={loading || cellSaving} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
+        return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${name}`} title={fixed?.manualAdjustment ? `已手动调整，原值：${fixed.manualAdjustment.originalValue}` : undefined} disabled={loading || cellSaving} onMouseDown={event => { if (cellEditRef.current) event.preventDefault(); }} onClick={() => {
           if (cellSavingRef.current || !selected || !row.modelSnapshot) return;
           const edit = cellEditRef.current;
           if (edit) {
             if (edit.conflict) { message.warning('请核对当前修改并按回车保存，或按 Esc 取消'); return; }
-            nextCellRef.current = { batchId: selected, itemId: row.id, fieldName: name }; void saveCell(true); return;
+            nextCellRef.current = { batchId: selected, itemId: row.id, fieldName: name, fixed: !!fixed }; void saveCell(true); return;
           }
-          updateEdit({ batchId: selected, itemId: row.id, fieldName: name, value: String(extended.value), snapshot: row.modelSnapshot });
-        }}>{typeof extended.value === 'number' ? extended.value.toFixed(2) : extended.value || '—'}</button>;
+          updateEdit({ batchId: selected, itemId: row.id, fieldName: name, fixed: !!fixed, value: String(editable.value), snapshot: row.modelSnapshot });
+        }}>{typeof editable.value === 'number' ? editable.value.toFixed(2) : editable.value || '—'}</button>;
       }
       return typeof field.value === 'number' ? field.value.toFixed(2) : field.value || '—';
     } }; }),
