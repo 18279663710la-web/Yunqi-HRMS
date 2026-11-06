@@ -783,20 +783,29 @@ code {
 
 .submodule-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px solid #dce3ee; }
 .submodule-header-extra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.payroll-batches-workspace { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; }
+.payroll-batches-workspace { display: flex; flex-direction: column; min-width: 0; height: calc(100vh - 60px); min-height: 420px; margin-bottom: -36px; }
 .payroll-batches-toolbar .ant-picker { flex: 0 0 130px; width: 130px; padding-left: 0; }
-.payroll-batches-content { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.payroll-batches-content { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .payroll-batches-current { margin-bottom: 16px; }
-.payroll-batches-table { min-width: 0; }
-.payroll-batches-table .ant-table-content { scrollbar-width: none; }
-.payroll-batches-table .ant-table-content::-webkit-scrollbar { display: none; }
-.payroll-batches-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: auto; padding: 24px 0 12px; }
-.payroll-batches-scrollbar { position: sticky; bottom: 0; z-index: 3; min-height: 16px; overflow-x: auto; overflow-y: hidden; }
-.payroll-batches-scrollbar::-webkit-scrollbar { height: 10px; }
-.payroll-batches-scrollbar::-webkit-scrollbar-track { background: #e7ebf0; }
-.payroll-batches-scrollbar::-webkit-scrollbar-thumb { background: #9aa9bd; border-radius: 5px; }
-.payroll-batches-scrollbar > div { height: 1px; }
-.payroll-batches-scrollbar:focus-visible { outline: 2px solid #3d6ef7; outline-offset: -2px; }
+.payroll-batches-grid-stage { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+.payroll-batches-table, .payroll-batches-table > .ant-table-wrapper, .payroll-batches-table .ant-spin-nested-loading, .payroll-batches-table .ant-spin-container, .payroll-batches-table .ant-table, .payroll-batches-table .ant-table-container { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.payroll-batches-table .ant-table-content { flex: 1; min-height: 0; overflow: auto !important; padding-bottom: 96px; }
+.payroll-batches-table .ant-table-content::-webkit-scrollbar { width: 10px; height: 10px; }
+.payroll-batches-table .ant-table-content::-webkit-scrollbar-track { background: #e7ebf0; }
+.payroll-batches-table .ant-table-content::-webkit-scrollbar-thumb { background: #9aa9bd; border-radius: 5px; }
+.payroll-batches-table .ant-table-content:focus-visible { outline: 2px solid #3d6ef7; outline-offset: -2px; }
+.payroll-batches-table .ant-table { background: transparent; }
+.payroll-batches-table .ant-table-container, .payroll-batches-table .ant-table-thead > tr:first-child > th:first-child, .payroll-batches-table .ant-table-thead > tr:first-child > th:last-child { border-radius: 0; }
+.payroll-batches-table .ant-table-thead > tr > th { padding: 5px 8px; border-top: 1px solid #d3d8df; border-bottom: 1px solid #d3d8df; border-left: 1px solid #d3d8df; border-radius: 0; background: #e9edf2; color: #334155; font-size: 13px; font-weight: 500; line-height: 20px; text-align: center; white-space: nowrap; }
+.payroll-batches-table .ant-table-thead > tr > th:last-child, .payroll-batches-table .ant-table-tbody > tr > td:last-child { border-right: 1px solid #d3d8df; }
+.payroll-batches-table .ant-table-thead > tr > th::before { display: none; }
+.payroll-batches-table .ant-table-tbody > tr > td { padding: 5px 8px; border-bottom: 1px solid #d3d8df; border-left: 1px solid #d3d8df; background: #fff; line-height: 22px; text-align: center; }
+.payroll-batches-table .ant-table-tbody > tr:nth-child(even) > td { background: #f3f5f8; }
+.payroll-batches-table .ant-table-tbody > tr:hover > td { background: #eaf1ff !important; }
+.payroll-batches-table .ant-table-tbody .ant-btn-link { height: 24px; padding: 0 4px; font-size: 13px; }
+.payroll-batches-bottom { position: absolute; right: 0; bottom: 16px; left: 0; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+.payroll-batches-bottom .ant-pagination, .payroll-batches-footer > * { pointer-events: auto; }
+.payroll-batches-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 0 0 12px; }
 .salary-model-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .salary-model-page > .ant-spin-nested-loading { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .salary-model-page > .ant-spin-nested-loading > .ant-spin-container { display: flex; flex: 1; min-width: 0; flex-direction: column; }
@@ -1051,5 +1060,5 @@ code {
 @media (max-width: 900px) {
   .payroll-workflow-page { min-height: calc(100vh - 68px); }
   .salary-model-page { min-height: calc(100vh - 52px); margin-bottom: -16px; }
-  .payroll-batches-workspace { min-height: calc(100vh - 52px); margin-bottom: -16px; }
+  .payroll-batches-workspace { height: calc(100vh - 52px); min-height: 420px; margin-bottom: -16px; }
 }

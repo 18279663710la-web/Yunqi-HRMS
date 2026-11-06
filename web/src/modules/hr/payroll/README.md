@@ -4,11 +4,11 @@
 
 工资批次、考勤取值预览、发放登记及发放记录界面。
 
-工资批次采用无标题、无外围卡片的全宽布局；顶部操作栏和历史批次弹窗用于选择及管理批次，表格横向滚动条位于页面底部并与表格同步。
+工资批次采用无标题、无外围卡片的全宽布局；顶部操作栏和历史批次弹窗用于选择及管理批次。工资表采用紧凑灰色表头和细网格，使用表格原生横向滚动条，固定列与分页保留。
 
 ## 主要内容
 
-- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`payrollScroll.ts`。
+- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`payrollPagination.ts`。
 
 ## 维护约束
 

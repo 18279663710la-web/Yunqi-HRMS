@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { App, Button, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { App, Button, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { type Dayjs } from 'dayjs';
 import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type SalaryComponentModel } from '../api';
-import { connectPayrollScroll } from './payrollScroll';
+import { getPayrollPage } from './payrollPagination';
 import { salaryAmountFields } from '../../models-formulas/salary/salaryModel';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 
@@ -15,6 +15,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [batches, setBatches] = useState<PayrollBatch[]>([]);
   const [selected, setSelected] = useState<number>();
   const [items, setItems] = useState<PayrollBatchItem[]>([]);
+  const [page, setPage] = useState(1);
   const [model, setModel] = useState<SalaryComponentModel>();
   const [loading, setLoading] = useState(false);
   const [month, setMonth] = useState<Dayjs | null>(null);
@@ -28,9 +29,9 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [form] = Form.useForm<{ employeeId: string }>();
   const [extendedForm] = Form.useForm<{ values: (number | string)[] }>();
   const tableRef = useRef<HTMLDivElement>(null);
-  const scrollbarRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const current = batches.find(item => item.id === selected);
+  const pageData = getPayrollPage(items, page, 10);
   const loadBatches = async () => { setBatches(await getPayrollBatches()); };
   const loadItems = async (id: number) => { setItems(await getPayrollBatchItems(id)); };
   useEffect(() => {
@@ -46,6 +47,21 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     if (selected) getPayrollBatchItems(selected).then(rows => { if (active) setItems(rows); }).catch((error: Error) => { if (active) message.error(error.message); });
     return () => { active = false; };
   }, [selected, workspaceActive]);
+  useEffect(() => { setPage(1); }, [selected]);
+  useEffect(() => { if (page !== pageData.page) setPage(pageData.page); }, [page, pageData.page]);
+  useLayoutEffect(() => {
+    const scroll = tableRef.current?.querySelector<HTMLElement>('.ant-table-content');
+    const bottom = bottomRef.current;
+    if (!scroll || !bottom) return;
+    scroll.tabIndex = 0;
+    scroll.setAttribute('role', 'region');
+    scroll.setAttribute('aria-label', '工资明细表格滚动');
+    const resize = () => { scroll.style.paddingBottom = `${Math.ceil(bottom.getBoundingClientRect().height) + 28}px`; };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(bottom);
+    return () => observer.disconnect();
+  }, [selected, current?.status, workspaceActive]);
   const create = async () => {
     if (!month) { message.warning('请选择工资月份'); return; }
     setLoading(true);
@@ -96,20 +112,6 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const modelFields = [...salaryAmountFields(model), ...(model?.extendedFields ?? [])].map(field => field.name);
   const snapshotFields = items.flatMap(item => [...(item.modelSnapshot?.fixed ?? []), ...(item.modelSnapshot?.extended ?? [])].map(field => field.name));
   const fieldNames = [...new Set([...modelFields, ...snapshotFields])];
-  useLayoutEffect(() => {
-    const tableScroll = tableRef.current?.querySelector<HTMLElement>('.ant-table-content');
-    const bar = scrollbarRef.current;
-    const track = trackRef.current;
-    if (!tableScroll || !bar || !track || !workspaceActive) return;
-    const resize = () => { track.style.width = `${tableScroll.scrollWidth}px`; };
-    resize();
-    const disconnect = connectPayrollScroll(tableScroll, bar);
-    const observer = new ResizeObserver(resize);
-    observer.observe(tableScroll);
-    const table = tableScroll.querySelector('table');
-    if (table) observer.observe(table);
-    return () => { observer.disconnect(); disconnect(); };
-  }, [selected, current?.status, fieldNames.length, items.length, workspaceActive]);
   const columns = [
     { title: '姓名', dataIndex: 'name', width: 100, fixed: 'left' as const },
     { title: '员工号', dataIndex: 'employeeNo', width: 110 },
@@ -137,12 +139,16 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     </div>
     {current && <div className="payroll-batches-content">
       <div className="payroll-batches-current"><Typography.Text strong>{current.month} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text></div>
-      <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={loading} dataSource={items} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} columns={columns} /></div>
-      <div className="payroll-batches-footer">
-        {current.status === 'draft' && <Button type="primary" size="small" onClick={() => { form.resetFields(); setOpen(true); }}>添加工资明细</Button>}
-        {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text>应发 {money(items.reduce((sum, item) => sum + Number(item.gross), 0))}</Typography.Text><Typography.Text>扣除 {money(items.reduce((sum, item) => sum + Number(item.deductions), 0))}</Typography.Text><Typography.Text strong>实发 {money(items.reduce((sum, item) => sum + Number(item.net), 0))}</Typography.Text></Space>}
+      <div className="payroll-batches-grid-stage">
+        <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={loading} dataSource={pageData.items} pagination={false} scroll={{ x: 'max-content' }} columns={columns} /></div>
+        <div ref={bottomRef} className="payroll-batches-bottom">
+          {items.length > 0 && <Pagination size="small" current={pageData.page} total={items.length} pageSize={10} showSizeChanger={false} onChange={setPage} />}
+          <div className="payroll-batches-footer">
+            {current.status === 'draft' && <Button type="primary" size="small" onClick={() => { form.resetFields(); setOpen(true); }}>添加工资明细</Button>}
+            {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text>应发 {money(items.reduce((sum, item) => sum + Number(item.gross), 0))}</Typography.Text><Typography.Text>扣除 {money(items.reduce((sum, item) => sum + Number(item.deductions), 0))}</Typography.Text><Typography.Text strong>实发 {money(items.reduce((sum, item) => sum + Number(item.net), 0))}</Typography.Text></Space>}
+          </div>
+        </div>
       </div>
-      <div ref={scrollbarRef} className="payroll-batches-scrollbar" role="region" aria-label="工资明细横向滚动" tabIndex={0}><div ref={trackRef} /></div>
     </div>}
     <Modal title="历史工资批次" open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={<Button onClick={() => setHistoryOpen(false)}>关闭</Button>} width={600}>
       <Table rowKey="id" dataSource={batches} pagination={{ pageSize: 10 }} size="small" columns={[
