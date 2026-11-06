@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { App, Button, DatePicker, Modal, Table } from 'antd';
+import { Alert, App, Button, DatePicker, Modal, Spin, Table } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
-import { getPayrollBatches, getPayrollRecords, type PayrollBatch, type PayrollRecord } from '../api';
+import { getPayrollBatches, getPayrollBatchItems, getPayrollRecords, getSalaryComponentModel, type PayrollBatch, type PayrollBatchItem, type PayrollRecord, type SalaryComponentModel } from '../api';
+import { PayrollDisbursementBatch } from './PayrollDisbursementBatch';
 
 export function HrPayrollDisbursement() {
   const { message } = App.useApp();
@@ -13,6 +14,10 @@ export function HrPayrollDisbursement() {
   const [batches, setBatches] = useState<PayrollBatch[]>([]);
   const [batchOpen, setBatchOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [detail, setDetail] = useState<{ batchId: number; items: PayrollBatchItem[]; model: SalaryComponentModel }>();
+  const [detailError, setDetailError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [retry, setRetry] = useState(0);
   const selectedMonth = month?.format('YYYY-MM');
 
   useEffect(() => {
@@ -26,17 +31,28 @@ export function HrPayrollDisbursement() {
     return () => { active = false; };
   }, [workspaceActive, batchOpen, selectedMonth]);
 
-  return <section aria-label="工资发放">
+  useEffect(() => {
+    if (!workspaceActive || !selectedBatch) return;
+    let active = true;
+    setDetailLoading(true);
+    setDetailError('');
+    Promise.all([getPayrollBatchItems(selectedBatch.id), getSalaryComponentModel()]).then(([items, model]) => {
+      if (active) setDetail({ batchId: selectedBatch.id, items, model });
+    }).catch((error: Error) => { if (active) { setDetail(undefined); setDetailError(error.message || '工资明细加载失败'); } }).finally(() => { if (active) setDetailLoading(false); });
+    return () => { active = false; };
+  }, [workspaceActive, selectedBatch, retry]);
+
+  return <section className="payroll-batches-workspace" aria-label="工资发放">
     <div className="salary-model-entries payroll-disbursement-toolbar">
-      <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} onChange={value => { setMonth(value); setSelectedBatch(undefined); setBatchOpen(false); }} />
+      <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} onChange={value => { setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }} />
       <button type="button" className="salary-model-entry" disabled={!selectedMonth} onClick={() => setBatchOpen(true)}>选择批次</button>
-      {selectedBatch && <span>{selectedBatch.month} · 已复核</span>}
     </div>
+    {selectedBatch && (detailError ? <Alert type="error" message={detailError} action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} /> : detail && detail.batchId === selectedBatch.id && !detailLoading ? <PayrollDisbursementBatch batch={selectedBatch} items={detail.items} model={detail.model} /> : <Spin />)}
     <Modal title="选择工资批次" open={batchOpen} onCancel={() => setBatchOpen(false)} footer={<Button onClick={() => setBatchOpen(false)}>关闭</Button>} width={600}>
       <Table rowKey="id" dataSource={batches} loading={loading} pagination={{ pageSize: 10 }} size="small" columns={[
         { title: '工资月份', dataIndex: 'month' },
         { title: '状态', render: () => '已复核' },
-        { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setSelectedBatch(batch); setBatchOpen(false); }}>选择</Button> },
+        { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setDetail(undefined); setDetailError(''); setSelectedBatch(batch); setBatchOpen(false); }}>选择</Button> },
       ]} />
     </Modal>
   </section>;

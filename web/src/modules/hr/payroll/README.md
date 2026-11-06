@@ -8,11 +8,11 @@
 
 顶部输出入口可将当前批次的全部已保存明细及合计导出为 PDF 或 XLSX，使用居中的“工资表”标题、月份说明、编号表头和黑色网格，沿用字段顺序和历史快照字段；编辑尚未保存时禁用输出。合计行前三列合并显示“本批次合计”，中间字段合并，末尾应发列独立加宽。PDF 读取相同 XLSX 工作表的格式、列宽及行高，所有列缩放到同一页宽，仅按员工行纵向分页；使用浏览器字体绘图，文本不可选择。XLSX 保留数字类型并为长文本设置行高。
 
-草稿的固定薪资字段（包含考勤、绩效结果）和手工扩展字段在单元格中编辑，输入时调用薪资模型计算工具预览行和批次应发，使用明细版本保存后以服务端结果为准；身份字段、考勤来源扩展字段和已复核明细只读。固定字段覆盖仅改变当前明细，保留首次原值，不联动其他字段。模型收入减模型扣款得到应发；列表、合计及导出只显示应发，历史独立扣除与实发数据保留。工资发放页面无标题及外围卡片，顶部沿用工资批次操作栏样式，选择月份后可在弹窗选择当月已复核批次；更换月份清除选择，打开弹窗重新查询；历史发放记录仍可查询。
+草稿的固定薪资字段（包含考勤、绩效结果）和手工扩展字段在单元格中编辑，输入时调用薪资模型计算工具预览行和批次应发，使用明细版本保存后以服务端结果为准；身份字段、考勤来源扩展字段和已复核明细只读。固定字段覆盖仅改变当前明细，保留首次原值，不联动其他字段。模型收入减模型扣款得到应发；列表、合计及导出只显示应发，历史独立扣除与实发数据保留。工资发放页面无标题及外围卡片，顶部沿用工资批次操作栏样式，选择月份后可在弹窗选择当月已复核批次；更换月份清除选择，打开弹窗重新查询。所选批次在下方只读展示明细、分页和应发合计，使用现用模型字段顺序并追加历史字段；读取失败可重试。历史发放记录仍可查询。
 
 ## 主要内容
 
-- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`payrollPagination.ts`、`payrollInlineEdit.ts`、`payrollFieldOrder.ts`、`payrollExportData.ts`、`payrollExportPdf.ts`、`payrollPdfLayout.ts`、`payrollExportXlsx.ts`。
+- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`PayrollDisbursementBatch.tsx`、`payrollPagination.ts`、`payrollInlineEdit.ts`、`payrollFieldOrder.ts`、`payrollExportData.ts`、`payrollExportPdf.ts`、`payrollPdfLayout.ts`、`payrollExportXlsx.ts`。
 
 ## 维护约束
 
