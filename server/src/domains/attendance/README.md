@@ -7,6 +7,7 @@
 ## 主要内容
 
 - 主要文件：`attendancePolicy.ts`、`attendanceService.ts`、`attendanceSettings.ts`、`overtimeAttendanceService.ts`、`payrollAttendanceSource.ts`（按员工和工资月份读取考勤项目）。
+- 工资出勤统计仅计完整的普通上下班卡，单卡计 0 出勤天并参与缺勤绩效；考勤页面和小程序继续使用原来的单卡状态与汇总。
 
 ## 维护约束
 

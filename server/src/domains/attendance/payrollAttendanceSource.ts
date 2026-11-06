@@ -1,6 +1,7 @@
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { badRequest } from '../../shared/utils/errors';
-import { buildDayRecord, summarizeRecords, type DayOverride } from './attendanceService';
+import { buildDayRecord, type DayOverride } from './attendanceService';
+import type { AttendanceRecord } from '../../shared/types/models';
 import type { AttendanceSettings } from './attendanceSettings';
 import type { AttendanceMetric } from '../payroll/salaryModelService';
 import { calculateOvertimePay, isPaidOvertime, type OvertimeRuleConfig, type OvertimeRule } from '../payroll/overtimePayrollService';
@@ -19,6 +20,11 @@ function groupByEmployee(rows: RowDataPacket[]): Map<string, RowDataPacket[]> {
     group.push(row); result.set(key, group);
   }
   return result;
+}
+
+/** 工资统计只计完整上下班卡，普通单卡按缺勤处理。 */
+function payrollPresentDays(records: AttendanceRecord[]): number {
+  return records.filter(record => record.status !== 'rest' && !!record.checkIn && !!record.checkOut).length;
 }
 
 /** 使用工资事务的连接读取批次月份；时长按上班卡日期归属，小时保留两位小数。 */
@@ -42,9 +48,7 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
       const ownRows = rowsByEmployee.get(employee.id) ?? [];
       if (!ownRows.length) throw badRequest(`员工“${employee.name}”在 ${month} 没有考勤记录，请先核实`);
       const records = ownRows.map(row => buildDayRecord(String(row.day), { checkIn: row.check_in || '', checkOut: row.check_out || '', statusOverride: row.status_override as DayOverride | null, note: row.note || '', source: row.source || 'employee' }, { settings }));
-      const incomplete = records.find(record => record.status === 'missing_in' || record.status === 'missing_out');
-      if (incomplete) throw badRequest(`员工“${employee.name}”${incomplete.date} 考勤打卡不完整，请先处理`);
-      result.get(employee.id)!.presentDays = summarizeRecords(records).presentDays;
+      result.get(employee.id)!.presentDays = payrollPresentDays(records);
       if (config) {
         const dates = employment.find(row => String(row.id) === employee.id);
         if (!dates?.join_date) throw badRequest(`员工“${employee.name}”缺少入职日期`);
@@ -60,7 +64,7 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
           if (key >= periodStart && key <= periodEnd && !rest.has(key)) workdays++;
         }
         const actual = records.filter(record => record.date >= periodStart && record.date <= periodEnd && !rest.has(record.date));
-        const presentDays = summarizeRecords(actual).presentDays;
+        const presentDays = payrollPresentDays(actual);
         const calculated = calculateAttendanceRule(config, presentDays, workdays);
         result.get(employee.id)!.attendanceAdjustment = calculated.amount;
         result.get(employee.id)!.attendanceCalculation = { presentDays, workdays, input: calculated.input, periodStart, periodEnd, config, matchedRule: calculated.matchedRule };

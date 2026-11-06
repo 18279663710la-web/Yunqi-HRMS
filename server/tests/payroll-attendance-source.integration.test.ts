@@ -5,7 +5,7 @@ import test from 'node:test';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
-test('工资明细自动读取员工月度考勤，阻止不完整打卡并保留快照', async () => {
+test('工资明细按月读取考勤，普通单卡按零出勤计算并保留快照', async () => {
   const database = `yunqi_payroll_attendance_${randomBytes(8).toString('hex')}`;
   const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
   let created = false; let closePool: (() => Promise<void>) | undefined; let closeServer: (() => Promise<void>) | undefined;
@@ -53,8 +53,19 @@ test('工资明细自动读取员工月度考勤，阻止不完整打卡并保�
     assert.equal(missingNumber.status, 400);
     assert.match(missingNumber.body.message || '', /员工号/);
     await conn.query(`UPDATE \`${database}\`.employees SET employee_no=? WHERE id='U013'`, [numberRows[0].employee_no]);
+    // 两种普通考勤单卡都不应阻止工资预览或创建；已结束加班按原口径计算。
+    await conn.query(`INSERT INTO \`${database}\`.attendance_punches (employee_id,punch_date,check_in,check_out,source,created_at,updated_at) VALUES ('U001','2020-03-03','09:00',NULL,'admin',NOW(),NOW()), ('U013','2020-03-03',NULL,'18:00','admin',NOW(),NOW())`);
+    const singleBatch = (await call('/admin/hr/payroll-batches', 'POST', { month: '2020-03' })).body.data.id;
+    const singlePreview = await call(`/admin/hr/payroll-batches/${singleBatch}/auto-preview`);
+    assert.equal(singlePreview.status, 200, JSON.stringify(singlePreview.body));
+    assert.equal(singlePreview.body.data.candidates.length, 2);
+    for (const candidate of singlePreview.body.data.candidates) assert.equal(candidate.modelSnapshot.fixed.find((field: any) => field.name === '出勤天数').value, 0);
+    assert.equal((await call(`/admin/hr/payroll-batches/${singleBatch}/items`, 'POST', { employeeId: 'U001' })).status, 200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${singleBatch}/auto-items`, 'POST', {})).body.data.addedCount, 1);
+    const singleItems = (await call(`/admin/hr/payroll-batches/${singleBatch}/items`)).body.data;
+    for (const row of singleItems) assert.equal(row.modelSnapshot.fixed.find((field: any) => field.name === '出勤天数').value, 0);
     const broken = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`);
-    assert.equal(broken.status, 400); assert.match(broken.body.message || '', /打卡/);
+    assert.equal(broken.status, 400); assert.match(broken.body.message || '', /加班打卡/);
     assert.equal((await call(`/admin/hr/payroll-batches/${batch}/auto-items`, 'POST', {})).status, 400);
     assert.equal((await call(`/admin/hr/payroll-batches/${batch}/items`)).body.data.length, 0);
     await conn.query(`UPDATE \`${database}\`.attendance_punches SET check_out='18:00' WHERE employee_id='U013' AND punch_date='2020-02-03'`);
@@ -123,6 +134,7 @@ test('工资明细自动读取员工月度考勤，阻止不完整打卡并保�
     await conn.query(`INSERT INTO \`${database}\`.hr_employee_departures (offboarding_id,employee_id,last_date,status,created_by,created_at) VALUES (900,'U001','2020-06-24','departed',1,NOW())`);
     await conn.query(`UPDATE \`${database}\`.attendance_settings SET rest_dates=? WHERE id=1`, [JSON.stringify(['2020-06-16', '2020-06-18'])]);
     await conn.query(`INSERT INTO \`${database}\`.attendance_punches (employee_id,punch_date,check_in,check_out,source,created_at,updated_at) VALUES ('U001','2020-06-15','09:00','18:00','admin',NOW(),NOW()),('U001','2020-06-17','09:00','18:00','admin',NOW(),NOW()),('U001','2020-06-19','09:00','18:00','admin',NOW(),NOW())`);
+    await conn.query(`INSERT INTO \`${database}\`.attendance_punches (employee_id,punch_date,check_in,check_out,source,created_at,updated_at) VALUES ('U001','2020-06-22','09:00',NULL,'admin',NOW(),NOW()),('U001','2020-06-23',NULL,'18:00','admin',NOW(),NOW())`);
     await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('OT5','overtime','加班','加班','approved','U001','员工','','员工',?,NOW()),('OT6','overtime','加班','加班','approved','U001','员工','','员工',?,NOW())`, [JSON.stringify([{ label: '补偿方式', value: '加班费' }]), JSON.stringify([{ label: '补偿方式', value: '调休' }])]);
     await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT5','U001','2020-06-20 19:00:00','2020-06-20 21:00:00'),('OT6','U001','2020-06-21 19:00:00','2020-06-21 20:00:00')`);
     await conn.query(`DELETE FROM \`${database}\`.hr_employee_records WHERE employee_id='U013' AND section='salary'`);
