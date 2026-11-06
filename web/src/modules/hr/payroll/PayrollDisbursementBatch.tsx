@@ -3,12 +3,13 @@ import { App, Button, Descriptions, Input, Modal, Pagination, Space, Table, Typo
 import { getDisbursement, saveDisbursementValue, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
 import { payrollFieldNames } from './payrollFieldOrder';
+import { disbursementStorage, readDisbursementPosition, rememberDisbursementScroll } from './disbursementPosition';
 
 const money = (value: number | null | undefined) => value == null ? '—' : `¥${Number(value).toFixed(2)}`;
 
 type CellEdit = { itemId: number; fieldId: number; value: string; revision: number; original: number; error?: string; conflict?: boolean };
 
-export function PayrollDisbursementBatch({ batch, items, model, disbursement, onChange, onEditingChange }: { batch: PayrollBatch; items: PayrollBatchItem[]; model: SalaryComponentModel; disbursement: DisbursementState; onChange: (data: DisbursementState) => void; onEditingChange: (busy: boolean) => void }) {
+export function PayrollDisbursementBatch({ batch, items, model, disbursement, onChange, onEditingChange, refreshing = false }: { batch: PayrollBatch; items: PayrollBatchItem[]; model: SalaryComponentModel; disbursement: DisbursementState; onChange: (data: DisbursementState) => void; onEditingChange: (busy: boolean) => void; refreshing?: boolean }) {
   const { message } = App.useApp();
   const [page, setPage] = useState(1);
   const [legacyItem, setLegacyItem] = useState<PayrollBatchItem>();
@@ -56,11 +57,16 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
     scroll.tabIndex = 0;
     scroll.setAttribute('role', 'region');
     scroll.setAttribute('aria-label', '工资明细表格滚动');
+    const storage = disbursementStorage();
+    const position = readDisbursementPosition(storage);
+    if (position?.batchId === batch.id) scroll.scrollLeft = position.scrollLeft;
+    const onScroll = () => rememberDisbursementScroll(storage, batch.id, scroll.scrollLeft);
+    scroll.addEventListener('scroll', onScroll, { passive: true });
     const resize = () => { scroll.style.paddingBottom = `${Math.ceil(bottom.getBoundingClientRect().height) + 28}px`; };
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(bottom);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); scroll.removeEventListener('scroll', onScroll); };
   }, [batch.id]);
 
   const columns = [
@@ -79,7 +85,7 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
       const entry = disbursement.rows.find(item => item.itemId === row.id)?.values.find(item => item.fieldId === field.id);
       const value = entry?.value ?? 0;
       if (edit?.itemId === row.id && edit.fieldId === field.id) return <Input autoFocus size="small" className="payroll-cell-input" aria-label={`编辑${row.name}的${field.name}`} aria-invalid={!!edit.error} aria-busy={saving} title={edit.error} status={edit.error ? 'error' : undefined} value={edit.value} disabled={saving} inputMode="decimal" onChange={event => { const current = editRef.current; if (current) updateEdit({ ...current, value: event.target.value, error: current.conflict ? current.error : undefined }); }} onBlur={() => void saveEdit(false)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveEdit(true); } else if (event.key === 'Escape' && !savingRef.current) { event.preventDefault(); updateEdit(); } }} />;
-      return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${field.name}`} disabled={!!edit || saving} onClick={() => updateEdit({ itemId: row.id, fieldId: field.id, value: String(value), original: value, revision: entry?.revision ?? 0 })}>{Number(value).toFixed(2)}</button>;
+      return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${field.name}`} disabled={!!edit || saving || refreshing} onClick={() => updateEdit({ itemId: row.id, fieldId: field.id, value: String(value), original: value, revision: entry?.revision ?? 0 })}>{Number(value).toFixed(2)}</button>;
     } })),
     { title: '实发', key: 'actual-net', width: 120, render: (_: unknown, row: PayrollBatchItem) => money(disbursement.rows.find(item => item.itemId === row.id)?.net ?? Number(row.gross)) },
     { title: '操作', key: 'actions', width: 180, fixed: 'right' as const, render: (_: unknown, row: PayrollBatchItem) => !row.modelSnapshot && <Button type="link" onClick={() => setLegacyItem(row)}>查看原明细</Button> },
@@ -88,9 +94,9 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
   return <div className="payroll-batches-content">
     <div className="payroll-batches-current"><Typography.Text strong>{batch.month} · 已复核</Typography.Text></div>
     <div className="payroll-batches-grid-stage">
-      <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" dataSource={pageItems} pagination={false} scroll={{ x: 'max-content' }} columns={columns} /></div>
+      <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={refreshing} dataSource={pageItems} pagination={false} scroll={{ x: 'max-content' }} columns={columns} /></div>
       <div ref={bottomRef} className="payroll-batches-bottom">
-        {items.length > 0 && <Pagination size="small" current={currentPage} total={items.length} pageSize={10} showSizeChanger={false} onChange={setPage} />}
+        {items.length > 0 && <Pagination size="small" current={currentPage} total={items.length} pageSize={10} showSizeChanger={false} onChange={setPage} disabled={refreshing} />}
         <div className="payroll-batches-footer">{items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text strong>应发 {money(items.reduce((sum, item) => sum + Number(item.gross), 0))}</Typography.Text><Typography.Text strong>实发 {money(disbursement.rows.reduce((sum, item) => sum + Math.round(item.net * 100), 0) / 100)}</Typography.Text></Space>}</div>
       </div>
     </div>

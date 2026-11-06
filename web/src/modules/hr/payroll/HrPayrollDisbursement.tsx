@@ -5,11 +5,14 @@ import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 import { addDisbursementField, getDisbursement, getPayrollBatches, getPayrollBatchItems, getPayrollRecords, getSalaryComponentModel, type DisbursementFieldInput, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type PayrollRecord, type SalaryComponentModel } from '../api';
 import { PayrollDisbursementBatch } from './PayrollDisbursementBatch';
+import { clearDisbursementPosition, disbursementStorage, readDisbursementPosition, rememberDisbursementBatch } from './disbursementPosition';
 
 export function HrPayrollDisbursement() {
   const { message } = App.useApp();
   const workspaceActive = useWorkspaceActive();
-  const [month, setMonth] = useState<Dayjs | null>(null);
+  const [initialPosition] = useState(() => readDisbursementPosition(disbursementStorage()));
+  const [pendingRestore, setPendingRestore] = useState(initialPosition);
+  const [month, setMonth] = useState<Dayjs | null>(() => initialPosition ? dayjs(`${initialPosition.month}-01`) : null);
   const [selectedBatch, setSelectedBatch] = useState<PayrollBatch>();
   const [batches, setBatches] = useState<PayrollBatch[]>([]);
   const [batchOpen, setBatchOpen] = useState(false);
@@ -23,6 +26,21 @@ export function HrPayrollDisbursement() {
   const [editingBusy, setEditingBusy] = useState(false);
   const [form] = Form.useForm<DisbursementFieldInput>();
   const selectedMonth = month?.format('YYYY-MM');
+
+  useEffect(() => {
+    if (!workspaceActive || !pendingRestore) return;
+    let active = true;
+    getPayrollBatches(pendingRestore.month).then(rows => {
+      if (!active) return;
+      const batch = rows.find(item => item.id === pendingRestore.batchId && item.month === pendingRestore.month && item.status === 'reviewed');
+      if (batch) setSelectedBatch(batch);
+      else clearDisbursementPosition(disbursementStorage());
+      setPendingRestore(undefined);
+    }).catch((error: Error) => {
+      if (active) { message.error(error.message); setPendingRestore(undefined); }
+    });
+    return () => { active = false; };
+  }, [workspaceActive, pendingRestore]);
 
   useEffect(() => {
     if (!workspaceActive || !batchOpen || !selectedMonth) return;
@@ -56,11 +74,11 @@ export function HrPayrollDisbursement() {
 
   return <section className="payroll-batches-workspace" aria-label="工资发放">
     <div className="salary-model-entries payroll-disbursement-toolbar">
-      <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} disabled={editingBusy || fieldSaving} onChange={value => { setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }} />
+      <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} disabled={editingBusy || fieldSaving} onChange={value => { setPendingRestore(undefined); clearDisbursementPosition(disbursementStorage()); setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }} />
       <button type="button" className="salary-model-entry" disabled={!selectedMonth || editingBusy || fieldSaving} onClick={() => setBatchOpen(true)}>选择批次</button>
       <button type="button" className="salary-model-entry" disabled={!selectedBatch || !detail || detailLoading || !!detailError || editingBusy || fieldSaving} onClick={() => { form.setFieldsValue({ name: '', category: 'info', required: true, displaySetting: 'none' }); setFieldOpen(true); }}>添加补充项</button>
     </div>
-    {selectedBatch && (detailError ? <Alert type="error" message={detailError} action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} /> : detail && detail.batchId === selectedBatch.id && !detailLoading ? <PayrollDisbursementBatch batch={selectedBatch} items={detail.items} model={detail.model} disbursement={detail.disbursement} onChange={disbursement => setDetail(current => current && current.batchId === selectedBatch.id ? { ...current, disbursement } : current)} onEditingChange={setEditingBusy} /> : <Spin />)}
+    {selectedBatch && (detailError ? <Alert type="error" message={detailError} action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} /> : detail && detail.batchId === selectedBatch.id ? <PayrollDisbursementBatch batch={selectedBatch} items={detail.items} model={detail.model} disbursement={detail.disbursement} refreshing={detailLoading} onChange={disbursement => setDetail(current => current && current.batchId === selectedBatch.id ? { ...current, disbursement } : current)} onEditingChange={setEditingBusy} /> : <Spin />)}
     <Modal className="onboarding-template-editor salary-model-editor" title="添加补充项" open={fieldOpen} onCancel={() => { if (!fieldSaving) setFieldOpen(false); }} onOk={() => form.submit()} okText="保存" cancelText="取消" confirmLoading={fieldSaving} width={700}>
       <Form form={form} layout="vertical" onFinish={createField}>
         <div className="salary-single-field-form">
@@ -76,7 +94,7 @@ export function HrPayrollDisbursement() {
       <Table rowKey="id" dataSource={batches} loading={loading} pagination={{ pageSize: 10 }} size="small" columns={[
         { title: '工资月份', dataIndex: 'month' },
         { title: '状态', render: () => '已复核' },
-        { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setDetail(undefined); setDetailError(''); setSelectedBatch(batch); setBatchOpen(false); }}>选择</Button> },
+        { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setPendingRestore(undefined); rememberDisbursementBatch(disbursementStorage(), batch.month, batch.id); setDetail(undefined); setDetailError(''); setSelectedBatch(batch); setBatchOpen(false); }}>选择</Button> },
       ]} />
     </Modal>
   </section>;
