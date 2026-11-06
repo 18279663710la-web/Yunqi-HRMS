@@ -139,8 +139,7 @@ export function HrPayrollBatchesPage() {
 }
 
 export function HrPayrollDisbursementPage() {
-  const { employees } = useOutletContext<HrLayoutContext>();
-  return <HrPayrollDisbursement employees={employees} />;
+  return <HrPayrollDisbursement />;
 }
 
 export function HrPayrollRecordsPage() {

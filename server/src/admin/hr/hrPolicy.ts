@@ -3,13 +3,6 @@ import { z } from 'zod';
 export const onboardingFieldsSchema = z.array(z.string().trim().min(1).max(30)).min(1).max(30)
   .refine((fields) => new Set(fields).size === fields.length, '字段名称不能重复');
 
-export const payrollRecordSchema = z.object({
-  employeeId: z.string().trim().min(1).max(10),
-  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '月份格式无效'),
-  amount: z.number().finite().min(0).max(9999999999.99).multipleOf(0.01),
-  note: z.string().trim().max(200).default(''),
-});
-
 const text = z.string().trim().max(200).default('');
 const money = z.number().finite().min(0).max(9999999999.99).multipleOf(0.01).nullable().default(null);
 const salaryValue = z.union([z.number().finite().min(0).max(9999999999.99).multipleOf(0.01), z.string().max(200)]).nullable();

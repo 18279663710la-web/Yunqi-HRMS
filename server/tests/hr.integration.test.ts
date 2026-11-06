@@ -5,7 +5,7 @@ import test from 'node:test';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
-test('人事资料仅超级管理员可管理，入职申请与工资登记可以重新读取', async () => {
+test('人事资料仅超级管理员可管理，入职申请可以重新读取', async () => {
   const database = `yunqi_hr_test_${randomBytes(8).toString('hex')}`;
   const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
   let created = false;
@@ -90,9 +90,6 @@ test('人事资料仅超级管理员可管理，入职申请与工资登记可�
       ? { 基础薪资: 7000, 绩效薪资: 200, 差旅补贴: 0 }
       : { 基础薪资: 0, 绩效薪资: 1000, 差旅补贴: 0 });
     assert.equal(afterConcurrent.modelVersion, modelUpdate.body.data.version);
-    assert.equal((await request('/payroll', admin, 'POST', { employeeId: 'U001', month: '2026-10', amount: 4500, note: '' })).status, 200);
-    assert.equal((await request('/payroll', admin)).body.data[0].month, '2026-10');
-    assert.equal((await request('/payroll', admin, 'POST', { employeeId: 'U001', month: '2026-10', amount: 4500, note: '' })).status, 409);
   } finally {
     if (closeServer) await closeServer();
     if (closePool) await closePool();

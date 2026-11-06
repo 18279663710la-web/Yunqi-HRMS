@@ -4,7 +4,7 @@ import { execute, queryOne, queryRows, transaction } from '../../shared/db/pool'
 import type { RowDataPacket } from 'mysql2';
 import { requireAdmin, requireSuperAdmin } from '../admin-accounts/authMiddleware';
 import { parse } from '../../shared/middleware/validate';
-import { hrRecordSchemas, onboardingFieldsSchema, payrollRecordSchema } from './hrPolicy';
+import { hrRecordSchemas, onboardingFieldsSchema } from './hrPolicy';
 import { addOnboardingTask, completionSchema, confirmOnboarding, onboardingEmployeeSchema, setOnboardingTask, taskSchema } from './hrOnboardingService';
 import { buildSalaryValues, readSalaryModel, validateSalaryValues } from '../../domains/payroll/salaryModelService';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
@@ -126,26 +126,5 @@ router.put('/employees/:id/:section', asyncHandler(async (req, res) => {
 router.get('/payroll', asyncHandler(async (_req, res) => {
   const rows = await queryRows('SELECT p.id, p.employee_id AS employeeId, p.batch_id AS batchId, e.name, e.employee_no AS employeeNo, p.payroll_month AS month, p.amount, p.note, p.created_at AS createdAt FROM hr_payroll_records p JOIN employees e ON e.id = p.employee_id ORDER BY p.payroll_month DESC, p.id DESC LIMIT 500');
   success(res, rows);
-}));
-router.post('/payroll/batch', asyncHandler(async (req, res) => {
-  const input = parse(z.object({ batchId: z.number().int().positive().safe(), note: z.string().trim().max(200).default('') }), req.body);
-  const result = await transaction(async (conn) => {
-    const [batches] = await conn.query<RowDataPacket[]>('SELECT payroll_month, status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [input.batchId]);
-    if (!batches.length) throw notFound('工资批次不存在');
-    if (batches[0].status !== 'reviewed') throw badRequest('只能登记已复核的工资批次');
-    const [items] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_payroll_batch_items WHERE batch_id = ? LIMIT 1', [input.batchId]);
-    if (!items.length) throw badRequest('工资批次没有明细');
-    const [inserted] = await conn.execute<import('mysql2').ResultSetHeader>('INSERT INTO hr_payroll_records (employee_id, batch_id, payroll_month, amount, note, created_at) SELECT employee_id, ?, ?, net, ?, NOW() FROM hr_payroll_batch_items WHERE batch_id = ? ORDER BY employee_id', [input.batchId, batches[0].payroll_month, input.note, input.batchId]);
-    return { count: inserted.affectedRows, month: batches[0].payroll_month };
-  });
-  await recordAdminLog(req.admin!, '登记工资批次发放', 'hr_payroll_batches', String(input.batchId), { month: result.month, count: result.count });
-  success(res, result);
-}));
-router.post('/payroll', asyncHandler(async (req, res) => {
-  const input = parse(payrollRecordSchema, req.body);
-  await employeeExists(input.employeeId);
-  const result = await execute('INSERT INTO hr_payroll_records (employee_id, payroll_month, amount, note, created_at) VALUES (?, ?, ?, ?, NOW())', [input.employeeId, input.month, input.amount, input.note]);
-  await recordAdminLog(req.admin!, '登记工资发放', 'hr_payroll_records', String(result.insertId), { employeeId: input.employeeId, month: input.month });
-  success(res, { id: result.insertId });
 }));
 export default router;

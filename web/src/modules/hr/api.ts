@@ -87,8 +87,6 @@ export const cancelDeparture = (id: number) => request(`/admin/hr/offboarding/${
 export const getHrRecord = (employeeId: string, section: HrSection) => request<Record<string, unknown>>(`/admin/hr/employees/${encodeURIComponent(employeeId)}/${section}`);
 export const saveHrRecord = (employeeId: string, section: HrSection, data: unknown) => request(`/admin/hr/employees/${encodeURIComponent(employeeId)}/${section}`, { method: 'PUT', body: data });
 export const getPayrollRecords = () => request<PayrollRecord[]>('/admin/hr/payroll');
-export const addPayrollRecord = (record: unknown) => request('/admin/hr/payroll', { method: 'POST', body: record });
-export const addBatchPayrollRecords = (batchId: number, note: string) => request('/admin/hr/payroll/batch', { method: 'POST', body: { batchId, note } });
 
 export interface HrContractFile { id: number; name: string; size: number; mimeType: string; createdAt: string }
 const contractFilesPath = (id: string) => `/admin/hr/employees/${encodeURIComponent(id)}/contract-files`;
