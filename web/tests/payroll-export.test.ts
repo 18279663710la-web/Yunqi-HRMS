@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildPayrollExportData, splitPayrollColumns } from '../src/modules/hr/payroll/payrollExportData';
+import { buildPayrollExportData } from '../src/modules/hr/payroll/payrollExportData';
+import { buildPayrollPdfLayout } from '../src/modules/hr/payroll/payrollPdfLayout';
+import { createPayrollWorkbook } from '../src/modules/hr/payroll/payrollExportXlsx';
 import type { PayrollBatch, PayrollBatchItem, SalaryComponentModel } from '../src/modules/hr/api';
 
 const batch: PayrollBatch = { id: 1, month: '2026-10', status: 'draft', createdAt: '', reviewedAt: null };
@@ -24,8 +26,24 @@ test('导出全部员工，按模型顺序及历史字段生成数值、文本�
   assert.deepEqual(result.totals, [1201.2, 0.6, 1200.6]);
 });
 
-test('PDF 横向分页重复身份字段，其他字段按顺序全部输出', () => {
-  const headers = ['姓名', '基本工资', '员工号', '补贴', '职务', '历史字段', '应发', '扣除', '实发'];
-  const chunks = splitPayrollColumns(headers, 5);
-  assert.deepEqual(chunks, [[0, 1, 2, 3, 4], [0, 2, 5, 6, 7], [0, 2, 8]]);
+test('PDF 从工资工作表读取所有列宽和合并区域，横向保持整表', async () => {
+  const data = buildPayrollExportData(batch, [row(1)], model);
+  const sheet = (await createPayrollWorkbook(data)).getWorksheet('工资明细')!;
+  sheet.getColumn(2).width = 22;
+  sheet.getRow(5).height = 35;
+  const layout = buildPayrollPdfLayout(sheet);
+  assert.equal(layout.widths.length, data.headers.length);
+  assert.ok(layout.widths[1] > layout.widths[0]);
+  assert.equal(layout.rowHeights[4], 35 * 4 / 3);
+  assert.ok(layout.merges.some(merge => merge.top === 1 && merge.left === 1 && merge.right === data.headers.length));
+  assert.deepEqual(layout.pages, [[5, 6]]);
+});
+
+test('员工较多时只沿纵向分页，所有列及每条明细均保留', async () => {
+  const data = buildPayrollExportData(batch, Array.from({ length: 150 }, (_, index) => row(index + 1)), model);
+  const sheet = (await createPayrollWorkbook(data)).getWorksheet('工资明细')!;
+  const layout = buildPayrollPdfLayout(sheet);
+  assert.ok(layout.pages.length > 1);
+  assert.deepEqual(layout.pages.flat(), Array.from({ length: 151 }, (_, index) => index + 5));
+  assert.equal(layout.widths.length, data.headers.length);
 });

@@ -33,7 +33,8 @@ export async function createPayrollWorkbook(data: PayrollExportData): Promise<Ex
   totalRow.font = { bold: true };
   const textWidth = (value: string) => Array.from(value).reduce((size, char) => size + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
   sheet.columns.forEach((column, index) => {
-    const maxWidth = data.rows.reduce((width, row) => Math.max(width, textWidth(String(row[index] ?? ''))), textWidth(data.headers[index]));
+    const displayWidth = (value: string | number) => textWidth(typeof value === 'number' ? value.toFixed(2) : value);
+    const maxWidth = data.rows.reduce((width, row) => Math.max(width, displayWidth(row[index] ?? '')), Math.max(textWidth(data.headers[index]), displayWidth(total[index])));
     column.width = Math.max(10, Math.min(26, maxWidth + 3));
   });
   data.rows.forEach((values, rowIndex) => {

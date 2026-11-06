@@ -31,14 +31,3 @@ export function buildPayrollExportData(batch: PayrollBatch, items: PayrollBatchI
   const columnNumbers = fields.map(name => ['姓名', '员工号', '职务'].includes(name) ? '' : String(++number));
   return { title: '工资表', periodLabel: `${year}（${Number(month)}）月份应发工资奖金补贴及其他`, columnNumbers: [...columnNumbers, '', '', ''], filename: `工资批次_${batch.month}_${status}`, headers: [...fields, '应发', '扣除', '实发'], rows, totals: [sum('gross'), sum('deductions'), sum('net')] };
 }
-
-/** 宽表拆页时保留每页员工身份，其余列依原顺序出现一次。 */
-export function splitPayrollColumns(headers: string[], maxColumns: number): number[][] {
-  if (headers.length <= maxColumns) return [headers.map((_, index) => index)];
-  const identity = headers.flatMap((name, index) => name === '姓名' || name === '员工号' ? [index] : []);
-  if (maxColumns <= identity.length) throw new Error('PDF 页面列数不足');
-  const chunks = [headers.slice(0, maxColumns).map((_, index) => index)];
-  const remaining = headers.map((_, index) => index).slice(maxColumns).filter(index => !identity.includes(index));
-  for (let i = 0; i < remaining.length; i += maxColumns - identity.length) chunks.push([...identity, ...remaining.slice(i, i + maxColumns - identity.length)]);
-  return chunks;
-}
