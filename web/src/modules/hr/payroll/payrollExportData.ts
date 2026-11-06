@@ -4,6 +4,8 @@ import { payrollFieldNames } from './payrollFieldOrder';
 export type PayrollExportCell = string | number;
 export interface PayrollExportData {
   title: string;
+  periodLabel: string;
+  columnNumbers: string[];
   filename: string;
   headers: string[];
   rows: PayrollExportCell[][];
@@ -24,7 +26,10 @@ export function buildPayrollExportData(batch: PayrollBatch, items: PayrollBatchI
     }), Number(item.gross), Number(item.deductions), Number(item.net)];
   });
   const sum = (key: 'gross' | 'deductions' | 'net') => items.reduce((total, item) => total + Math.round(Number(item[key]) * 100), 0) / 100;
-  return { title: `${batch.month} 工资批次 · ${status}`, filename: `工资批次_${batch.month}_${status}`, headers: [...fields, '应发', '扣除', '实发'], rows, totals: [sum('gross'), sum('deductions'), sum('net')] };
+  const [year, month] = batch.month.split('-');
+  let number = 0;
+  const columnNumbers = fields.map(name => ['姓名', '员工号', '职务'].includes(name) ? '' : String(++number));
+  return { title: '工资表', periodLabel: `${year}（${Number(month)}）月份应发工资奖金补贴及其他`, columnNumbers: [...columnNumbers, '', '', ''], filename: `工资批次_${batch.month}_${status}`, headers: [...fields, '应发', '扣除', '实发'], rows, totals: [sum('gross'), sum('deductions'), sum('net')] };
 }
 
 /** 宽表拆页时保留每页员工身份，其余列依原顺序出现一次。 */

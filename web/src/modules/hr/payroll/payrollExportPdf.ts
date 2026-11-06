@@ -34,31 +34,46 @@ export async function downloadPayrollPdf(data: PayrollExportData): Promise<void>
   const totals: PayrollExportCell[] = Array(data.headers.length).fill('');
   totals[0] = '本批次合计';
   totals.splice(data.headers.length - 3, 3, ...data.totals);
-  for (const [group, columns] of splitPayrollColumns(data.headers, 9).entries()) {
+  for (const columns of splitPayrollColumns(data.headers, 9)) {
     const width = (right - left) / columns.length;
     let y = 0;
     const begin = () => {
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#17243a'; ctx.font = 'bold 30px "Microsoft YaHei", "PingFang SC", sans-serif';
-      ctx.fillText(data.title, left, 56);
-      ctx.textAlign = 'right'; ctx.font = '19px "Microsoft YaHei", "PingFang SC", sans-serif';
-      ctx.fillText(`字段分组 ${group + 1}`, right, 56);
-      ctx.font = 'bold 21px "Microsoft YaHei", "PingFang SC", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.font = 'bold 30px "SimSun", "Songti SC", serif';
+      ctx.fillText(data.title, (left + right) / 2, 56);
+      ctx.font = '21px "SimSun", "Songti SC", serif';
       const headerLines = columns.map(index => wrap(data.headers[index], width - 16));
-      const height = Math.max(...headerLines.map(lines => lines.length)) * lineHeight + 16;
-      y = 92;
-      columns.forEach((_, i) => {
+      const height = Math.max(...headerLines.map(lines => lines.length)) * lineHeight + 14;
+      const numberHeight = 34;
+      const summaryStart = columns.findIndex(index => index >= data.headers.length - 3);
+      const groupCount = summaryStart < 0 ? columns.length : summaryStart;
+      const periodLines = wrap(data.periodLabel, groupCount * width - 16);
+      const periodHeight = Math.max(44, periodLines.length * lineHeight + 14);
+      y = 94;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+      ctx.strokeRect(left, y, groupCount * width, periodHeight);
+      periodLines.forEach((line, lineIndex) => ctx.fillText(line, left + groupCount * width / 2, y + (periodHeight - periodLines.length * lineHeight) / 2 + lineHeight * (lineIndex + 0.5)));
+      columns.forEach((index, i) => {
         const x = left + i * width;
-        ctx.fillStyle = '#e9edf2'; ctx.fillRect(x, y, width, height);
-        ctx.strokeStyle = '#cbd2db'; ctx.strokeRect(x, y, width, height);
-        ctx.fillStyle = '#334155'; ctx.textAlign = 'center';
-        headerLines[i].forEach((line, lineIndex) => ctx.fillText(line, x + width / 2, y + 8 + lineHeight * (lineIndex + 0.5)));
+        if (index >= data.headers.length - 3) {
+          ctx.strokeRect(x, y, width, periodHeight + height + numberHeight);
+          headerLines[i].forEach((line, lineIndex) => ctx.fillText(line, x + width / 2, y + (periodHeight + height + numberHeight - headerLines[i].length * lineHeight) / 2 + lineHeight * (lineIndex + 0.5)));
+        } else {
+          const numbered = !!data.columnNumbers[index];
+          const fieldHeight = height + (numbered ? 0 : numberHeight);
+          ctx.strokeRect(x, y + periodHeight, width, fieldHeight);
+          headerLines[i].forEach((line, lineIndex) => ctx.fillText(line, x + width / 2, y + periodHeight + (fieldHeight - headerLines[i].length * lineHeight) / 2 + lineHeight * (lineIndex + 0.5)));
+          if (numbered) {
+            ctx.strokeRect(x, y + periodHeight + height, width, numberHeight);
+            ctx.fillText(data.columnNumbers[index], x + width / 2, y + periodHeight + height + numberHeight / 2);
+          }
+        }
       });
-      y += height;
+      y += periodHeight + height + numberHeight;
     };
     begin();
     for (const [rowIndex, row] of [...data.rows, totals].entries()) {
-      ctx.font = '21px "Microsoft YaHei", "PingFang SC", sans-serif';
+      ctx.font = '21px "SimSun", "Songti SC", serif';
       const lines = columns.map((index, i) => wrap(rowIndex === data.rows.length && i === 0 ? '本批次合计' : printable(row[index] ?? ''), width - 16));
       let offset = 0;
       const totalLines = Math.max(...lines.map(line => line.length));
@@ -69,9 +84,9 @@ export async function downloadPayrollPdf(data: PayrollExportData): Promise<void>
         const height = count * lineHeight + 12;
         columns.forEach((column, i) => {
           const x = left + i * width;
-          ctx.fillStyle = rowIndex === data.rows.length ? '#f1f5fb' : rowIndex % 2 ? '#f8fafc' : '#fff';
-          ctx.fillRect(x, y, width, height); ctx.strokeStyle = '#cbd2db'; ctx.strokeRect(x, y, width, height);
-          ctx.fillStyle = '#1e293b'; ctx.textAlign = 'center'; ctx.font = '21px "Microsoft YaHei", "PingFang SC", sans-serif';
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(x, y, width, height); ctx.strokeStyle = '#000'; ctx.strokeRect(x, y, width, height);
+          ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.font = '21px "SimSun", "Songti SC", serif';
           const identity = data.headers[column] === '姓名' || data.headers[column] === '员工号';
           const visibleLines = offset > 0 && identity && lines[i].length <= offset ? [lines[i][0]] : lines[i].slice(offset, offset + count);
           visibleLines.forEach((line, lineIndex) => ctx.fillText(line, x + width / 2, y + 6 + lineHeight * (lineIndex + 0.5)));

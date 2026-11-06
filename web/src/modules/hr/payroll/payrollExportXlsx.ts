@@ -3,33 +3,53 @@ import type { PayrollExportData } from './payrollExportData';
 
 export async function createPayrollWorkbook(data: PayrollExportData): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('工资明细', { views: [{ state: 'frozen', ySplit: 2 }] });
+  const sheet = workbook.addWorksheet('工资明细', { views: [{ state: 'frozen', ySplit: 4 }], pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '1:4' } });
   sheet.mergeCells(1, 1, 1, data.headers.length);
   const title = sheet.getCell(1, 1);
   title.value = data.title;
-  title.font = { bold: true, size: 15 };
-  title.alignment = { vertical: 'middle' };
-  sheet.getRow(1).height = 28;
-  const header = sheet.addRow(data.headers);
-  header.font = { bold: true, color: { argb: 'FF334155' } };
-  header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE9EDF2' } };
+  title.font = { bold: true, size: 16, name: '宋体' };
+  title.alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getRow(1).height = 36;
+  const fieldCount = data.headers.length - 3;
+  if (fieldCount > 1) sheet.mergeCells(2, 1, 2, fieldCount);
+  sheet.getCell(2, 1).value = data.periodLabel;
+  sheet.getRow(2).height = 28;
+  sheet.getRow(3).height = 30;
+  sheet.getRow(4).height = 22;
+  data.headers.forEach((name, index) => {
+    const column = index + 1;
+    if (index >= fieldCount) { sheet.mergeCells(2, column, 4, column); sheet.getCell(2, column).value = name; }
+    else {
+      sheet.getCell(3, column).value = name;
+      if (data.columnNumbers[index]) sheet.getCell(4, column).value = data.columnNumbers[index];
+      else sheet.mergeCells(3, column, 4, column);
+    }
+  });
   data.rows.forEach(values => sheet.addRow(values));
   const total = Array<string | number>(data.headers.length).fill('');
   total[0] = '本批次合计';
   total.splice(data.headers.length - 3, 3, ...data.totals);
   const totalRow = sheet.addRow(total);
   totalRow.font = { bold: true };
-  totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5FB' } };
+  const textWidth = (value: string) => Array.from(value).reduce((size, char) => size + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
   sheet.columns.forEach((column, index) => {
-    const textWidth = (value: string) => Array.from(value).reduce((size, char) => size + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
     const maxWidth = data.rows.reduce((width, row) => Math.max(width, textWidth(String(row[index] ?? ''))), textWidth(data.headers[index]));
-    column.width = Math.max(14, Math.min(32, maxWidth + 3));
+    column.width = Math.max(10, Math.min(26, maxWidth + 3));
+  });
+  data.rows.forEach((values, rowIndex) => {
+    const lines = values.reduce<number>((max, value, index) => {
+      if (typeof value !== 'string') return max;
+      const capacity = Math.max(1, (sheet.getColumn(index + 1).width ?? 10) - 5);
+      const count = value.split(/\r\n|\r|\n/).reduce((sum, line) => sum + Math.max(1, Math.ceil(textWidth(line) / capacity)), 0);
+      return Math.max(max, count);
+    }, 1);
+    if (lines > 1) sheet.getRow(rowIndex + 5).height = Math.min(409, lines * 16 + 4);
   });
   sheet.eachRow((row, rowIndex) => {
     if (rowIndex === 1) return;
-    row.eachCell(cell => {
-      cell.alignment = { vertical: 'middle', wrapText: true };
-      cell.border = { top: { style: 'thin', color: { argb: 'FFD3D8DF' } }, bottom: { style: 'thin', color: { argb: 'FFD3D8DF' } }, left: { style: 'thin', color: { argb: 'FFD3D8DF' } }, right: { style: 'thin', color: { argb: 'FFD3D8DF' } } };
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { top: { style: 'thin', color: { argb: 'FF000000' } }, bottom: { style: 'thin', color: { argb: 'FF000000' } }, left: { style: 'thin', color: { argb: 'FF000000' } }, right: { style: 'thin', color: { argb: 'FF000000' } } };
       if (typeof cell.value === 'number') cell.numFmt = '0.00';
     });
   });
