@@ -6,7 +6,9 @@ import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 import { getPayrollRecords, type PayrollRecord } from '../api';
 
 export function HrPayrollDisbursement() {
-  return <SubModuleHeader title="工资发放" />;
+  return <section aria-label="工资发放">
+    <div className="salary-model-entries payroll-disbursement-toolbar" aria-hidden="true" />
+  </section>;
 }
 
 export function HrPayrollRecords() {

@@ -117,9 +117,10 @@ export function HrLayout() {
     markArchiveChanged: () => setArchiveRevision(value => value + 1),
     refreshEmployees: async () => setEmployees(await getHrEmployees()),
   };
-  return <div className={location.pathname === '/hr/payroll-batches' ? 'payroll-batches-page' : 'page-stack'}>
+  const fullWidthPayrollPage = ['/hr/payroll-batches', '/hr/payroll-disbursement'].includes(location.pathname);
+  return <div className={fullWidthPayrollPage ? 'payroll-batches-page' : 'page-stack'}>
     {!['/hr/payroll-batches', '/hr/payroll-disbursement', '/hr/payroll-records'].includes(location.pathname) && <PageTitle title={subModuleLabel(location.pathname) ?? '人事管理'} />}
-    {location.pathname === '/hr/payroll-batches' ? <Outlet context={context} /> : <Card className="panel-card" bordered={false}><Outlet context={context} /></Card>}
+    {fullWidthPayrollPage ? <Outlet context={context} /> : <Card className="panel-card" bordered={false}><Outlet context={context} /></Card>}
   </div>;
 }
 

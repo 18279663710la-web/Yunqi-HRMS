@@ -5,9 +5,11 @@ import { App } from 'antd';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { HrPayrollDisbursement, HrPayrollRecords } from '../src/modules/hr/payroll/HrPayrollDisbursement';
 
-test('工资发放页保留标题并移除发放登记功能', () => {
+test('工资发放页显示空功能区，不显示标题和登记功能', () => {
   const html = renderToStaticMarkup(<App><HrPayrollDisbursement /></App>);
-  assert.ok(html.includes('工资发放'));
+  assert.match(html, /class="salary-model-entries payroll-disbursement-toolbar"[^>]*><\/div>/);
+  assert.doesNotMatch(html, /<h[1-6][^>]*>/);
+  assert.doesNotMatch(html, /<button\b/);
   for (const label of ['类型', '员工', '工资月份', '实发金额', '备注', '登记发放', '登记时间']) assert.ok(!html.includes(label));
 });
 
