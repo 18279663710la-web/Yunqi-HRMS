@@ -18,12 +18,12 @@ test('导出全部员工，按模型顺序及历史字段生成数值、文本�
   const result = buildPayrollExportData(batch, rows, model);
   assert.equal(result.title, '工资表');
   assert.equal(result.periodLabel, '2026（10）月份应发工资奖金补贴及其他');
-  assert.deepEqual(result.columnNumbers, ['', '1', '', '2', '', '3', '', '', '']);
-  assert.deepEqual(result.headers, ['姓名', '基本工资', '员工号', '补贴', '职务', '历史字段', '应发', '扣除', '实发']);
+  assert.deepEqual(result.columnNumbers, ['', '1', '', '2', '', '3', '']);
+  assert.deepEqual(result.headers, ['姓名', '基本工资', '员工号', '补贴', '职务', '历史字段', '应发']);
   assert.equal(result.rows.length, 12);
-  assert.deepEqual(result.rows[0], ['员工1', 100, '001', 0, '快照职位', '=测试', 100.1, 0.05, 100.05]);
-  assert.deepEqual(result.rows[1], ['员工2', '—', '002', '—', '职位', '—', 100.1, 0.05, 100.05]);
-  assert.deepEqual(result.totals, [1201.2, 0.6, 1200.6]);
+  assert.deepEqual(result.rows[0], ['员工1', 100, '001', 0, '快照职位', '=测试', 100.1]);
+  assert.deepEqual(result.rows[1], ['员工2', '—', '002', '—', '职位', '—', 100.1]);
+  assert.deepEqual(result.totals, [1201.2]);
 });
 
 test('PDF 从工资工作表读取所有列宽和合并区域，横向保持整表', async () => {

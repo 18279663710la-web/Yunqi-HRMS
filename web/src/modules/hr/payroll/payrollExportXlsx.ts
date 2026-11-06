@@ -10,7 +10,7 @@ export async function createPayrollWorkbook(data: PayrollExportData): Promise<Ex
   title.font = { bold: true, size: 16, name: '宋体' };
   title.alignment = { horizontal: 'center', vertical: 'middle' };
   sheet.getRow(1).height = 36;
-  const fieldCount = data.headers.length - 3;
+  const fieldCount = data.headers.length - 1;
   if (fieldCount > 1) sheet.mergeCells(2, 1, 2, fieldCount);
   sheet.getCell(2, 1).value = data.periodLabel;
   sheet.getRow(2).height = 28;
@@ -28,7 +28,7 @@ export async function createPayrollWorkbook(data: PayrollExportData): Promise<Ex
   data.rows.forEach(values => sheet.addRow(values));
   const total = Array<string | number>(data.headers.length).fill('');
   total[0] = '本批次合计';
-  total.splice(data.headers.length - 3, 3, ...data.totals);
+  total[data.headers.length - 1] = data.totals[0];
   const totalRow = sheet.addRow(total);
   totalRow.font = { bold: true };
   const textWidth = (value: string) => Array.from(value).reduce((size, char) => size + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
