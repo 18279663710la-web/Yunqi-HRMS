@@ -4,13 +4,13 @@
 
 工资批次、考勤取值预览、发放登记及发放记录界面。
 
-工资批次采用无标题、无外围卡片的全宽布局；顶部操作栏和历史批次弹窗用于选择及管理批次。工资表采用紧凑灰色表头和细网格，使用表格原生横向滚动条，固定列与分页保留。
+工资批次采用无标题、无外围卡片的全宽布局；顶部操作栏和历史批次弹窗用于选择及管理批次。明细表和一键添加预览遵循模型保存的字段顺序，历史快照独有字段追加；姓名位于首位时固定在左侧，操作列固定在右侧。工资表采用紧凑灰色表头和细网格，使用表格原生横向滚动条及分页。
 
 草稿的手工扩展字段和独立扣除在单元格中编辑，输入时调用薪资模型计算工具预览行和批次金额，使用明细版本保存后以服务端结果为准；考勤字段和已复核明细只读。模型收入减模型扣款得到应发，实发为应发减手填扣除。
 
 ## 主要内容
 
-- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`payrollPagination.ts`、`payrollInlineEdit.ts`。
+- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`payrollPagination.ts`、`payrollInlineEdit.ts`、`payrollFieldOrder.ts`。
 
 ## 维护约束
 

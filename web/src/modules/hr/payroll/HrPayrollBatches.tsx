@@ -4,8 +4,8 @@ import { type Dayjs } from 'dayjs';
 import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollDeduction, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
 import { getPayrollPage } from './payrollPagination';
+import { payrollFieldNames } from './payrollFieldOrder';
 import { buildInlinePayrollUpdate, parseManualDeduction, previewInlinePayrollTotals } from './payrollInlineEdit';
-import { salaryAmountFields } from '../../models-formulas/salary/salaryModel';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 
 const money = (value: number | null | undefined) => value == null ? '—' : `¥${Number(value).toFixed(2)}`;
@@ -172,9 +172,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     try { await reviewPayrollBatch(selected); await Promise.all([loadBatches(), loadItems(selected)]); message.success('工资批次已复核'); }
     catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
   };
-  const modelFields = [...salaryAmountFields(model), ...(model?.extendedFields ?? [])].map(field => field.name);
-  const snapshotFields = items.flatMap(item => [...(item.modelSnapshot?.fixed ?? []), ...(item.modelSnapshot?.extended ?? [])].map(field => field.name));
-  const fieldNames = [...new Set([...modelFields, ...snapshotFields])];
+  const fieldNames = payrollFieldNames(model, items.map(item => item.modelSnapshot));
   const editingBusy = !!cellEdit || cellSaving;
   const previewSnapshot = cellEdit?.conflict ? cellEdit.latestSnapshot : cellEdit?.snapshot;
   const preview = cellEdit && previewSnapshot ? previewInlinePayrollTotals(previewSnapshot, cellEdit.fieldName, cellEdit.value, cellEdit.manualDeduction) : undefined;
@@ -183,10 +181,11 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const displayTotal = (row: PayrollBatchItem, key: 'gross' | 'deductions' | 'net') => previewChanged && row.id === cellEdit?.itemId ? preview![key] : Number(row[key]);
   const previewMark = previewChanged ? <span title="未保存的实时预览" aria-label="未保存的实时预览">*</span> : null;
   const columns = [
-    { title: '姓名', dataIndex: 'name', width: 100, fixed: 'left' as const },
-    { title: '员工号', dataIndex: 'employeeNo', width: 110 },
-    { title: '职务', width: 120, render: (_: unknown, row: PayrollBatchItem) => row.modelSnapshot?.position ?? row.position ?? '—' },
-    ...fieldNames.map(name => ({ title: name, key: name, width: 120, render: (_: unknown, row: PayrollBatchItem) => {
+    ...fieldNames.map((name, index) => {
+      if (name === '姓名') return { title: name, key: name, dataIndex: 'name', width: 100, ...(index === 0 ? { fixed: 'left' as const } : {}) };
+      if (name === '员工号') return { title: name, key: name, dataIndex: 'employeeNo', width: 110 };
+      if (name === '职务') return { title: name, key: name, width: 120, render: (_: unknown, row: PayrollBatchItem) => row.modelSnapshot?.position ?? row.position ?? '—' };
+      return { title: name, key: name, width: 120, render: (_: unknown, row: PayrollBatchItem) => {
       const field = [...(row.modelSnapshot?.fixed ?? []), ...(row.modelSnapshot?.extended ?? [])].find(item => item.name === name);
       if (!field) return '—';
       const extended = row.modelSnapshot?.extended.find(item => item.name === name);
@@ -208,7 +207,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
         }}>{typeof extended.value === 'number' ? extended.value.toFixed(2) : extended.value || '—'}</button>;
       }
       return typeof field.value === 'number' ? field.value.toFixed(2) : field.value || '—';
-    } })),
+    } }; }),
     { title: '应发', dataIndex: 'gross', width: 120, render: (_: number, row: PayrollBatchItem) => <>{money(displayTotal(row, 'gross'))}{previewChanged && row.id === cellEdit?.itemId && previewMark}</> },
     { title: '扣除', dataIndex: 'deductions', width: 120, render: (_: number, row: PayrollBatchItem) => {
       if (current?.status !== 'draft' || !row.modelSnapshot) return money(row.deductions);
@@ -262,8 +261,12 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     </Modal>
     <Modal title={autoPreview ? `一键添加工资明细 · ${autoPreview.month}` : '一键添加工资明细'} open={autoOpen} onCancel={() => setAutoOpen(false)} width={900} footer={<Space><Button onClick={() => setAutoOpen(false)}>取消</Button><Button type="primary" loading={loading} onClick={() => void confirmAuto()}>确认添加 {autoPreview?.candidates.length ?? 0} 人</Button></Space>}>
       {autoPreview && <><Table rowKey="employeeId" dataSource={autoPreview.candidates} pagination={false} size="small" scroll={{ x: 'max-content', y: 360 }} columns={[
-        { title: '姓名', dataIndex: 'name', width: 100 }, { title: '员工号', dataIndex: 'employeeNo', width: 100 }, { title: '职务', dataIndex: 'position', width: 120 },
-        ...([...(autoPreview.candidates[0]?.modelSnapshot.fixed ?? []), ...(autoPreview.candidates[0]?.modelSnapshot.extended ?? [])]).map(field => ({ title: field.name, key: field.name, width: 120, render: (_: unknown, row: typeof autoPreview.candidates[number]) => { const value = [...row.modelSnapshot.fixed, ...row.modelSnapshot.extended].find(item => item.name === field.name)?.value; return typeof value === 'number' ? value.toFixed(2) : value || '—'; } })),
+        ...payrollFieldNames(model, autoPreview.candidates.map(candidate => candidate.modelSnapshot)).map(name => {
+          if (name === '姓名') return { title: name, key: name, dataIndex: 'name', width: 100 };
+          if (name === '员工号') return { title: name, key: name, dataIndex: 'employeeNo', width: 100 };
+          if (name === '职务') return { title: name, key: name, dataIndex: 'position', width: 120 };
+          return { title: name, key: name, width: 120, render: (_: unknown, row: typeof autoPreview.candidates[number]) => { const value = [...row.modelSnapshot.fixed, ...row.modelSnapshot.extended].find(item => item.name === name)?.value; return typeof value === 'number' ? value.toFixed(2) : value || '—'; } };
+        }),
         { title: '固定薪资合计', dataIndex: 'baseGross', width: 130, render: (value: number) => money(value) },
       ]} /><Typography.Text strong>合计：{money(autoPreview.totals.baseGross)}</Typography.Text></>}
     </Modal>
