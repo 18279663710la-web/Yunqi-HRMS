@@ -783,7 +783,20 @@ code {
 
 .submodule-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px solid #dce3ee; }
 .submodule-header-extra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.payroll-batches-page > .submodule-header { min-height: 53px; }
+.payroll-batches-workspace { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; }
+.payroll-batches-toolbar .ant-picker { flex: 0 0 130px; width: 130px; padding-left: 0; }
+.payroll-batches-content { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.payroll-batches-current { margin-bottom: 16px; }
+.payroll-batches-table { min-width: 0; }
+.payroll-batches-table .ant-table-content { scrollbar-width: none; }
+.payroll-batches-table .ant-table-content::-webkit-scrollbar { display: none; }
+.payroll-batches-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: auto; padding: 24px 0 12px; }
+.payroll-batches-scrollbar { position: sticky; bottom: 0; z-index: 3; min-height: 16px; overflow-x: auto; overflow-y: hidden; }
+.payroll-batches-scrollbar::-webkit-scrollbar { height: 10px; }
+.payroll-batches-scrollbar::-webkit-scrollbar-track { background: #e7ebf0; }
+.payroll-batches-scrollbar::-webkit-scrollbar-thumb { background: #9aa9bd; border-radius: 5px; }
+.payroll-batches-scrollbar > div { height: 1px; }
+.payroll-batches-scrollbar:focus-visible { outline: 2px solid #3d6ef7; outline-offset: -2px; }
 .salary-model-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .salary-model-page > .ant-spin-nested-loading { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .salary-model-page > .ant-spin-nested-loading > .ant-spin-container { display: flex; flex: 1; min-width: 0; flex-direction: column; }
@@ -1038,4 +1051,5 @@ code {
 @media (max-width: 900px) {
   .payroll-workflow-page { min-height: calc(100vh - 68px); }
   .salary-model-page { min-height: calc(100vh - 52px); margin-bottom: -16px; }
+  .payroll-batches-workspace { min-height: calc(100vh - 52px); margin-bottom: -16px; }
 }

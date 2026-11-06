@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { App, Button, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { type Dayjs } from 'dayjs';
 import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type SalaryComponentModel } from '../api';
-import { SubModuleHeader } from '../../../components/SubModuleHeader';
+import { connectPayrollScroll } from './payrollScroll';
 import { salaryAmountFields } from '../../models-formulas/salary/salaryModel';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
 
@@ -19,6 +19,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [loading, setLoading] = useState(false);
   const [month, setMonth] = useState<Dayjs | null>(null);
   const [open, setOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
   const [autoPreview, setAutoPreview] = useState<AutoPayrollPreview>();
   const [autoLoading, setAutoLoading] = useState(false);
@@ -26,6 +27,9 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [legacyItem, setLegacyItem] = useState<PayrollBatchItem>();
   const [form] = Form.useForm<{ employeeId: string }>();
   const [extendedForm] = Form.useForm<{ values: (number | string)[] }>();
+  const tableRef = useRef<HTMLDivElement>(null);
+  const scrollbarRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const current = batches.find(item => item.id === selected);
   const loadBatches = async () => { setBatches(await getPayrollBatches()); };
   const loadItems = async (id: number) => { setItems(await getPayrollBatchItems(id)); };
@@ -92,6 +96,20 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const modelFields = [...salaryAmountFields(model), ...(model?.extendedFields ?? [])].map(field => field.name);
   const snapshotFields = items.flatMap(item => [...(item.modelSnapshot?.fixed ?? []), ...(item.modelSnapshot?.extended ?? [])].map(field => field.name));
   const fieldNames = [...new Set([...modelFields, ...snapshotFields])];
+  useLayoutEffect(() => {
+    const tableScroll = tableRef.current?.querySelector<HTMLElement>('.ant-table-content');
+    const bar = scrollbarRef.current;
+    const track = trackRef.current;
+    if (!tableScroll || !bar || !track || !workspaceActive) return;
+    const resize = () => { track.style.width = `${tableScroll.scrollWidth}px`; };
+    resize();
+    const disconnect = connectPayrollScroll(tableScroll, bar);
+    const observer = new ResizeObserver(resize);
+    observer.observe(tableScroll);
+    const table = tableScroll.querySelector('table');
+    if (table) observer.observe(table);
+    return () => { observer.disconnect(); disconnect(); };
+  }, [selected, current?.status, fieldNames.length, items.length, workspaceActive]);
   const columns = [
     { title: '姓名', dataIndex: 'name', width: 100, fixed: 'left' as const },
     { title: '员工号', dataIndex: 'employeeNo', width: 110 },
@@ -109,16 +127,30 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       {current?.status === 'draft' && <Popconfirm title="删除此草稿明细？" onConfirm={() => void remove(row.id)} okText="删除" cancelText="取消"><Button type="link" danger>删除</Button></Popconfirm>}
     </Space> },
   ];
-  return <>
-    <SubModuleHeader title="工资批次" />
-    <Space wrap><DatePicker picker="month" aria-label="新建工资月份" value={month} onChange={setMonth} /><Button onClick={() => void create()} loading={loading}>创建批次</Button><Select aria-label="选择工资批次" value={selected} placeholder="选择批次" style={{ minWidth: 220 }} onChange={setSelected} options={batches.map(batch => ({ value: batch.id, label: `${batch.month} · ${batch.status === 'draft' ? '草稿' : '已复核'}` }))} /></Space>
-    {current && <>
-      <div style={{ margin: '16px 0' }}><Space wrap><Typography.Text strong>{current.month} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text>
-        {current.status === 'draft' && <><Button type="primary" onClick={() => { form.resetFields(); setOpen(true); }}>添加工资明细</Button><Popconfirm title="确认复核该批次？复核后不能修改。" onConfirm={() => void review()} okText="确认" cancelText="取消"><Button disabled={loading || !items.length}>复核并锁定</Button></Popconfirm><Popconfirm title="删除该草稿及其全部工资明细？" onConfirm={() => void removeDraft()} okText="删除" cancelText="取消"><Button danger disabled={loading}>删除草稿</Button></Popconfirm></>}
-      </Space></div>
-      <Table rowKey="id" loading={loading} dataSource={items} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} columns={columns} />
-      {items.length > 0 && <div style={{ marginTop: 12 }}><Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text>应发 {money(items.reduce((sum, item) => sum + Number(item.gross), 0))}</Typography.Text><Typography.Text>扣除 {money(items.reduce((sum, item) => sum + Number(item.deductions), 0))}</Typography.Text><Typography.Text strong>实发 {money(items.reduce((sum, item) => sum + Number(item.net), 0))}</Typography.Text></Space></div>}
-    </>}
+  return <section className="payroll-batches-workspace" aria-label="工资批次">
+    <div className="salary-model-entries payroll-batches-toolbar">
+      <DatePicker picker="month" aria-label="新建工资月份" placeholder="选择月份" variant="borderless" value={month} onChange={setMonth} />
+      <button type="button" className="salary-model-entry" onClick={() => void create()} disabled={loading}>创建批次</button>
+      <button type="button" className="salary-model-entry" onClick={() => setHistoryOpen(true)} disabled={loading}>历史工资批次</button>
+      <Popconfirm title="确认复核该批次？复核后不能修改。" onConfirm={() => void review()} okText="确认" cancelText="取消" disabled={loading || current?.status !== 'draft' || !items.length}><button type="button" className="salary-model-entry" disabled={loading || current?.status !== 'draft' || !items.length}>复核并锁定</button></Popconfirm>
+      <Popconfirm title="删除该草稿及其全部工资明细？" onConfirm={() => void removeDraft()} okText="删除" cancelText="取消" disabled={loading || current?.status !== 'draft'}><button type="button" className="salary-model-entry salary-model-entry-danger" disabled={loading || current?.status !== 'draft'}>删除草稿</button></Popconfirm>
+    </div>
+    {current && <div className="payroll-batches-content">
+      <div className="payroll-batches-current"><Typography.Text strong>{current.month} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text></div>
+      <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={loading} dataSource={items} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} columns={columns} /></div>
+      <div className="payroll-batches-footer">
+        {current.status === 'draft' && <Button type="primary" size="small" onClick={() => { form.resetFields(); setOpen(true); }}>添加工资明细</Button>}
+        {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text>应发 {money(items.reduce((sum, item) => sum + Number(item.gross), 0))}</Typography.Text><Typography.Text>扣除 {money(items.reduce((sum, item) => sum + Number(item.deductions), 0))}</Typography.Text><Typography.Text strong>实发 {money(items.reduce((sum, item) => sum + Number(item.net), 0))}</Typography.Text></Space>}
+      </div>
+      <div ref={scrollbarRef} className="payroll-batches-scrollbar" role="region" aria-label="工资明细横向滚动" tabIndex={0}><div ref={trackRef} /></div>
+    </div>}
+    <Modal title="历史工资批次" open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={<Button onClick={() => setHistoryOpen(false)}>关闭</Button>} width={600}>
+      <Table rowKey="id" dataSource={batches} pagination={{ pageSize: 10 }} size="small" columns={[
+        { title: '工资月份', dataIndex: 'month' },
+        { title: '状态', render: (_: unknown, batch: PayrollBatch) => batch.status === 'draft' ? '草稿' : '已复核' },
+        { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setSelected(batch.id); setHistoryOpen(false); }}>查看</Button> },
+      ]} />
+    </Modal>
     <Modal title="添加工资明细" open={open} onCancel={() => setOpen(false)} width={520} destroyOnHidden footer={<div style={{ display: 'flex', justifyContent: 'space-between' }}><Button onClick={() => void openAutoPreview()} loading={autoLoading}>一键添加</Button><Space><Button onClick={() => setOpen(false)}>取消</Button><Button type="primary" loading={loading} onClick={() => form.submit()}>确定</Button></Space></div>}>
       <Form form={form} layout="vertical" onFinish={add} preserve={false}><Form.Item label="员工" name="employeeId" rules={[{ required: true, message: '请选择员工' }]}><Select showSearch optionFilterProp="label" options={employees.map(employee => ({ value: employee.id, label: `${employee.name} · ${employee.employeeNo}${employee.employmentStatus === 'departed' ? ' · 已离职' : ''}` }))} /></Form.Item></Form>
     </Modal>
@@ -145,5 +177,5 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
         { key: 'note', label: '说明', children: legacyItem.note || '—' },
       ]} />}
     </Modal>
-  </>;
+  </section>;
 }
