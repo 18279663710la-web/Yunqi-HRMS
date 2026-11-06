@@ -4,6 +4,8 @@
 
 工资批次、考勤取值预览、发放登记及发放记录界面。
 
+工资批次采用无外围卡片的全宽布局，标题与出勤率绩效规则页面对齐。
+
 ## 主要内容
 
 - 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`。

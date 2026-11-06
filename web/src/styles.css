@@ -783,6 +783,7 @@ code {
 
 .submodule-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px solid #dce3ee; }
 .submodule-header-extra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.payroll-batches-page > .submodule-header { min-height: 53px; }
 .salary-model-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .salary-model-page > .ant-spin-nested-loading { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .salary-model-page > .ant-spin-nested-loading > .ant-spin-container { display: flex; flex: 1; min-width: 0; flex-direction: column; }

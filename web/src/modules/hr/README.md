@@ -4,6 +4,8 @@
 
 人事页面布局、共享人事 API 和子模块组合；六个页面不对应六个实体目录。
 
+工资批次使用全宽无外围卡片布局，其他子页面沿用现有人事布局。
+
 ## 主要内容
 
 - 子目录：[employee-records/](employee-records/README.md)、[offboarding/](offboarding/README.md)、[onboarding/](onboarding/README.md)、[payroll/](payroll/README.md)。
