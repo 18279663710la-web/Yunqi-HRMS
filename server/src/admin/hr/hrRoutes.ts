@@ -125,8 +125,4 @@ router.put('/employees/:id/:section', asyncHandler(async (req, res) => {
   await recordAdminLog(req.admin!, '修改人事资料', 'hr_employee_records', req.params.id, { section });
   success(res, data);
 }));
-router.get('/payroll', asyncHandler(async (_req, res) => {
-  const rows = await queryRows('SELECT p.id, p.employee_id AS employeeId, p.batch_id AS batchId, e.name, e.employee_no AS employeeNo, p.payroll_month AS month, p.amount, p.note, p.created_at AS createdAt FROM hr_payroll_records p JOIN employees e ON e.id = p.employee_id ORDER BY p.payroll_month DESC, p.id DESC LIMIT 500');
-  success(res, rows);
-}));
 export default router;

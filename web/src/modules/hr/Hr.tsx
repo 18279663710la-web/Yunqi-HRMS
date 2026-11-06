@@ -11,6 +11,7 @@ import { OnboardingForms } from './onboarding/OnboardingForms';
 import { HrEvents, HrRecordHistory } from './employee-records/HrEvents';
 import { HrPayrollBatches } from './payroll/HrPayrollBatches';
 import { HrPayrollDisbursement, HrPayrollRecords } from './payroll/HrPayrollDisbursement';
+import { PayrollRecordDetail } from './payroll/PayrollRecordDetail';
 import { HrOffboarding } from './offboarding/HrOffboarding';
 import { HrTransitions } from './employee-records/HrTransitions';
 import { HrContractFiles } from './employee-records/HrContractFiles';
@@ -117,9 +118,9 @@ export function HrLayout() {
     markArchiveChanged: () => setArchiveRevision(value => value + 1),
     refreshEmployees: async () => setEmployees(await getHrEmployees()),
   };
-  const fullWidthPayrollPage = ['/hr/payroll-batches', '/hr/payroll-disbursement'].includes(location.pathname);
+  const fullWidthPayrollPage = ['/hr/payroll-batches', '/hr/payroll-disbursement'].includes(location.pathname) || /^\/hr\/payroll-records\/\d+\/\d{4}-\d{2}$/.test(location.pathname);
   return <div className={fullWidthPayrollPage ? 'payroll-batches-page' : 'page-stack'}>
-    {!['/hr/payroll-batches', '/hr/payroll-disbursement', '/hr/payroll-records'].includes(location.pathname) && <PageTitle title={subModuleLabel(location.pathname) ?? '人事管理'} />}
+    {!fullWidthPayrollPage && location.pathname !== '/hr/payroll-records' && <PageTitle title={subModuleLabel(location.pathname) ?? '人事管理'} />}
     {fullWidthPayrollPage ? <Outlet context={context} /> : <Card className="panel-card" bordered={false}><Outlet context={context} /></Card>}
   </div>;
 }
@@ -145,6 +146,10 @@ export function HrPayrollDisbursementPage() {
 
 export function HrPayrollRecordsPage() {
   return <HrPayrollRecords />;
+}
+
+export function HrPayrollRecordDetailPage() {
+  return <PayrollRecordDetail />;
 }
 
 export function HrOffboardingPage() {

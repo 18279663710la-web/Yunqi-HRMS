@@ -20,6 +20,11 @@ test('已复核批次在功能区下展示员工明细、历史字段和应发�
   for (const text of ['2026-10', '已复核', '张三', 'E1', '历史岗位', '基本工资', '5000.00', '历史扣款', '100.00', '应发', '¥4900.00', '本批次合计', '补发奖金', '50.25', '实发', '¥4950.25']) assert.ok(html.includes(text), text);
   assert.ok(html.indexOf('基本工资') < html.indexOf('历史扣款'));
   assert.ok(html.indexOf('>应发<') < html.indexOf('补发奖金') && html.indexOf('补发奖金') < html.indexOf('>实发<'));
+  assert.ok(html.indexOf('本批次合计') > html.indexOf('张三'));
+  assert.ok(html.includes('发送工资条'));
   assert.ok(!html.includes('现岗位'));
   assert.ok(!html.includes('删除'));
+  const locked = renderToStaticMarkup(<App><PayrollDisbursementBatch batch={batch} items={[item]} model={model} disbursement={{ ...disbursement, issued: true }} onChange={() => {}} onEditingChange={() => {}} /></App>);
+  assert.ok(locked.includes('已发放'));
+  assert.ok(!locked.includes('编辑张三的补发奖金'));
 });

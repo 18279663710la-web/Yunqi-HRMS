@@ -786,6 +786,13 @@ code {
 .payroll-batches-workspace { display: flex; flex-direction: column; min-width: 0; height: calc(100vh - 60px); min-height: 420px; margin-bottom: -36px; }
 .payroll-batches-toolbar .ant-picker, .payroll-disbursement-toolbar .ant-picker { flex: 0 0 130px; width: 130px; padding-left: 0; }
 .payroll-batches-toolbar .payroll-export-action { margin-left: auto; }
+.payroll-disbursement-toolbar .payroll-issue-action { margin-left: auto; }
+.payroll-record-sheet-scroll { max-height: calc(100vh - 80px); overflow: auto; background: #fff; }
+.payroll-record-sheet { width: 100%; min-width: max-content; border-collapse: collapse; color: #000; font-family: '宋体', SimSun, serif; text-align: center; }
+.payroll-record-sheet caption { padding: 14px; color: #000; font-size: 20px; font-weight: 700; }
+.payroll-record-sheet th, .payroll-record-sheet td { min-width: 105px; padding: 7px 10px; border: 1px solid #000; font-weight: 400; white-space: pre-wrap; }
+.payroll-record-sheet th { font-weight: 500; }
+.payroll-record-sheet-scroll:focus-visible { outline: 2px solid #3d6ef7; outline-offset: -2px; }
 .payroll-batches-content { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .payroll-batches-current { margin-bottom: 16px; }
 .payroll-batches-grid-stage { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
@@ -801,6 +808,8 @@ code {
 .payroll-batches-table .ant-table-thead > tr > th:last-child, .payroll-batches-table .ant-table-tbody > tr > td:last-child { border-right: 1px solid #d3d8df; }
 .payroll-batches-table .ant-table-thead > tr > th::before { display: none; }
 .payroll-batches-table .ant-table-tbody > tr > td { padding: 5px 8px; border-bottom: 1px solid #d3d8df; border-left: 1px solid #d3d8df; background: #fff; line-height: 22px; text-align: center; }
+.payroll-batches-table .ant-table-summary td { padding: 5px 8px; border-bottom: 1px solid #d3d8df; border-left: 1px solid #d3d8df; background: #fff; text-align: center; }
+.payroll-batches-table .ant-table-summary td:last-child { border-right: 1px solid #d3d8df; }
 .payroll-batches-table .ant-table-tbody > tr:nth-child(even) > td { background: #f3f5f8; }
 .payroll-batches-table .ant-table-tbody > tr:hover > td { background: #eaf1ff !important; }
 .payroll-batches-table .ant-table-tbody .ant-btn-link { height: 24px; padding: 0 4px; font-size: 13px; }

@@ -15,6 +15,8 @@ const homeLocation: Location = { pathname: HOME_KEY, search: '', hash: '', state
 
 export function workspaceTabForLocation(location: Location): WorkspaceTab {
   const path = location.pathname.replace(/\/+$/, '') || '/';
+  const record = /^\/hr\/payroll-records\/(\d+)\/(\d{4}-(?:0[1-9]|1[0-2]))$/.exec(path);
+  if (record) return { key: path, label: `${record[2]}工资批次`, location };
   const fallback = resolvePageKey(path);
   const key = aliases[path] ?? (approvalTitles[path] ? path : aliases[fallback] ?? fallback);
   return { key, label: key === HOME_KEY ? '首页' : approvalTitles[key] ?? PAGE_TITLES[key] ?? '首页', location };

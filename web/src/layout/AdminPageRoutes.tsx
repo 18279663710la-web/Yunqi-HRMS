@@ -5,7 +5,7 @@ import { AttendancePage } from '../modules/attendance/Attendance';
 import { DashboardPage } from '../modules/dashboard/Dashboard';
 import { DepartmentsPage } from '../modules/organization/Departments';
 import { EmployeesPage } from '../modules/employees/Employees';
-import { HrEmployeesPage, HrLayout, HrOffboardingPage, HrOnboardingPage, HrPayrollBatchesPage, HrPayrollDisbursementPage, HrPayrollRecordsPage } from '../modules/hr/Hr';
+import { HrEmployeesPage, HrLayout, HrOffboardingPage, HrOnboardingPage, HrPayrollBatchesPage, HrPayrollDisbursementPage, HrPayrollRecordsPage, HrPayrollRecordDetailPage } from '../modules/hr/Hr';
 import { ModelsFormulasPage } from '../modules/models-formulas/ModelsFormulas';
 
 export function AdminPageRoutes({ location }: { location: Location }) {
@@ -21,6 +21,7 @@ export function AdminPageRoutes({ location }: { location: Location }) {
       <Route path="payroll-batches" element={<HrPayrollBatchesPage />} />
       <Route path="payroll-disbursement" element={<HrPayrollDisbursementPage />} />
       <Route path="payroll-records" element={<HrPayrollRecordsPage />} />
+      <Route path="payroll-records/:id/:month" element={<HrPayrollRecordDetailPage />} />
       <Route path="offboarding" element={<HrOffboardingPage />} />
       <Route path="*" element={<Navigate to="/hr/onboarding" replace />} />
     </Route>

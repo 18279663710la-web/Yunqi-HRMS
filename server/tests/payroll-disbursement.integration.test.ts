@@ -5,7 +5,7 @@ import test from 'node:test';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
-test('工资批次按月份查询，历史发放记录保持只读', async () => {
+test('工资批次发放生成快照并锁定补充项', async () => {
   const database = `yunqi_disbursement_${randomBytes(8).toString('hex')}`;
   const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
   let created = false; let closePool: (() => Promise<void>) | undefined; let closeServer: (() => Promise<void>) | undefined;
@@ -27,8 +27,7 @@ test('工资批次按月份查询，历史发放记录保持只读', async () =>
     await conn.query(`INSERT INTO \`${database}\`.hr_payroll_records (employee_id, payroll_month, amount, note, created_at) VALUES ('U001', '2026-02', 100.25, '历史记录', NOW())`);
     assert.ok([401, 404].includes((await call('/payroll', 'POST', { employeeId: 'U005', month: '2026-03', amount: 1, note: '' })).status));
     assert.ok([401, 404].includes((await call('/payroll/batch', 'POST', { batchId: 1 })).status));
-    const records = (await call('/payroll')).body.data;
-    assert.deepEqual(records.map((r: any) => [r.employeeId, r.month, Number(r.amount), r.note]), [['U001', '2026-02', 100.25, '历史记录']]);
+    assert.ok([401, 404].includes((await call('/payroll')).status));
     await conn.query(`INSERT INTO \`${database}\`.hr_payroll_batches (payroll_month, status, created_at) VALUES ('2026-01', 'draft', NOW()), ('2026-02', 'reviewed', NOW())`);
     const batches = await call('/payroll-batches?month=2026-02');
     assert.equal(batches.status, 200);
@@ -71,6 +70,33 @@ test('工资批次按月份查询，历史发放记录保持只读', async () =>
     assert.equal(saved.rows[0].values.find((value: any) => value.fieldId === fieldId).value, 100.25);
     const original = (await call(`/payroll-batches/${reviewedId}/items`)).body.data[0];
     assert.equal(original.gross, 4400); assert.equal(original.net, 4200);
+    assert.equal((await call(`/payroll-batches/${draftId}/disbursement/issue`, 'POST', { revision: saved.revision })).status, 400);
+    assert.equal((await call(`/payroll-batches/${reviewedId}/disbursement/issue`, 'POST', { revision: 'stale' })).status, 409);
+    const originalName = saved.snapshot.items[0].name;
+    await pool.execute("UPDATE employees SET name = '并发修改' WHERE id = 'U001'");
+    assert.equal((await call(`/payroll-batches/${reviewedId}/disbursement/issue`, 'POST', { revision: saved.revision })).status, 409);
+    await pool.execute("UPDATE employees SET name = ? WHERE id = 'U001'", [originalName]);
+    const issuing = await Promise.all([call(`/payroll-batches/${reviewedId}/disbursement/issue`, 'POST', { revision: saved.revision }), call(`/payroll-batches/${reviewedId}/disbursement/issue`, 'POST', { revision: saved.revision })]);
+    assert.deepEqual(issuing.map(result => result.status).sort(), [200, 409]);
+    const issued = issuing.find(result => result.status === 200)!;
+    assert.ok(issued.body.data.id);
+    assert.equal((await call(`/payroll-batches/${reviewedId}/disbursement/issue`, 'POST', { revision: saved.revision })).status, 409);
+    assert.equal((await add('新补充', 'income')).status, 409);
+    assert.equal((await update(fieldId, 200, 1)).status, 409);
+    const recordsV2 = await call('/payroll-disbursement-records');
+    assert.equal(recordsV2.body.data.length, 1);
+    assert.deepEqual([recordsV2.body.data[0].month, Number(recordsV2.body.data[0].grossTotal), Number(recordsV2.body.data[0].netTotal), recordsV2.body.data[0].note], ['2026-02', 8100, 8170.15, '']);
+    const snapshot = (await call(`/payroll-disbursement-records/${issued.body.data.id}`)).body.data;
+    assert.equal(snapshot.batch.month, '2026-02');
+    assert.equal(snapshot.items.length, 2);
+    assert.equal(snapshot.disbursement.fields.length, 3);
+    assert.equal(snapshot.disbursement.rows[0].net, 4470.15);
+    await pool.execute("UPDATE employees SET name = '后续名称' WHERE id = 'U001'");
+    const historical = (await call(`/payroll-disbursement-records/${issued.body.data.id}`)).body.data;
+    assert.equal(historical.items[0].name, snapshot.items[0].name);
+    const lockedView = (await call(`/payroll-batches/${reviewedId}/disbursement`)).body.data;
+    assert.equal(lockedView.issued, true);
+    assert.equal(lockedView.snapshot.items[0].name, originalName);
   } finally {
     if (closeServer) await closeServer(); if (closePool) await closePool();
     if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end();

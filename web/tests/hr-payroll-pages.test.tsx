@@ -3,6 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import { App } from 'antd';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
 import { HrPayrollDisbursement, HrPayrollRecords } from '../src/modules/hr/payroll/HrPayrollDisbursement';
 
 test('工资发放页显示月份及批次选择，未选月份时批次按钮禁用', () => {
@@ -14,7 +15,7 @@ test('工资发放页显示月份及批次选择，未选月份时批次按钮�
 });
 
 test('工资发放记录页展示记录表而不展示登记表单', () => {
-  const html = renderToStaticMarkup(<App><HrPayrollRecords /></App>);
+  const html = renderToStaticMarkup(<MemoryRouter><App><HrPayrollRecords /></App></MemoryRouter>);
   assert.ok(html.includes('工资发放记录'));
   assert.ok(html.includes('登记时间'));
   assert.ok(!html.includes('登记发放'));

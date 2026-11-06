@@ -235,6 +235,19 @@ CREATE TABLE IF NOT EXISTS `hr_payroll_disbursement_values` (
   KEY `idx_hr_disbursement_value_item` (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `hr_payroll_disbursement_records` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `payroll_month` CHAR(7) NOT NULL,
+  `gross_total` DECIMAL(18,2) NOT NULL,
+  `net_total` DECIMAL(18,2) NOT NULL,
+  `note` VARCHAR(200) NOT NULL DEFAULT '',
+  `snapshot_json` JSON NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  `created_by` INT NOT NULL,
+  UNIQUE KEY `idx_hr_disbursement_record_batch` (`batch_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `hr_offboarding` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
   `employee_id` VARCHAR(10) NOT NULL,
