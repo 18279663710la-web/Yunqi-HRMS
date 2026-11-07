@@ -155,13 +155,7 @@ npm run dev:web
 
 ### 7. 真机调试
 
-真机上的 `127.0.0.1` 指向手机自身，需要改成电脑局域网 IP：
-
-```ts
-// miniprogram/utils/request.ts
-export const BASE_URL = 'http://192.168.x.x:3100/api';
-export const STATIC_BASE = 'http://192.168.x.x:3100';
-```
+开发者工具默认连接本机后端。真机上的 `127.0.0.1` 指向手机自身，须将 `miniprogram/utils/request.ts` 中的 `DEVICE_ORIGIN` 配置为手机可访问的电脑局域网地址。
 
 正式发布必须使用 HTTPS 域名，并在小程序后台登记 request / uploadFile / downloadFile 合法域名。
 
@@ -480,13 +474,13 @@ npm run build:web      # web/dist
 ## 十四、常见问题
 
 **Q：端口冲突？**
-A：后端默认 3100，Web 默认 5173。改 `server/.env` 的 `PORT` 后，同时修改 `miniprogram/utils/request.ts` 的 `BASE_URL` / `STATIC_BASE`；Web 开发代理在 `web/vite.config.ts`。
+A：后端默认 3100，Web 默认 5173。改 `server/.env` 的 `PORT` 后，同时修改 `miniprogram/utils/apiOrigin.ts` 的开发者工具地址和 `miniprogram/utils/request.ts` 的真机地址；Web 开发代理在 `web/vite.config.ts`。
 
 **Q：Web 后台登录提示无法连接后端？**
 A：确认终端 1 已启动 `npm run dev`，且 `http://127.0.0.1:3100/health` 可访问；终端 2 运行 `npm run dev:web`。
 
 **Q：小程序没有数据？**
-A：确认后端已启动、开发者工具未校验合法域名；真机需把 BASE_URL 改成电脑局域网 IP。
+A：确认后端已启动、开发者工具未校验合法域名；真机需把 `DEVICE_ORIGIN` 改成电脑局域网地址。
 
 **Q：忘记管理员密码？**
 A：开发环境执行 `npm run db:reset` 会重建默认管理员；或直接在 `admins` 表删除该账号后重启后端（表为空时会重新创建默认管理员）。

@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 主要文件：`expense-ai-stream.ts`、`invoice-identity.ts`、`invoice-precheck.ts`、`leave-duration.ts`、`qr-image.ts`、`request.ts`、`util.ts`。
+- 主要文件：`apiOrigin.ts`、`expense-ai-stream.ts`、`invoice-identity.ts`、`invoice-precheck.ts`、`leave-duration.ts`、`qr-image.ts`、`request.ts`、`util.ts`。
 
 ## 维护约束
 

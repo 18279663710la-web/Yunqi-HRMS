@@ -7,7 +7,7 @@
  *   · 管理员账号与员工账号完全隔离：employee token 只能访问员工接口
  *   · 无 token 时直接跳转登录页；401 先尝试 refresh，失败后清登录态并跳转登录
  *
- * 注意：真机调试时 127.0.0.1 指向手机自身，需把 BASE_URL 改成电脑局域网 IP，
+ * 注意：真机调试时 127.0.0.1 指向手机自身，需把 DEVICE_ORIGIN 改成电脑局域网 IP，
  * 并在微信开发者工具中保持「不校验合法域名」。
  */
 
@@ -15,10 +15,14 @@ import type { CurrentUser, LoginResponse } from '../types/models';
 import { AiStreamDecoder } from './expense-ai-stream';
 import type { AiStreamEvent } from './expense-ai-stream';
 import { toast } from './util';
+import { apiOriginForPlatform } from './apiOrigin';
 import { isOnboardingRoute } from '../services/onboarding/onboardingRoutes';
 
-export const BASE_URL = 'http://10.62.56.146:3100/api';
-export const STATIC_BASE = 'http://10.62.56.146:3100';
+const DEVICE_ORIGIN = 'http://10.62.56.146:3100';
+let platform = '';
+try { platform = wx.getSystemInfoSync().platform; } catch { /* 真机配置作为回退 */ }
+export const STATIC_BASE = apiOriginForPlatform(platform, DEVICE_ORIGIN);
+export const BASE_URL = `${STATIC_BASE}/api`;
 
 const LOGIN_PAGE = '/pages/login/login';
 const TIMEOUT = 15000;
