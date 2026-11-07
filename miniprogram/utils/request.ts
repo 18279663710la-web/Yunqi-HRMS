@@ -18,7 +18,7 @@ import { toast } from './util';
 import { apiOriginForPlatform } from './apiOrigin';
 import { isOnboardingRoute } from '../services/onboarding/onboardingRoutes';
 
-const DEVICE_ORIGIN = 'http://10.62.56.146:3100';
+const DEVICE_ORIGIN = 'http://172.20.10.14:3100';
 let platform = '';
 try { platform = wx.getSystemInfoSync().platform; } catch { /* 真机配置作为回退 */ }
 export const STATIC_BASE = apiOriginForPlatform(platform, DEVICE_ORIGIN);
