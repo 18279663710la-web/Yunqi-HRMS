@@ -18,6 +18,9 @@
     "pages/contact-detail/contact-detail",
     "pages/invoice-tool/invoice-tool"
   ],
+  "subPackages": [
+    { "root": "subpackages/business", "pages": ["pages/index/index"] }
+  ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#F5F7FB",

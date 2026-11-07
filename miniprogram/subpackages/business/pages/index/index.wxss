@@ -1,0 +1,18 @@
+page { background: #f5f7fb; color: #1d2940; }
+.business-page { padding: 24rpx 24rpx 150rpx; }
+.segment { display: flex; padding: 8rpx; background: #e9eef8; border-radius: 20rpx; margin-bottom: 24rpx; }
+.segment-item { flex: 1; text-align: center; font-size: 25rpx; color: #7d899e; line-height: 68rpx; border-radius: 15rpx; white-space: nowrap; }
+.segment-item.selected { background: #fff; color: #416df3; font-weight: 600; box-shadow: 0 3rpx 12rpx rgba(50, 75, 125, .08); }
+.document-card, .summary-card { background: #fff; border-radius: 22rpx; padding: 28rpx; margin-bottom: 18rpx; box-shadow: 0 6rpx 20rpx rgba(38, 59, 104, .04); }
+.document-top, .document-bottom { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; }
+.document-no, .card-title { font-size: 29rpx; font-weight: 600; }
+.download { color: #416df3; font-size: 24rpx; white-space: nowrap; }
+.document-customer { font-size: 26rpx; color: #536179; margin: 20rpx 0; }
+.document-bottom { color: #929eae; font-size: 23rpx; }
+.empty, .load-more { text-align: center; color: #9aa5b5; font-size: 26rpx; padding: 58rpx 20rpx; }
+.load-more { padding: 24rpx; color: #416df3; }
+.periods { display: flex; align-items: center; gap: 18rpx; margin: 24rpx 0 32rpx; }
+.periods picker { flex: 1; }
+.period { display: flex; justify-content: space-between; padding: 20rpx; background: #f5f7fb; border-radius: 12rpx; font-size: 28rpx; }
+.separator { color: #9aa5b5; font-size: 25rpx; }
+.primary-button { background: #486df3; color: white; border-radius: 14rpx; font-size: 28rpx; }

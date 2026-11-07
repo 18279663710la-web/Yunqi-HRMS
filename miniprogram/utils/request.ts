@@ -284,6 +284,24 @@ export async function downloadAuthenticatedFile(url: string): Promise<string> {
   return result.tempFilePath;
 }
 
+/** 业务单据下载使用独立路径白名单，不修改工资条下载规则。 */
+export async function downloadBusinessPdf(url: string): Promise<string> {
+  if (!/^\/business\/(?:receivables|receipts)\/\d+\/pdf$/.test(url) && !/^\/business\/summary\/pdf\?from=\d{4}-\d{2}&to=\d{4}-\d{2}$/.test(url)) throw { code: 400, message: '下载地址无效' } as ApiError;
+  const downloadOnce = () => new Promise<WechatMiniprogram.DownloadFileSuccessCallbackResult>((resolve, reject) => {
+    wx.downloadFile({ url: buildUrl(url), header: { Authorization: `Bearer ${getToken()}` }, timeout: 60000, success: resolve,
+      fail: () => reject({ code: -1, message: '下载失败，请检查网络后重试' } as ApiError) });
+  });
+  if (!getToken()) { redirectToLogin(); throw { code: 401, message: '请先登录' } as ApiError; }
+  let result = await downloadOnce();
+  if (result.statusCode === 401) {
+    try { await refreshTokens(); } catch { throw authExpired({ url }); }
+    result = await downloadOnce();
+    if (result.statusCode === 401) throw authExpired({ url });
+  }
+  if (result.statusCode !== 200 || !result.tempFilePath) throw { code: result.statusCode, message: '下载失败，请检查业务员绑定或重试' } as ApiError;
+  return result.tempFilePath;
+}
+
 /** 带登录态的流式请求，结束前必须收到服务端结果帧。 */
 export function streamPost(url: string, data: unknown, timeout: number, onEvent: (event: AiStreamEvent) => void): { promise: Promise<void>; abort: () => void } {
   let task: WechatMiniprogram.RequestTask | undefined;

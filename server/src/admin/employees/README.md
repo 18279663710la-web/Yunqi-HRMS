@@ -2,11 +2,11 @@
 
 ## 职责
 
-员工主档、小程序账号、董事长账号及职务目录的管理端入口；员工主档的管理服务位于此处。
+员工主档、小程序账号、董事长账号、职务目录及 U9 业务员绑定的管理端入口；员工主档的管理服务位于此处。
 
 ## 主要内容
 
-- 主要文件：`adminEmployeeService.ts`、`routes.ts`。
+- 主要文件：`adminEmployeeService.ts`、`routes.ts`、`u9Routes.ts`。
 
 ## 维护约束
 

@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 子目录：[components/](components/README.md)、[custom-tab-bar/](custom-tab-bar/README.md)、[lib/](lib/README.md)、[pages/](pages/README.md)、[services/](services/README.md)、[types/](types/README.md)、[utils/](utils/README.md)。
+- 子目录：[components/](components/README.md)、[custom-tab-bar/](custom-tab-bar/README.md)、[lib/](lib/README.md)、[pages/](pages/README.md)、[services/](services/README.md)、[subpackages/](subpackages/README.md)、[types/](types/README.md)、[utils/](utils/README.md)。
 - 主要文件：`app.json`、`app.ts`、`app.wxss`、`package.json`、`sitemap.json`、`tsconfig.json`。
 
 ## 维护约束

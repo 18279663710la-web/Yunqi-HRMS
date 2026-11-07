@@ -45,6 +45,8 @@ import type {
 import { accountStatusTag, initialOf } from '../../utils/helpers';
 import { fetchJobTitles, type JobTitle } from '../organization/api';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
+import { useAuth } from '../../auth/AuthContext';
+import { deleteU9Binding, fetchU9Binding, fetchU9Operators, saveU9Binding, type U9Operator } from './u9Api';
 
 const { Text } = Typography;
 
@@ -75,6 +77,7 @@ interface ResetFormValues {
 
 export function EmployeesPage() {
   const { message, modal } = AntApp.useApp();
+  const { admin } = useAuth();
   const active = useWorkspaceActive();
   const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -105,6 +108,20 @@ export function EmployeesPage() {
 
   const [resignOpen, setResignOpen] = useState(false);
   const [resignTarget, setResignTarget] = useState<AdminEmployee | null>(null);
+  const [u9Target, setU9Target] = useState<AdminEmployee | null>(null);
+  const [u9Operators, setU9Operators] = useState<U9Operator[]>([]);
+  const [u9Selected, setU9Selected] = useState<string>();
+  const [u9Busy, setU9Busy] = useState(false);
+
+  const openU9 = async (record: AdminEmployee) => {
+    setU9Target(record); setU9Selected(undefined); setU9Operators([]); setU9Busy(true);
+    try {
+      const [operators, binding] = await Promise.all([fetchU9Operators(), fetchU9Binding(record.id)]);
+      setU9Operators(binding && !operators.some(item => item.id === binding.id) ? [binding, ...operators] : operators);
+      setU9Selected(binding?.id);
+    } catch (error) { message.error((error as Error).message); }
+    finally { setU9Busy(false); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -317,6 +334,7 @@ export function EmployeesPage() {
   const menuFor = (record: AdminEmployee): MenuProps => ({
     items: [
       { key: 'edit', label: '编辑资料' },
+      ...(admin?.role === 'super_admin' && record.position === '业务员' && record.employmentStatus !== 'departed' ? [{ key: 'u9', label: '绑定 U9 业务员' }] : []),
       record.account
         ? { key: 'reset', label: '重置登录密码' }
         : { key: 'create-account', label: '开通登录账号' },
@@ -334,6 +352,7 @@ export function EmployeesPage() {
     ],
     onClick: ({ key }) => {
       if (key === 'edit') openEdit(record);
+      if (key === 'u9') void openU9(record);
       if (key === 'reset') openReset(record);
       if (key === 'create-account') openAccount(record);
       if (key === 'toggle') toggleAccount(record);
@@ -690,6 +709,32 @@ export function EmployeesPage() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={u9Target ? `绑定 U9 业务员 · ${u9Target.name}` : '绑定 U9 业务员'}
+        open={!!u9Target}
+        onCancel={() => setU9Target(null)}
+        onOk={async () => {
+          if (!u9Target) return;
+          setU9Busy(true);
+          try {
+            if (u9Selected) await saveU9Binding(u9Target.id, u9Selected);
+            else await deleteU9Binding(u9Target.id);
+            message.success(u9Selected ? '绑定已保存' : '绑定已解除'); setU9Target(null);
+          } catch (error) { message.error((error as Error).message); }
+          finally { setU9Busy(false); }
+        }}
+        confirmLoading={u9Busy}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Select
+          showSearch allowClear loading={u9Busy} style={{ width: '100%' }}
+          placeholder="选择 U9 业务员" value={u9Selected} onChange={setU9Selected}
+          optionFilterProp="label"
+          options={u9Operators.map(item => ({ value: item.id, label: `${item.name} · ${item.code} · ${item.orgName} · ${item.id}` }))}
+        />
       </Modal>
 
       <Modal

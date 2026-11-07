@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS `employees` (
   KEY `idx_employees_pinyin` (`pinyin`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `u9_employee_bindings` (
+  `employee_id` VARCHAR(10) NOT NULL PRIMARY KEY,
+  `operator_id` VARCHAR(32) NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  UNIQUE KEY `uk_u9_operator` (`operator_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `approval_types` (
   `key` VARCHAR(20) PRIMARY KEY,
   `name` VARCHAR(50) NOT NULL,

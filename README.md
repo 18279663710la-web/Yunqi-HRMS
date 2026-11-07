@@ -7,7 +7,7 @@
 - **小程序端**：原生微信小程序 + TypeScript，页面 WXSS 保持原样。
 - **Web 管理后台**：React 18 + TypeScript + Ant Design 5 + Vite。
 - **后端**：Node.js + Express + TypeScript，REST API、JWT、角色权限、文件上传。
-- **数据库**：MySQL `yunqi_office`，小程序与管理后台共用同一套表和数据。
+- **数据库**：MySQL `yunqi_office`，小程序与管理后台共用同一套表和数据；业务员分包通过服务端读取外部 U9 SQL Server。
 
 ---
 

@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 子目录：[approvals/](approvals/README.md)、[attendance/](attendance/README.md)、[auth/](auth/README.md)、[contacts/](contacts/README.md)、[invoices/](invoices/README.md)、[notices/](notices/README.md)、[onboarding/](onboarding/README.md)、[workbench/](workbench/README.md)。
+- 子目录：[approvals/](approvals/README.md)、[attendance/](attendance/README.md)、[auth/](auth/README.md)、[business/](business/README.md)、[contacts/](contacts/README.md)、[invoices/](invoices/README.md)、[notices/](notices/README.md)、[onboarding/](onboarding/README.md)、[workbench/](workbench/README.md)。
 
 ## 维护约束
 

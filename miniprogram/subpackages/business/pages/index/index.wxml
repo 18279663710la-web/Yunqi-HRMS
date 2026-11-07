@@ -1,0 +1,28 @@
+<view class="business-page">
+  <view class="segment">
+    <view class="segment-item {{kind === 'receivables' ? 'selected' : ''}}" data-kind="receivables" bindtap="selectKind">应收单</view>
+    <view class="segment-item {{kind === 'receipts' ? 'selected' : ''}}" data-kind="receipts" bindtap="selectKind">收款单</view>
+    <view class="segment-item {{kind === 'summary' ? 'selected' : ''}}" data-kind="summary" bindtap="selectKind">应收款汇总表</view>
+  </view>
+  <view wx:if="{{kind === 'summary'}}" class="summary-card">
+    <view class="card-title">会计期间</view>
+    <view class="periods">
+      <picker mode="date" fields="month" value="{{from}}" bindchange="changeFrom"><view class="period">{{from}} <text>⌄</text></view></picker>
+      <text class="separator">至</text>
+      <picker mode="date" fields="month" value="{{to}}" bindchange="changeTo"><view class="period">{{to}} <text>⌄</text></view></picker>
+    </view>
+    <button class="primary-button" loading="{{opening}}" disabled="{{opening}}" bindtap="openSummary">下载 PDF</button>
+  </view>
+  <view wx:else>
+    <view wx:if="{{error}}" class="empty" bindtap="load">{{error}}，点击重试</view>
+    <view wx:elif="{{loading && items.length === 0}}" class="empty">加载中...</view>
+    <view wx:elif="{{items.length === 0}}" class="empty">暂无单据</view>
+    <view wx:for="{{items}}" wx:key="id" class="document-card" data-id="{{item.id}}" bindtap="openDocument">
+      <view class="document-top"><text class="document-no">{{item.docNo}}</text><text class="download">下载 PDF ›</text></view>
+      <view class="document-customer">{{item.customer || '未填写客户'}}</view>
+      <view class="document-bottom"><text>{{item.date || '-'}}</text><text>归属金额 {{item.amount}} {{item.currency}}</text></view>
+    </view>
+    <view wx:if="{{more}}" class="load-more" bindtap="loadMore">{{loading ? '加载中...' : '加载更多'}}</view>
+  </view>
+</view>
+<custom-tab-bar />

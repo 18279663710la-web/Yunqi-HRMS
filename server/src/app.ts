@@ -17,6 +17,10 @@ import todoRoutes from './miniprogram/workbench/todoRoutes';
 import onboardingFormAdmin from './admin/models-formulas/onboardingFormRoutes';
 import payslipRoutes from './miniprogram/workbench/payslipRoutes';
 import onboardingFormEmployee from './miniprogram/onboarding/onboardingFormRoutes';
+import { createU9AdminRouter } from './admin/employees/u9Routes';
+import { createU9BusinessRouter } from './miniprogram/business/u9Routes';
+import { sqlServerU9 } from './domains/u9/sqlServerGateway';
+import { requireAdmin } from './admin/admin-accounts/authMiddleware';
 
 export function createApp(): express.Express {
   const app = express();
@@ -38,6 +42,8 @@ export function createApp(): express.Express {
   });
 
   app.use('/api/admin', adminRoutes);
+  app.use('/api/admin/u9', requireAdmin, createU9AdminRouter(sqlServerU9));
+  app.use('/api/business', createU9BusinessRouter(sqlServerU9));
   app.use('/api/admin/onboarding-form', onboardingFormAdmin);
   app.use('/api/onboarding-form', onboardingFormEmployee);
   app.use('/api/admin/hr', hrRoutes);
