@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Avatar, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { App, Avatar, Button, Card, Form, Input, List, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageTitle } from '../../components/PageTitle';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
@@ -14,6 +14,7 @@ export function DepartmentsPage() {
   const [filter, setFilter] = useState<number | undefined>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number>();
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm<{ name: string }>();
   const load = useCallback(async () => {
@@ -32,24 +33,37 @@ export function DepartmentsPage() {
   ];
   const add = async ({ name }: { name: string }) => {
     setSaving(true);
-    try { await createJobTitle(name.trim()); setOpen(false); form.resetFields(); await load(); message.success('职务已创建'); }
+    try { await createJobTitle(name.trim()); form.resetFields(); await load(); message.success('职务已创建'); }
     catch (error) { message.error((error as Error).message); }
     finally { setSaving(false); }
   };
   const remove = async (title: JobTitle) => {
+    setDeletingId(title.id);
     try { await deleteJobTitle(title.id); if (filter === title.id) setFilter(undefined); await load(); message.success('职务已删除'); }
     catch (error) { message.error((error as Error).message); }
+    finally { setDeletingId(undefined); }
   };
   return <div className="page-stack">
-    <PageTitle title="组织架构" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>创建职务</Button>} />
-    <Card className="panel-card" bordered={false} title="职务管理" loading={loading}>
-      <Space wrap>{titles.map(title => <Space.Compact key={title.id}><Button type={filter === title.id ? 'primary' : 'default'} onClick={() => setFilter(filter === title.id ? undefined : title.id)}>{title.name}（{title.count}）</Button><Popconfirm title={`删除职务“${title.name}”？`} onConfirm={() => remove(title)} okText="删除" cancelText="取消"><Button danger aria-label={`删除${title.name}`}>删除</Button></Popconfirm></Space.Compact>)}</Space>
-    </Card>
+    <PageTitle title="组织架构" extra={<Button type="primary" icon={<EditOutlined />} onClick={() => setOpen(true)}>编辑</Button>} />
     <Card className="panel-card" bordered={false} extra={<Select aria-label="筛选职务" allowClear placeholder="全部职务" value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} style={{ minWidth: 180 }} />}>
       <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ pageSize: 15, showSizeChanger: true, showTotal: total => `共 ${total} 人` }} scroll={{ x: 850 }} />
     </Card>
-    <Modal title="创建职务" open={open} confirmLoading={saving} onOk={() => form.submit()} onCancel={() => { setOpen(false); form.resetFields(); }} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={add}><Form.Item name="name" label="职务名称" rules={[{ required: true, whitespace: true, message: '请输入职务名称' }]}><Input maxLength={100} /></Form.Item></Form>
+    <Modal title="编辑职务" open={open} onCancel={() => { setOpen(false); form.resetFields(); }} footer={<Button onClick={() => { setOpen(false); form.resetFields(); }}>关闭</Button>} destroyOnHidden>
+      <Form form={form} layout="vertical" onFinish={add}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <Form.Item name="name" label="职务名称" style={{ flex: 1 }} rules={[{ required: true, whitespace: true, message: '请输入职务名称' }]}>
+            <Input maxLength={100} placeholder="请输入职务名称" />
+          </Form.Item>
+          <Button type="primary" icon={<PlusOutlined />} htmlType="submit" loading={saving} disabled={deletingId !== undefined} style={{ marginTop: 30 }}>创建</Button>
+        </div>
+      </Form>
+      <List
+        loading={loading}
+        dataSource={titles}
+        locale={{ emptyText: '暂无职务' }}
+        style={{ maxHeight: 'min(45vh, 400px)', overflowY: 'auto' }}
+        renderItem={title => <List.Item actions={[<Popconfirm key="delete" title={`删除职务“${title.name}”？`} onConfirm={() => remove(title)} okText="删除" cancelText="取消" okButtonProps={{ loading: deletingId === title.id }}><Button type="link" danger aria-label={`删除${title.name}`} disabled={saving || deletingId !== undefined}>删除</Button></Popconfirm>]}><span>{title.name}（{title.count}）</span></List.Item>}
+      />
     </Modal>
   </div>;
 }
