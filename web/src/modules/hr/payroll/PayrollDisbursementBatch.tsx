@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { App, Button, Descriptions, Input, Modal, Pagination, Space, Table, Typography } from 'antd';
-import { getDisbursement, saveDisbursementValue, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type SalaryComponentModel } from '../api';
+import { getDisbursement, saveDisbursementValue, sendPayrollPayslip, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
+import { buildPayslipExportData } from './payrollDisbursementExport';
 import { payrollFieldNames } from './payrollFieldOrder';
 import { disbursementStorage, readDisbursementPosition, rememberDisbursementScroll } from './disbursementPosition';
 
@@ -15,6 +16,8 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
   const [legacyItem, setLegacyItem] = useState<PayrollBatchItem>();
   const [edit, setEdit] = useState<CellEdit>();
   const [saving, setSaving] = useState(false);
+  const [sendingItem, setSendingItem] = useState<number>();
+  const sendingRef = useRef(false);
   const editRef = useRef<CellEdit>();
   const savingRef = useRef(false);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -49,6 +52,25 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
       } else updateEdit({ ...current, error: (error as Error).message || '保存失败，请重试' });
       message.error((error as Error).message || '保存失败，请重试');
     } finally { savingRef.current = false; setSaving(false); }
+  };
+
+  const sendPayslip = async (item: PayrollBatchItem) => {
+    if (!locked || sendingRef.current || refreshing) return;
+    sendingRef.current = true; setSendingItem(item.id);
+    try {
+      let pdf: string | undefined;
+      const alreadySent = disbursement.sentItemIds?.includes(item.id);
+      if (!alreadySent) {
+        const data = buildPayslipExportData(batch, item, model, disbursement);
+        const document = await (await import('./payrollExportPdf')).createPayrollPdf(data);
+        pdf = document.output('datauristring').split(',')[1];
+        if (!pdf) throw new Error('工资条生成失败');
+      }
+      await sendPayrollPayslip(batch.id, item.id, pdf);
+      onChange({ ...disbursement, sentItemIds: Array.from(new Set([...(disbursement.sentItemIds ?? []), item.id])) });
+      message.success(alreadySent ? '工资条已重新发送' : '工资条已发送');
+    } catch (error) { message.error((error as Error).message || '工资条发送失败'); }
+    finally { sendingRef.current = false; setSendingItem(undefined); }
   };
 
   useEffect(() => { setPage(1); setLegacyItem(undefined); }, [batch.id]);
@@ -91,7 +113,7 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
     } })),
     { title: '应发', dataIndex: 'gross', width: 120, render: (value: number) => money(value) },
     { title: '实发', key: 'actual-net', width: 120, render: (_: unknown, row: PayrollBatchItem) => money(disbursement.rows.find(item => item.itemId === row.id)?.net ?? Number(row.gross)) },
-    { title: '操作', key: 'actions', width: 180, fixed: 'right' as const, render: (_: unknown, row: PayrollBatchItem) => <Space><Button type="link" disabled>发送工资条</Button>{!row.modelSnapshot && <Button type="link" onClick={() => setLegacyItem(row)}>查看原明细</Button>}</Space> },
+    { title: '操作', key: 'actions', width: 180, fixed: 'right' as const, render: (_: unknown, row: PayrollBatchItem) => <Space><Button type="link" loading={sendingItem === row.id} disabled={!locked || refreshing || (!!sendingItem && sendingItem !== row.id)} onClick={() => void sendPayslip(row)}>{disbursement.sentItemIds?.includes(row.id) ? '重新发送工资条' : '发送工资条'}</Button>{!row.modelSnapshot && <Button type="link" onClick={() => setLegacyItem(row)}>查看原明细</Button>}</Space> },
   ];
 
   return <div className="payroll-batches-content">

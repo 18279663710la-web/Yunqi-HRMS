@@ -1,0 +1,8 @@
+<view class="page"><view class="page-body">
+  <view wx:if="{{error}}" class="state"><text>加载失败</text><button size="mini" bindtap="load">重试</button></view>
+  <view wx:elif="{{!loading && !items.length}}" class="state">暂无工资条</view>
+  <view wx:for="{{items}}" wx:key="id" class="card slip" data-id="{{item.id}}" bindtap="open" hover-class="card-hover">
+    <view class="slip-main"><view class="slip-title">{{item.month}} 工资条 <text wx:if="{{!item.read}}" class="unread">未读</text></view><view class="slip-time">{{item.sentAt}}</view></view>
+    <button size="mini" class="slip-button" loading="{{opening}}" disabled="{{opening}}">查看 / 下载</button>
+  </view>
+</view></view>

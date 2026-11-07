@@ -50,6 +50,7 @@ Page<MineData, MineCustom>({
       { key: 'approval', name: '我的审批', icon: 'doc', desc: '' },
       { key: 'attendance', name: '我的考勤', icon: 'clock', desc: '' },
       { key: 'notice', name: '公告通知', icon: 'bell', desc: '' },
+      { key: 'payslips', name: '我的工资条', icon: 'doc', desc: '' },
       { key: 'invoiceTool', name: '发票工具台', icon: 'qr', desc: '图片识别 · 发票查重' },
     ],
     settings: [
@@ -99,6 +100,7 @@ Page<MineData, MineCustom>({
             icon: 'bell',
             desc: stats.unreadNotice ? `${stats.unreadNotice} 条未读` : '已全部读完',
           },
+          { key: 'payslips', name: '我的工资条', icon: 'doc', desc: '' },
           { key: 'invoiceTool', name: '发票工具台', icon: 'qr', desc: '图片识别 · 发票查重' },
         ],
       });
@@ -112,6 +114,7 @@ Page<MineData, MineCustom>({
     if (key === 'approval') wx.switchTab({ url: '/pages/approval/approval' });
     else if (key === 'attendance') wx.navigateTo({ url: '/pages/record/record' });
     else if (key === 'notice') wx.navigateTo({ url: '/pages/notice/notice' });
+    else if (key === 'payslips') wx.navigateTo({ url: '/pages/payslips/payslips' });
     else if (key === 'invoiceTool') wx.navigateTo({ url: '/pages/invoice-tool/invoice-tool' });
   },
 

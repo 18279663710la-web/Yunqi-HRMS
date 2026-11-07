@@ -2,11 +2,11 @@
 
 ## 职责
 
-公司信息、工作台快捷入口、待办统计和演示数据重置接口。
+公司信息、工作台快捷入口、待办统计、演示数据重置及员工本人工资条查询、鉴权下载和已读接口。
 
 ## 主要内容
 
-- 主要文件：`companyRoutes.ts`、`demoRoutes.ts`、`statsService.ts`、`todoRoutes.ts`。
+- 主要文件：`companyRoutes.ts`、`demoRoutes.ts`、`statsService.ts`、`todoRoutes.ts`、`payslipRoutes.ts`。
 
 ## 维护约束
 

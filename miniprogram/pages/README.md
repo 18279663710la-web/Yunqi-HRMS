@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 子目录：[approval/](approval/README.md)、[approval-create/](approval-create/README.md)、[approval-detail/](approval-detail/README.md)、[attendance/](attendance/README.md)、[contact-detail/](contact-detail/README.md)、[contacts/](contacts/README.md)、[index/](index/README.md)、[invoice-tool/](invoice-tool/README.md)、[login/](login/README.md)、[mine/](mine/README.md)、[notice/](notice/README.md)、[notice-detail/](notice-detail/README.md)、[onboarding/](onboarding/README.md)、[onboarding-required/](onboarding-required/README.md)、[onboarding-signature/](onboarding-signature/README.md)、[record/](record/README.md)。
+- 子目录：[approval/](approval/README.md)、[approval-create/](approval-create/README.md)、[approval-detail/](approval-detail/README.md)、[attendance/](attendance/README.md)、[contact-detail/](contact-detail/README.md)、[contacts/](contacts/README.md)、[index/](index/README.md)、[invoice-tool/](invoice-tool/README.md)、[login/](login/README.md)、[mine/](mine/README.md)、[notice/](notice/README.md)、[notice-detail/](notice-detail/README.md)、[onboarding/](onboarding/README.md)、[onboarding-required/](onboarding-required/README.md)、[onboarding-signature/](onboarding-signature/README.md)、[payslips/](payslips/README.md)、[record/](record/README.md)。
 
 ## 维护约束
 

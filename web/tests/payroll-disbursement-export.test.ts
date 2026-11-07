@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDisbursementExportData } from '../src/modules/hr/payroll/payrollDisbursementExport';
+import { buildDisbursementExportData, buildPayslipExportData } from '../src/modules/hr/payroll/payrollDisbursementExport';
 import { createPayrollWorkbook } from '../src/modules/hr/payroll/payrollExportXlsx';
 import { buildPayrollPdfLayout } from '../src/modules/hr/payroll/payrollPdfLayout';
 import type { PayrollBatch, PayrollBatchItem, SalaryComponentModel, DisbursementState } from '../src/modules/hr/api';
@@ -30,4 +30,18 @@ test('工资发放输出包含全部补充项、应发和实发及各自合计',
   assert.equal(layout.widths.length, 7);
   assert.ok(layout.merges.some(merge => merge.top === 3 && merge.bottom === 4 && merge.left === 6 && merge.right === 6));
   assert.ok(layout.merges.some(merge => merge.top === 3 && merge.bottom === 4 && merge.left === 7 && merge.right === 7));
+});
+
+
+test('个人工资条仅包含指定员工的字段和金额', () => {
+  const batch: PayrollBatch = { id: 7, month: '2026-10', status: 'reviewed', createdAt: '', reviewedAt: '' };
+  const model: SalaryComponentModel = { version: 1, fixedFields: [{ name: '姓名', type: 'text', required: true }, { name: '员工号', type: 'text', required: true }, { name: '职务', type: 'text', required: true }], extendedFields: [] };
+  const item: PayrollBatchItem = { id: 10, employeeId: 'U1', name: '甲', employeeNo: 'E1', position: '岗位', gross: 100, baseGross: 100, attendanceRate: null, attendanceAdjustment: 0, overtimeSeconds: 0, overtimePay: 0, deductions: 0, net: 100, note: '', modelSnapshot: null };
+  const state: DisbursementState = { fields: [{ id: 5, name: '补扣', category: 'deduction', required: true, displaySetting: 'none' }], rows: [{ itemId: 10, net: 90, values: [{ fieldId: 5, value: 10, revision: 1 }] }, { itemId: 11, net: 8888, values: [{ fieldId: 5, value: 999, revision: 1 }] }] };
+  const data = buildPayslipExportData(batch, item, model, state);
+  assert.deepEqual(data.rows, [['甲', 'E1', '岗位', 10, 100, 90]]);
+  assert.deepEqual(data.totals, [100, 90]);
+  assert.equal(data.title, '工资条');
+  assert.ok(!JSON.stringify(data).includes('8888'));
+  assert.throws(() => buildPayslipExportData(batch, item, model, { ...state, rows: state.rows.slice(1) }), /不完整/);
 });

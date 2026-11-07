@@ -4,7 +4,7 @@ import { parse } from '../../shared/middleware/validate';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
-import { addDisbursementField, getDisbursement, issueDisbursement, setDisbursementValue } from './hrDisbursementService';
+import { addDisbursementField, getDisbursement, issueDisbursement, setDisbursementValue, sendPayrollPayslip } from './hrDisbursementService';
 import { queryOne, queryRows } from '../../shared/db/pool';
 import { notFound } from '../../shared/utils/errors';
 
@@ -19,6 +19,13 @@ router.post('/payroll-batches/:id/disbursement/issue', asyncHandler(async (req, 
   const batchId = parse(id, req.params.id); const input = parse(issueSchema, req.body);
   const result = await issueDisbursement(batchId, input.revision, req.admin!.id);
   await recordAdminLog(req.admin!, '登记工资批次发放', 'hr_payroll_batches', String(batchId), { recordId: result.id });
+  success(res, result);
+}));
+router.post('/payroll-batches/:id/disbursement/items/:itemId/payslip', asyncHandler(async (req, res) => {
+  const batchId = parse(id, req.params.id); const itemId = parse(id, req.params.itemId);
+  const input = parse(z.object({ pdf: z.string().max(4194304).optional() }).strict(), req.body);
+  const result = await sendPayrollPayslip(batchId, itemId, input.pdf, req.admin!.id);
+  await recordAdminLog(req.admin!, '发送工资条', 'hr_payroll_batches', String(batchId), { itemId });
   success(res, result);
 }));
 router.get('/payroll-disbursement-records', asyncHandler(async (_req, res) => {

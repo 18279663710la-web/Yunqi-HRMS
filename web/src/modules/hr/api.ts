@@ -13,7 +13,7 @@ export interface PayrollFieldValue { name: string; value: number | string; type?
 export interface PayrollModelSnapshot { version: number; revision: number; position?: string; fixedTotal: number; manualDeduction?: number; fixed: PayrollFieldValue[]; extended: (PayrollFieldValue & { category: 'income' | 'deduction' | 'info' })[] }
 export interface PayrollBatchItem { id: number; employeeId: string; name: string; employeeNo: string; position: string; gross: number; baseGross: number | null; attendanceRate: number | null; attendanceAdjustment: number; overtimeSeconds: number; overtimePay: number; deductions: number; net: number; note: string; modelSnapshot: PayrollModelSnapshot | null }
 export interface DisbursementField { id: number; name: string; category: 'income' | 'deduction' | 'info'; required: boolean; displaySetting: 'none' | 'display' | 'output' }
-export interface DisbursementState { fields: DisbursementField[]; rows: { itemId: number; net: number; values: { fieldId: number; value: number; revision: number }[] }[]; revision?: string; issued?: boolean; recordId?: number; snapshot?: { items: PayrollBatchItem[]; model: SalaryComponentModel } }
+export interface DisbursementState { fields: DisbursementField[]; rows: { itemId: number; net: number; values: { fieldId: number; value: number; revision: number }[] }[]; revision?: string; issued?: boolean; recordId?: number; sentItemIds?: number[]; snapshot?: { items: PayrollBatchItem[]; model: SalaryComponentModel } }
 export interface PayrollDisbursementSnapshot { batch: PayrollBatch; items: PayrollBatchItem[]; model: SalaryComponentModel; disbursement: DisbursementState }
 export interface PayrollDisbursementRecord { id: number; batchId: number; month: string; grossTotal: number; netTotal: number; note: string; createdAt: string }
 export type DisbursementFieldInput = Omit<DisbursementField, 'id'>;
@@ -74,6 +74,7 @@ export const createPayrollBatch = (month: string) => request<{ id: number }>('/a
 export const getPayrollBatchItems = (id: number) => request<PayrollBatchItem[]>(`/admin/hr/payroll-batches/${id}/items`);
 export const getDisbursement = (id: number) => request<DisbursementState>(`/admin/hr/payroll-batches/${id}/disbursement`);
 export const issueDisbursement = (id: number, revision: string) => request<{ id: number }>(`/admin/hr/payroll-batches/${id}/disbursement/issue`, { method: 'POST', body: { revision } });
+export const sendPayrollPayslip = (batchId: number, itemId: number, pdf?: string) => request<{ id: number; revision: number }>(`/admin/hr/payroll-batches/${batchId}/disbursement/items/${itemId}/payslip`, { method: 'POST', body: pdf ? { pdf } : {} });
 export const getDisbursementRecords = () => request<PayrollDisbursementRecord[]>('/admin/hr/payroll-disbursement-records');
 export const getDisbursementRecord = (id: number) => request<PayrollDisbursementSnapshot>(`/admin/hr/payroll-disbursement-records/${id}`);
 export const addDisbursementField = (id: number, body: DisbursementFieldInput) => request<{ id: number }>(`/admin/hr/payroll-batches/${id}/disbursement/fields`, { method: 'POST', body });

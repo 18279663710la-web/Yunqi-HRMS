@@ -23,10 +23,13 @@ test('已复核批次在功能区下展示员工明细、历史字段和应发�
   const summary = html.slice(html.indexOf('本批次合计'));
   assert.ok(summary.indexOf('¥4900.00') < summary.indexOf('¥4950.25'));
   assert.ok(html.indexOf('本批次合计') > html.indexOf('张三'));
-  assert.ok(html.includes('发送工资条'));
+  assert.match(html, /<button[^>]*disabled=""[^>]*>[^<]*<span>发送工资条<\/span>/);
   assert.ok(!html.includes('现岗位'));
   assert.ok(!html.includes('删除'));
   const locked = renderToStaticMarkup(<App><PayrollDisbursementBatch batch={batch} items={[item]} model={model} disbursement={{ ...disbursement, issued: true }} onChange={() => {}} onEditingChange={() => {}} /></App>);
   assert.ok(locked.includes('已发放'));
+  assert.match(locked, /<button(?![^>]*disabled)[^>]*>[^<]*<span>发送工资条<\/span>/);
+  const resent = renderToStaticMarkup(<App><PayrollDisbursementBatch batch={batch} items={[item]} model={model} disbursement={{ ...disbursement, issued: true, sentItemIds: [1] }} onChange={() => {}} onEditingChange={() => {}} /></App>);
+  assert.ok(resent.includes('重新发送工资条'));
   assert.ok(!locked.includes('编辑张三的补发奖金'));
 });

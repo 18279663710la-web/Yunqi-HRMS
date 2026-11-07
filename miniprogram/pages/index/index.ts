@@ -2,6 +2,8 @@ import * as authApi from '../../services/auth/api';
 import * as workbenchApi from '../../services/workbench/api';
 import * as attendanceApi from '../../services/attendance/api';
 import * as approvalsApi from '../../services/approvals/api';
+import * as payslipsApi from '../../services/workbench/payslips';
+import { nextUnreadPayslip, payslipReminderKey } from '../../services/workbench/payslipPrompt';
 import * as noticesApi from '../../services/notices/api';
 import type {
   ApprovalDecorated,
@@ -43,6 +45,10 @@ interface IndexData {
 
 interface IndexCustom {
   gateTimer?: ReturnType<typeof setInterval>;
+  reminderKeys?: Set<string>;
+  reminderLoading?: boolean;
+  reminderEpoch?: number;
+  checkPayslips(): Promise<void>;
   checkAccess(): Promise<void>;
   checkPendingWhileVisible(): Promise<void>;
   loadAll(): Promise<void>;
@@ -75,6 +81,8 @@ Page<IndexData, IndexCustom>({
   },
 
   onShow() {
+    this.reminderKeys = new Set();
+    this.reminderEpoch = (this.reminderEpoch || 0) + 1;
     if (this.gateTimer) clearInterval(this.gateTimer);
     this.setData({ ready: false, gateError: false });
     const tabBar = getCustomTabBar(this);
@@ -82,8 +90,8 @@ Page<IndexData, IndexCustom>({
     void this.checkAccess();
   },
 
-  onHide() { if (this.gateTimer) { clearInterval(this.gateTimer); this.gateTimer = undefined; } },
-  onUnload() { if (this.gateTimer) { clearInterval(this.gateTimer); this.gateTimer = undefined; } },
+  onHide() { this.reminderEpoch = (this.reminderEpoch || 0) + 1; if (this.gateTimer) { clearInterval(this.gateTimer); this.gateTimer = undefined; } },
+  onUnload() { this.reminderEpoch = (this.reminderEpoch || 0) + 1; if (this.gateTimer) { clearInterval(this.gateTimer); this.gateTimer = undefined; } },
 
   onPullDownRefresh() {
     if (!this.data.ready) { wx.stopPullDownRefresh(); return; }
@@ -103,6 +111,7 @@ Page<IndexData, IndexCustom>({
         if (tabBar) { tabBar.setData({ hidden: false, selected: 0 }); void tabBar.refreshBadge(); }
       });
       void this.loadAll();
+      void this.checkPayslips();
       if (!this.gateTimer) this.gateTimer = setInterval(() => { void this.checkPendingWhileVisible(); }, 15000);
     } catch { this.setData({ gateError: true }); }
   },
@@ -115,8 +124,34 @@ Page<IndexData, IndexCustom>({
         this.setData({ ready: false });
         const tabBar = getCustomTabBar(this); if (tabBar) tabBar.setData({ hidden: true });
         wx.reLaunch({ url: destination });
+        return;
       }
+      if (pages[pages.length - 1]?.route === 'pages/index/index' && this.data.ready) void this.checkPayslips();
     } catch { /* 网络暂时不可用时，下次重新检查 */ }
+  },
+
+  async checkPayslips() {
+    if (this.reminderLoading || !this.data.ready || getCachedUser()?.isChairperson) return;
+    this.reminderLoading = true;
+    const epoch = this.reminderEpoch;
+    const employeeId = getCachedUser()?.id;
+    try {
+      const slips = await payslipsApi.listPayslips(true);
+      const pages = getCurrentPages();
+      if (epoch !== this.reminderEpoch || employeeId !== getCachedUser()?.id || pages[pages.length - 1]?.route !== 'pages/index/index' || !this.data.ready) return;
+      const item = nextUnreadPayslip(slips, this.reminderKeys || new Set<string>());
+      if (!item) return;
+      this.reminderKeys?.add(payslipReminderKey(item));
+      await new Promise<void>(resolve => wx.showModal({ title: '工资条', content: `您有一份 ${item.month} 的工资条`, confirmText: '查看', cancelText: '稍后', success: result => {
+        void (async () => {
+          if (result.confirm && epoch === this.reminderEpoch && employeeId === getCachedUser()?.id) {
+            try { await payslipsApi.openPayslip(item); }
+            catch (error) { wx.showToast({ title: (error as { message?: string }).message || '工资条打开失败', icon: 'none' }); }
+          }
+        })().finally(resolve);
+      }, fail: () => resolve() }));
+    } catch { /* 下次进入工作台或定时检查时重试 */ }
+    finally { this.reminderLoading = false; }
   },
 
   async loadAll(): Promise<void> {

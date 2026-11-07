@@ -1,0 +1,7 @@
+.slip { display: flex; align-items: center; gap: 20rpx; margin-bottom: 18rpx; }
+.slip-main { flex: 1; min-width: 0; }
+.slip-title { font-size: 30rpx; font-weight: 600; }
+.slip-time { color: #8a94a6; font-size: 22rpx; margin-top: 12rpx; }
+.unread { color: #3d6ef7; font-size: 21rpx; margin-left: 10rpx; }
+.slip-button { margin: 0; color: #3d6ef7; background: #eaf0ff; }
+.state { text-align: center; color: #8a94a6; padding: 120rpx 24rpx; }

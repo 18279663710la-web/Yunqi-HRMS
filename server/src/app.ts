@@ -15,6 +15,7 @@ import noticesRoutes from './miniprogram/notices/noticesRoutes';
 import orgRoutes from './miniprogram/contacts/orgRoutes';
 import todoRoutes from './miniprogram/workbench/todoRoutes';
 import onboardingFormAdmin from './admin/models-formulas/onboardingFormRoutes';
+import payslipRoutes from './miniprogram/workbench/payslipRoutes';
 import onboardingFormEmployee from './miniprogram/onboarding/onboardingFormRoutes';
 
 export function createApp(): express.Express {
@@ -44,6 +45,7 @@ export function createApp(): express.Express {
   app.use('/api', companyRoutes);
   app.use('/api', orgRoutes);
   app.use('/api/attendance', attendanceRoutes);
+  app.use('/api/payslips', payslipRoutes);
   app.use('/api', approvalsRoutes);
   app.use('/api', noticesRoutes);
   app.use('/api', invoicesRoutes);

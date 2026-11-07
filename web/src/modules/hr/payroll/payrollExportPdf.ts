@@ -4,7 +4,7 @@ import { createPayrollWorkbook } from './payrollExportXlsx';
 import { buildPayrollPdfLayout } from './payrollPdfLayout';
 
 /** 使用与 XLSX 相同的工作表及单元格格式，所有列放在同一页宽内。 */
-export async function downloadPayrollPdf(data: PayrollExportData): Promise<void> {
+export async function createPayrollPdf(data: PayrollExportData): Promise<jsPDF> {
   const workbook = await createPayrollWorkbook(data);
   const sheet = workbook.getWorksheet('工资明细');
   if (!sheet) throw new Error('工资表生成失败');
@@ -72,5 +72,10 @@ export async function downloadPayrollPdf(data: PayrollExportData): Promise<void>
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 297, 210, undefined, 'FAST');
     await new Promise<void>(resolve => setTimeout(resolve, 0));
   }
+  return pdf;
+}
+
+export async function downloadPayrollPdf(data: PayrollExportData): Promise<void> {
+  const pdf = await createPayrollPdf(data);
   pdf.save(`${data.filename}.pdf`);
 }
