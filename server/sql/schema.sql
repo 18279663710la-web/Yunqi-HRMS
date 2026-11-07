@@ -191,7 +191,11 @@ CREATE TABLE IF NOT EXISTS `hr_payroll_batches` (
   `created_at` DATETIME NOT NULL,
   `reviewed_at` DATETIME NULL,
   `reviewed_by` INT NULL,
-  UNIQUE KEY `idx_hr_batch_month` (`payroll_month`)
+  KEY `idx_hr_batch_month` (`payroll_month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `hr_payroll_month_locks` (
+  `payroll_month` CHAR(7) NOT NULL PRIMARY KEY
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `hr_payroll_batch_items` (

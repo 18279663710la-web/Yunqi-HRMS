@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { App, Button, DatePicker, Descriptions, Dropdown, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { type Dayjs } from 'dayjs';
-import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollFixed, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
+import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getPayrollEmployeeAvailability, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollFixed, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
 import { getPayrollPage } from './payrollPagination';
 import { payrollFieldNames } from './payrollFieldOrder';
@@ -23,6 +23,8 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
   const [loading, setLoading] = useState(false);
   const [month, setMonth] = useState<Dayjs | null>(null);
   const [open, setOpen] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [reviewedEmployeeIds, setReviewedEmployeeIds] = useState<string[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
   const [autoPreview, setAutoPreview] = useState<AutoPayrollPreview>();
@@ -93,6 +95,18 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     try { const result = await createPayrollBatch(month.format('YYYY-MM')); await loadBatches(); setSelected(result.id); message.success('工资批次已创建'); }
     catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
   };
+  const openAdd = async () => {
+    if (!selected || availabilityLoading) return;
+    setAvailabilityLoading(true);
+    try {
+      const availability = await getPayrollEmployeeAvailability(selected);
+      if (selectedRef.current !== selected) return;
+      setReviewedEmployeeIds(availability.reviewedEmployeeIds);
+      form.resetFields();
+      setOpen(true);
+    } catch (error) { message.error((error as Error).message); }
+    finally { setAvailabilityLoading(false); }
+  };
   const add = async (values: { employeeId: string }) => {
     if (!selected || cellEditRef.current || cellSavingRef.current) return; setLoading(true);
     try { await addPayrollBatchItem(selected, values); setOpen(false); form.resetFields(); await loadItems(selected); message.success('工资明细已添加'); }
@@ -103,7 +117,7 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     setAutoLoading(true);
     try {
       const preview = await previewAutoPayrollItems(selected);
-      if (!preview.candidates.length) { message.info(preview.existingCount ? `没有可添加的员工，${preview.existingCount} 人已在本批次` : '没有同时满足封存入职表、劳动合同和定薪条件的员工'); return; }
+      if (!preview.candidates.length) { message.info(preview.existingCount || preview.reviewedCount ? `没有可添加的员工，本批次已有 ${preview.existingCount} 人，本月已复核 ${preview.reviewedCount} 人` : '没有同时满足封存入职表、劳动合同和定薪条件的员工'); return; }
       setOpen(false); setAutoPreview(preview); setAutoOpen(true);
     } catch (error) { message.error((error as Error).message); } finally { setAutoLoading(false); }
   };
@@ -240,13 +254,13 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
       </Dropdown>
     </div>
     {current && <div className="payroll-batches-content">
-      <div className="payroll-batches-current"><Typography.Text strong>{current.month} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text></div>
+      <div className="payroll-batches-current"><Typography.Text strong>{current.month} · 批次 #{current.id} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text></div>
       <div className="payroll-batches-grid-stage">
         <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={loading} dataSource={pageData.items} pagination={false} scroll={{ x: 'max-content' }} columns={columns} /></div>
         <div ref={bottomRef} className="payroll-batches-bottom">
           {items.length > 0 && <Pagination size="small" current={pageData.page} total={items.length} pageSize={10} showSizeChanger={false} onChange={setPage} disabled={editingBusy} />}
           <div className="payroll-batches-footer">
-            {current.status === 'draft' && <Button type="primary" size="small" disabled={editingBusy} onClick={() => { form.resetFields(); setOpen(true); }}>添加工资明细</Button>}
+            {current.status === 'draft' && <Button type="primary" size="small" disabled={editingBusy} loading={availabilityLoading} onClick={() => void openAdd()}>添加工资明细</Button>}
             {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text strong>应发 {money(items.reduce((sum, item) => sum + displayGross(item), 0))}{previewMark}</Typography.Text></Space>}
           </div>
         </div>
@@ -254,13 +268,14 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     </div>}
     <Modal title="历史工资批次" open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={<Button onClick={() => setHistoryOpen(false)}>关闭</Button>} width={600}>
       <Table rowKey="id" dataSource={batches} pagination={{ pageSize: 10 }} size="small" columns={[
+        { title: '批次编号', dataIndex: 'id' },
         { title: '工资月份', dataIndex: 'month' },
         { title: '状态', render: (_: unknown, batch: PayrollBatch) => batch.status === 'draft' ? '草稿' : '已复核' },
         { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setSelected(batch.id); setHistoryOpen(false); }}>查看</Button> },
       ]} />
     </Modal>
     <Modal title="添加工资明细" open={open} onCancel={() => setOpen(false)} width={520} destroyOnHidden footer={<div style={{ display: 'flex', justifyContent: 'space-between' }}><Button onClick={() => void openAutoPreview()} loading={autoLoading}>一键添加</Button><Space><Button onClick={() => setOpen(false)}>取消</Button><Button type="primary" loading={loading} onClick={() => form.submit()}>确定</Button></Space></div>}>
-      <Form form={form} layout="vertical" onFinish={add} preserve={false}><Form.Item label="员工" name="employeeId" rules={[{ required: true, message: '请选择员工' }]}><Select showSearch optionFilterProp="label" options={employees.map(employee => ({ value: employee.id, label: `${employee.name} · ${employee.employeeNo}${employee.employmentStatus === 'departed' ? ' · 已离职' : ''}` }))} /></Form.Item></Form>
+      <Form form={form} layout="vertical" onFinish={add} preserve={false}><Form.Item label="员工" name="employeeId" rules={[{ required: true, message: '请选择员工' }]}><Select showSearch optionFilterProp="label" options={employees.map(employee => { const inBatch = items.some(item => item.employeeId === employee.id); const reviewed = reviewedEmployeeIds.includes(employee.id); return { value: employee.id, disabled: inBatch || reviewed, label: `${employee.name} · ${employee.employeeNo}${employee.employmentStatus === 'departed' ? ' · 已离职' : ''}${inBatch ? ' · 已在本批次' : reviewed ? ' · 本月已复核' : ''}` }; })} /></Form.Item></Form>
     </Modal>
     <Modal title={autoPreview ? `一键添加工资明细 · ${autoPreview.month}` : '一键添加工资明细'} open={autoOpen} onCancel={() => setAutoOpen(false)} width={900} footer={<Space><Button onClick={() => setAutoOpen(false)}>取消</Button><Button type="primary" loading={loading} onClick={() => void confirmAuto()}>确认添加 {autoPreview?.candidates.length ?? 0} 人</Button></Space>}>
       {autoPreview && <><Table rowKey="employeeId" dataSource={autoPreview.candidates} pagination={false} size="small" scroll={{ x: 'max-content', y: 360 }} columns={[

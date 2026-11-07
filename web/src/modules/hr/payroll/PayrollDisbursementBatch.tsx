@@ -95,7 +95,7 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
   ];
 
   return <div className="payroll-batches-content">
-    <div className="payroll-batches-current"><Typography.Text strong>{batch.month} · {locked ? '已发放' : '已复核'}</Typography.Text></div>
+    <div className="payroll-batches-current"><Typography.Text strong>{batch.month} · 批次 #{batch.id} · {locked ? '已发放' : '已复核'}</Typography.Text></div>
     <div className="payroll-batches-grid-stage">
       <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={refreshing} dataSource={pageItems} pagination={false} scroll={{ x: 'max-content' }} columns={columns} summary={() => items.length ? <Table.Summary.Row>
         <Table.Summary.Cell index={0}><strong>本批次合计</strong></Table.Summary.Cell>

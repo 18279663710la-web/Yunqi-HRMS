@@ -19,7 +19,7 @@ export interface PayrollDisbursementRecord { id: number; batchId: number; month:
 export type DisbursementFieldInput = Omit<DisbursementField, 'id'>;
 export interface AutoPayrollCandidate { employeeId: string; name: string; employeeNo: string; position: string; baseGross: number; gross: number; deductions: number; net: number; modelSnapshot: PayrollModelSnapshot }
 export interface AutoPayrollTotals { baseGross: number; gross: number; deductions: number; net: number }
-export interface AutoPayrollPreview { month: string; candidates: AutoPayrollCandidate[]; existingCount: number; totals: AutoPayrollTotals }
+export interface AutoPayrollPreview { month: string; candidates: AutoPayrollCandidate[]; existingCount: number; reviewedCount: number; totals: AutoPayrollTotals }
 export interface AutoPayrollAddResult { addedCount: number; skippedExisting: number; totals: AutoPayrollTotals }
 export interface OffboardingRecord { id: number; employeeId: string; name: string; employeeNo: string; lastDate: string; note: string; status: 'open' | 'completed'; departureStatus: 'departed' | 'cancelled' | null; taskStatus: 'pending' | 'in_progress' | 'completed'; taskCount: number; completedCount: number }
 export type HrSection = 'profile' | 'contract' | 'salary';
@@ -79,6 +79,7 @@ export const getDisbursementRecord = (id: number) => request<PayrollDisbursement
 export const addDisbursementField = (id: number, body: DisbursementFieldInput) => request<{ id: number }>(`/admin/hr/payroll-batches/${id}/disbursement/fields`, { method: 'POST', body });
 export const saveDisbursementValue = (batchId: number, itemId: number, fieldId: number, value: number, revision: number) => request<DisbursementState>(`/admin/hr/payroll-batches/${batchId}/disbursement/items/${itemId}/fields/${fieldId}`, { method: 'PUT', body: { value, revision } });
 export const addPayrollBatchItem = (id: number, body: unknown) => request(`/admin/hr/payroll-batches/${id}/items`, { method: 'POST', body });
+export const getPayrollEmployeeAvailability = (id: number) => request<{ reviewedEmployeeIds: string[] }>(`/admin/hr/payroll-batches/${id}/employee-availability`);
 export const previewAutoPayrollItems = (id: number) => request<AutoPayrollPreview>(`/admin/hr/payroll-batches/${id}/auto-preview`);
 export const addAutoPayrollItems = (id: number) => request<AutoPayrollAddResult>(`/admin/hr/payroll-batches/${id}/auto-items`, { method: 'POST', body: {} });
 export const removePayrollBatchItem = (id: number, itemId: number) => request(`/admin/hr/payroll-batches/${id}/items/${itemId}`, { method: 'DELETE' });

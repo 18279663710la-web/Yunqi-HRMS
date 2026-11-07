@@ -11,5 +11,5 @@ export function buildDisbursementExportData(batch: PayrollBatch, items: PayrollB
   });
   const net = items.reduce((sum, item) => sum + Math.round(Number(indexed.get(item.id)?.net ?? 0) * 100), 0) / 100;
   let number = Math.max(0, ...base.columnNumbers.map(value => Number(value) || 0));
-  return { ...base, alignTotalHeaders: true, filename: `工资发放_${batch.month}`, headers: [...base.headers.slice(0, -1), ...disbursement.fields.map(field => field.name), '应发', '实发'], columnNumbers: [...base.columnNumbers.slice(0, -1), ...disbursement.fields.map(() => String(++number)), '', ''], rows, totals: [base.totals[0], net], totalColumnIndexes: [base.headers.length - 1 + disbursement.fields.length, base.headers.length + disbursement.fields.length] };
+  return { ...base, alignTotalHeaders: true, filename: `工资发放_${batch.month}_批次${batch.id}`, headers: [...base.headers.slice(0, -1), ...disbursement.fields.map(field => field.name), '应发', '实发'], columnNumbers: [...base.columnNumbers.slice(0, -1), ...disbursement.fields.map(() => String(++number)), '', ''], rows, totals: [base.totals[0], net], totalColumnIndexes: [base.headers.length - 1 + disbursement.fields.length, base.headers.length + disbursement.fields.length] };
 }

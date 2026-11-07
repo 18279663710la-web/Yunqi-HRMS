@@ -9,7 +9,7 @@ import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 import { attendanceRulesSchema, payrollAttendanceRulesSchema } from './hrPolicy';
 import { calculateExtendedSalary, calculateFixedIncome, type PayrollModelSnapshot } from '../../domains/payroll/payrollModelCalculation';
 import { syncDraftBatch } from '../../domains/payroll/payrollDraftSync';
-import { addAutoPayrollItems, previewAutoPayrollItems } from '../../domains/payroll/payrollAutoService';
+import { addAutoPayrollItems, previewAutoPayrollItems, lockPayrollMonth } from '../../domains/payroll/payrollAutoService';
 import { success } from '../../shared/utils/response';
 import { taskSchema, completionSchema } from './hrOnboardingService';
 import { cancelTransition, listTransitions, submitTransition, transitionSchema } from './hrTransitionService';
@@ -177,7 +177,7 @@ router.put('/overtime-payroll-rules', asyncHandler(async (req, res) => {
 router.get('/payroll-batches', asyncHandler(async (req, res) => {
   const month = req.query.month === undefined ? undefined : parse(monthSchema, { month: req.query.month }).month;
   const columns = 'SELECT id, payroll_month AS month, status, created_at AS createdAt, reviewed_at AS reviewedAt, reviewed_by AS reviewedBy FROM hr_payroll_batches';
-  success(res, month ? await queryRows(`${columns} WHERE payroll_month = ?`, [month]) : await queryRows(`${columns} ORDER BY payroll_month DESC LIMIT 200`));
+  success(res, month ? await queryRows(`${columns} WHERE payroll_month = ? ORDER BY id DESC`, [month]) : await queryRows(`${columns} ORDER BY id DESC LIMIT 200`));
 }));
 router.post('/payroll-batches', asyncHandler(async (req, res) => {
   const input = parse(monthSchema, req.body); const result = await execute("INSERT INTO hr_payroll_batches (payroll_month, status, created_at) VALUES (?, 'draft', NOW())", [input.month]);
@@ -209,6 +209,14 @@ router.post('/payroll-batches/:id/items', asyncHandler(async (req, res) => {
   if (!result.addedCount) throw conflict('该员工已在工资批次中');
   await recordAdminLog(req.admin!, '登记工资批次明细', 'hr_payroll_batches', String(id), { employeeId: input.employeeId });
   success(res, result);
+}));
+router.get('/payroll-batches/:id/employee-availability', asyncHandler(async (req, res) => {
+  const id = parse(batchIdSchema, req.params.id);
+  const batch = await queryOne<{ month: string }>('SELECT payroll_month AS month FROM hr_payroll_batches WHERE id = ?', [id]);
+  if (!batch) throw notFound('工资批次不存在');
+  const rows = await queryRows<{ employeeId: string }>(`SELECT DISTINCT i.employee_id AS employeeId FROM hr_payroll_batch_items i
+    JOIN hr_payroll_batches b ON b.id = i.batch_id WHERE b.payroll_month = ? AND b.status = 'reviewed'`, [batch.month]);
+  success(res, { reviewedEmployeeIds: rows.map(row => row.employeeId) });
 }));
 router.get('/payroll-batches/:id/auto-preview', asyncHandler(async (req, res) => {
   const id = parse(batchIdSchema, req.params.id);
@@ -307,10 +315,20 @@ router.put('/payroll-batches/:id/items/:itemId/deduction', asyncHandler(async (r
 router.post('/payroll-batches/:id/review', asyncHandler(async (req, res) => {
   await syncDraftBatch(parse(batchIdSchema, req.params.id));
   await transaction(async (conn) => {
+    const [initial] = await conn.query<RowDataPacket[]>('SELECT payroll_month AS month FROM hr_payroll_batches WHERE id = ?', [req.params.id]);
+    if (!initial.length) throw notFound('工资批次不存在');
+    await lockPayrollMonth(conn, String(initial[0].month));
     const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
     if (!batches.length) throw notFound('工资批次不存在'); if (batches[0].status !== 'draft') throw badRequest('批次已经复核');
     const [items] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_payroll_batch_items WHERE batch_id = ? ORDER BY id FOR UPDATE', [req.params.id]);
     if (!items.length) throw badRequest('请先登记工资明细');
+    const [duplicates] = await conn.query<RowDataPacket[]>(`SELECT e.name, e.employee_no AS employeeNo FROM hr_payroll_batch_items current_item
+      JOIN hr_payroll_batch_items reviewed_item ON reviewed_item.employee_id = current_item.employee_id
+      JOIN hr_payroll_batches reviewed_batch ON reviewed_batch.id = reviewed_item.batch_id
+      JOIN employees e ON e.id = current_item.employee_id
+      WHERE current_item.batch_id = ? AND reviewed_batch.payroll_month = ? AND reviewed_batch.status = 'reviewed'
+      ORDER BY current_item.employee_id FOR UPDATE`, [req.params.id, initial[0].month]);
+    if (duplicates.length) throw conflict(`以下员工已在本月已复核的工资批次中：${duplicates.map(row => `${row.name}（${row.employeeNo}）`).join('、')}，请先删除重复明细`);
     await conn.execute("UPDATE hr_payroll_batches SET status = 'reviewed', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?", [req.admin!.id, req.params.id]);
   });
   await recordAdminLog(req.admin!, '复核工资批次', 'hr_payroll_batches', req.params.id, {}); success(res, {});

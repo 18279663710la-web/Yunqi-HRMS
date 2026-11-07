@@ -81,6 +81,14 @@ async function runMigrations(conn: Connection): Promise<void> {
     return (rows as unknown[]).length > 0;
   };
 
+  const [batchMonthIndexes] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT NON_UNIQUE AS nonUnique FROM information_schema.statistics
+     WHERE table_schema = ? AND table_name = 'hr_payroll_batches' AND index_name = 'idx_hr_batch_month' LIMIT 1`, [database]
+  );
+  if (batchMonthIndexes.length && Number(batchMonthIndexes[0].nonUnique) === 0) {
+    await conn.query('ALTER TABLE hr_payroll_batches DROP INDEX idx_hr_batch_month, ADD INDEX idx_hr_batch_month (payroll_month)');
+  }
+
   for (const [column, definition] of [
     ['base_gross', 'DECIMAL(12,2) NULL'],
     ['attendance_rate', 'DECIMAL(5,2) NULL'],

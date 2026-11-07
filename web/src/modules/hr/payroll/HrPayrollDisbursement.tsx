@@ -121,6 +121,7 @@ export function HrPayrollDisbursement() {
     </Modal>
     <Modal title="选择工资批次" open={batchOpen} onCancel={() => setBatchOpen(false)} footer={<Button onClick={() => setBatchOpen(false)}>关闭</Button>} width={600}>
       <Table rowKey="id" dataSource={batches} loading={loading} pagination={{ pageSize: 10 }} size="small" columns={[
+        { title: '批次编号', dataIndex: 'id' },
         { title: '工资月份', dataIndex: 'month' },
         { title: '状态', render: () => '已复核' },
         { title: '操作', render: (_: unknown, batch: PayrollBatch) => <Button type="link" onClick={() => { setPendingRestore(undefined); rememberDisbursementBatch(disbursementStorage(), batch.month, batch.id); setDetail(undefined); setDetailError(''); setSelectedBatch(batch); setBatchOpen(false); }}>选择</Button> },
@@ -146,6 +147,7 @@ export function HrPayrollRecords() {
     <SubModuleHeader title="工资发放记录" />
     <Table rowKey="id" loading={loading} dataSource={rows} pagination={{ pageSize: 10 }} scroll={{ x: 700 }} columns={[
       { title: '类型', render: () => '工资批次' },
+      { title: '批次编号', dataIndex: 'batchId' },
       { title: '工资月份', render: (_: unknown, row: PayrollDisbursementRecord) => <Button type="link" onClick={() => navigate(`/hr/payroll-records/${row.id}/${row.month}`)}>{row.month}</Button> },
       { title: '应发工资', dataIndex: 'grossTotal', render: (n: number) => `¥${Number(n).toFixed(2)}` },
       { title: '实发工资', dataIndex: 'netTotal', render: (n: number) => `¥${Number(n).toFixed(2)}` },

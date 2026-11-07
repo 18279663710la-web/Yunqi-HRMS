@@ -31,5 +31,5 @@ export function buildPayrollExportData(batch: PayrollBatch, items: PayrollBatchI
   const [year, month] = batch.month.split('-');
   let number = 0;
   const columnNumbers = fields.map(name => ['姓名', '员工号', '职务'].includes(name) ? '' : String(++number));
-  return { title: '工资表', periodLabel: `${year}（${Number(month)}）月份应发工资奖金补贴及其他`, columnNumbers: [...columnNumbers, ''], filename: `工资批次_${batch.month}_${status}`, headers: [...fields, '应发'], rows, totals: [gross] };
+  return { title: '工资表', periodLabel: `${year}（${Number(month)}）月份应发工资奖金补贴及其他`, columnNumbers: [...columnNumbers, ''], filename: `工资批次_${batch.month}_批次${batch.id}_${status}`, headers: [...fields, '应发'], rows, totals: [gross] };
 }

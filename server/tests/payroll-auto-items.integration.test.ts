@@ -21,6 +21,16 @@ test('一键添加按封存入职、合同和定薪筛选员工并自动计算�
     const admin = jwt.sign({ typ: 'admin', role: 'super_admin' }, config.jwt.secret, { subject: '1' });
     const call = async (path: string, token: string, method = 'GET', body?: unknown) => { const r = await fetch(`http://127.0.0.1:${addr.port}/api${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }); return { status: r.status, body: await r.json() as { data?: any; message?: string } }; };
 
+    // 旧库的月份唯一索引可幂等迁移，且无需删除已有批次。
+    await conn.query(`INSERT INTO \`${database}\`.hr_payroll_batches (payroll_month, status, created_at) VALUES ('1999-01', 'reviewed', NOW())`);
+    await conn.query(`ALTER TABLE \`${database}\`.hr_payroll_batches DROP INDEX idx_hr_batch_month, ADD UNIQUE KEY idx_hr_batch_month (payroll_month)`);
+    await pool.ensureSchema();
+    await pool.ensureSchema();
+    const [indexes] = await conn.query(`SHOW INDEX FROM \`${database}\`.hr_payroll_batches WHERE Key_name = 'idx_hr_batch_month'`);
+    assert.equal((indexes as any[])[0].Non_unique, 1);
+    const [oldBatches] = await conn.query(`SELECT status FROM \`${database}\`.hr_payroll_batches WHERE payroll_month = '1999-01'`);
+    assert.equal((oldBatches as any[])[0].status, 'reviewed');
+
     const model = (await call('/admin/hr/salary-model', admin)).body.data;
     assert.equal((await call('/admin/hr/salary-model', admin, 'PUT', { version: model.version, fixedFields: ['基础薪资', '固定补贴', '绩效薪资'], extendedFields: ['加班费'] })).status, 200);
     const month = '2020-02';
@@ -91,5 +101,57 @@ test('一键添加按封存入职、合同和定薪筛选员工并自动计算�
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/review`, admin, 'POST', {})).status, 200);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/auto-preview`, admin)).status, 400);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/auto-items`, admin, 'POST', {})).status, 400);
+
+    // 同月允许多个草稿，员工只受已复核批次限制；并发复核不可重复。
+    const createBatch = async (month: string) => {
+      const result = await call('/admin/hr/payroll-batches', admin, 'POST', { month });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      return result.body.data.id as number;
+    };
+    const a = await createBatch('2020-03');
+    const b = await createBatch('2020-03');
+    const c = await createBatch('2020-03');
+    const addOne = (batchId: number, employeeId: string) => call(`/admin/hr/payroll-batches/${batchId}/items`, admin, 'POST', { employeeId });
+    assert.equal((await addOne(a, 'U001')).status, 200);
+    assert.equal((await addOne(b, 'U001')).status, 200);
+    const reviews = await Promise.all([a, b].map(batchId => call(`/admin/hr/payroll-batches/${batchId}/review`, admin, 'POST', {})));
+    assert.deepEqual(reviews.map(result => result.status).sort(), [200, 409]);
+    assert.match(reviews.find(result => result.status === 409)!.body.message!, /已复核/);
+    const previewRemaining = await call(`/admin/hr/payroll-batches/${c}/auto-preview`, admin);
+    assert.equal(previewRemaining.status, 200);
+    assert.deepEqual(previewRemaining.body.data.candidates.map((candidate: any) => candidate.employeeId), ['U013']);
+    assert.equal(previewRemaining.body.data.reviewedCount, 1);
+    const availability = await call(`/admin/hr/payroll-batches/${c}/employee-availability`, admin);
+    assert.equal(availability.status, 200);
+    assert.ok(availability.body.data.reviewedEmployeeIds.includes('U001'));
+    assert.ok(!availability.body.data.reviewedEmployeeIds.includes('U013'));
+    const rejected = await addOne(c, 'U001');
+    assert.equal(rejected.status, 409);
+    assert.match(rejected.body.message!, /已复核/);
+    const auto = await call(`/admin/hr/payroll-batches/${c}/auto-items`, admin, 'POST', {});
+    assert.equal(auto.status, 200);
+    assert.equal(auto.body.data.addedCount, 1);
+    assert.equal((await call(`/admin/hr/payroll-batches/${c}/items`, admin)).body.data[0].employeeId, 'U013');
+    assert.equal((await call(`/admin/hr/payroll-batches/${c}/review`, admin, 'POST', {})).status, 200);
+    const nextMonth = await createBatch('2020-04');
+    assert.equal((await addOne(nextMonth, 'U001')).status, 200);
+    const beforeReview = await createBatch('2020-05');
+    const pendingPreview = await createBatch('2020-05');
+    assert.equal((await addOne(beforeReview, 'U001')).status, 200);
+    assert.ok((await call(`/admin/hr/payroll-batches/${pendingPreview}/auto-preview`, admin)).body.data.candidates.some((candidate: any) => candidate.employeeId === 'U001'));
+    assert.equal((await call(`/admin/hr/payroll-batches/${beforeReview}/review`, admin, 'POST', {})).status, 200);
+    assert.equal((await call(`/admin/hr/payroll-batches/${pendingPreview}/auto-items`, admin, 'POST', {})).body.data.addedCount, 1);
+    assert.deepEqual((await call(`/admin/hr/payroll-batches/${pendingPreview}/items`, admin)).body.data.map((item: any) => item.employeeId), ['U013']);
+    const raceFirst = await createBatch('2020-06');
+    const raceSecond = await createBatch('2020-06');
+    assert.equal((await addOne(raceFirst, 'U001')).status, 200);
+    const [reviewRace, addRace] = await Promise.all([
+      call(`/admin/hr/payroll-batches/${raceFirst}/review`, admin, 'POST', {}),
+      addOne(raceSecond, 'U001'),
+    ]);
+    assert.equal(reviewRace.status, 200);
+    assert.ok([200, 409].includes(addRace.status));
+    if (addRace.status === 200) assert.equal((await call(`/admin/hr/payroll-batches/${raceSecond}/review`, admin, 'POST', {})).status, 409);
+
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });

@@ -24,7 +24,7 @@ test('发放记录明细按工资月份打开独立页签', () => {
   let tabs = createWorkspaceTabs(loc('/hr/payroll-records'));
   tabs = openWorkspaceTab(tabs, loc('/hr/payroll-records/12/2026-10'));
   tabs = openWorkspaceTab(tabs, loc('/hr/payroll-records/13/2026-11'));
-  assert.deepEqual(tabs.slice(-2).map(tab => [tab.key, tab.label]), [['/hr/payroll-records/12/2026-10', '2026-10工资批次'], ['/hr/payroll-records/13/2026-11', '2026-11工资批次']]);
+  assert.deepEqual(tabs.slice(-2).map(tab => [tab.key, tab.label]), [['/hr/payroll-records/12/2026-10', '2026-10发放记录 #12'], ['/hr/payroll-records/13/2026-11', '2026-11发放记录 #13']]);
 });
 
 test('关闭非当前页保留当前页，关闭当前页切换相邻页，首页不能关闭', () => {
