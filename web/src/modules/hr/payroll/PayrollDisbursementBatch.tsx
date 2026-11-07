@@ -82,7 +82,6 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
         return typeof field.value === 'number' ? field.value.toFixed(2) : field.value || '—';
       } };
     }),
-    { title: '应发', dataIndex: 'gross', width: 120, render: (value: number) => money(value) },
     ...disbursement.fields.map(field => ({ title: field.name, key: `supplement-${field.id}`, width: 120, render: (_: unknown, row: PayrollBatchItem) => {
       const entry = disbursement.rows.find(item => item.itemId === row.id)?.values.find(item => item.fieldId === field.id);
       const value = entry?.value ?? 0;
@@ -90,6 +89,7 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
       if (locked) return Number(value).toFixed(2);
       return <button type="button" className="payroll-cell-edit" aria-label={`编辑${row.name}的${field.name}`} disabled={!!edit || saving || refreshing} onClick={() => updateEdit({ itemId: row.id, fieldId: field.id, value: String(value), original: value, revision: entry?.revision ?? 0 })}>{Number(value).toFixed(2)}</button>;
     } })),
+    { title: '应发', dataIndex: 'gross', width: 120, render: (value: number) => money(value) },
     { title: '实发', key: 'actual-net', width: 120, render: (_: unknown, row: PayrollBatchItem) => money(disbursement.rows.find(item => item.itemId === row.id)?.net ?? Number(row.gross)) },
     { title: '操作', key: 'actions', width: 180, fixed: 'right' as const, render: (_: unknown, row: PayrollBatchItem) => <Space><Button type="link" disabled>发送工资条</Button>{!row.modelSnapshot && <Button type="link" onClick={() => setLegacyItem(row)}>查看原明细</Button>}</Space> },
   ];
@@ -100,8 +100,8 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
       <div ref={tableRef} className="payroll-batches-table"><Table rowKey="id" loading={refreshing} dataSource={pageItems} pagination={false} scroll={{ x: 'max-content' }} columns={columns} summary={() => items.length ? <Table.Summary.Row>
         <Table.Summary.Cell index={0}><strong>本批次合计</strong></Table.Summary.Cell>
         {fieldNames.length > 1 && <Table.Summary.Cell index={1} colSpan={fieldNames.length - 1} />}
-        <Table.Summary.Cell index={fieldNames.length}><strong>{money(items.reduce((sum, item) => sum + Math.round(Number(item.gross) * 100), 0) / 100)}</strong></Table.Summary.Cell>
-        {disbursement.fields.map((field, index) => <Table.Summary.Cell key={field.id} index={fieldNames.length + 1 + index} />)}
+        {disbursement.fields.map((field, index) => <Table.Summary.Cell key={field.id} index={fieldNames.length + index} />)}
+        <Table.Summary.Cell index={fieldNames.length + disbursement.fields.length}><strong>{money(items.reduce((sum, item) => sum + Math.round(Number(item.gross) * 100), 0) / 100)}</strong></Table.Summary.Cell>
         <Table.Summary.Cell index={fieldNames.length + 1 + disbursement.fields.length}><strong>{money(disbursement.rows.reduce((sum, item) => sum + Math.round(item.net * 100), 0) / 100)}</strong></Table.Summary.Cell>
         <Table.Summary.Cell index={fieldNames.length + 2 + disbursement.fields.length} />
       </Table.Summary.Row> : null} /></div>
