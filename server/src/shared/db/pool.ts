@@ -89,6 +89,8 @@ async function runMigrations(conn: Connection): Promise<void> {
     await conn.query('ALTER TABLE hr_payroll_batches DROP INDEX idx_hr_batch_month, ADD INDEX idx_hr_batch_month (payroll_month)');
   }
 
+  await conn.query('DELETE FROM hr_payroll_payslip_staging WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)');
+
   for (const [column, definition] of [
     ['base_gross', 'DECIMAL(12,2) NULL'],
     ['attendance_rate', 'DECIMAL(5,2) NULL'],

@@ -33,7 +33,7 @@ test('工资发放输出包含全部补充项、应发和实发及各自合计',
 });
 
 
-test('个人工资条仅包含指定员工的字段和金额', () => {
+test('个人工资条仅包含指定员工的字段和金额，不含批次合计', async () => {
   const batch: PayrollBatch = { id: 7, month: '2026-10', status: 'reviewed', createdAt: '', reviewedAt: '' };
   const model: SalaryComponentModel = { version: 1, fixedFields: [{ name: '姓名', type: 'text', required: true }, { name: '员工号', type: 'text', required: true }, { name: '职务', type: 'text', required: true }], extendedFields: [] };
   const item: PayrollBatchItem = { id: 10, employeeId: 'U1', name: '甲', employeeNo: 'E1', position: '岗位', gross: 100, baseGross: 100, attendanceRate: null, attendanceAdjustment: 0, overtimeSeconds: 0, overtimePay: 0, deductions: 0, net: 100, note: '', modelSnapshot: null };
@@ -42,6 +42,9 @@ test('个人工资条仅包含指定员工的字段和金额', () => {
   assert.deepEqual(data.rows, [['甲', 'E1', '岗位', 10, 100, 90]]);
   assert.deepEqual(data.totals, [100, 90]);
   assert.equal(data.title, '工资条');
+  const sheet = (await createPayrollWorkbook(data)).getWorksheet('工资明细')!;
+  assert.equal(sheet.rowCount, 5);
+  assert.deepEqual(buildPayrollPdfLayout(sheet).pages, [[5]]);
   assert.ok(!JSON.stringify(data).includes('8888'));
   assert.throws(() => buildPayslipExportData(batch, item, model, { ...state, rows: state.rows.slice(1) }), /不完整/);
 });

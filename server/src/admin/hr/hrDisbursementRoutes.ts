@@ -4,7 +4,7 @@ import { parse } from '../../shared/middleware/validate';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
-import { addDisbursementField, getDisbursement, issueDisbursement, setDisbursementValue, sendPayrollPayslip } from './hrDisbursementService';
+import { addDisbursementField, getDisbursement, issueDisbursement, setDisbursementValue, sendPayrollPayslip, stagePayrollPayslip } from './hrDisbursementService';
 import { queryOne, queryRows } from '../../shared/db/pool';
 import { notFound } from '../../shared/utils/errors';
 
@@ -15,6 +15,12 @@ const valueSchema = z.object({ value: z.number().finite().min(0).max(9999999999.
 const issueSchema = z.object({ revision: z.string().min(1).max(128) }).strict();
 
 router.get('/payroll-batches/:id/disbursement', asyncHandler(async (req, res) => success(res, await getDisbursement(parse(id, req.params.id)))));
+router.post('/payroll-batches/:id/disbursement/items/:itemId/payslip-stage', asyncHandler(async (req, res) => {
+  const batchId = parse(id, req.params.id); const itemId = parse(id, req.params.itemId);
+  const input = parse(z.object({ revision: z.string().min(1).max(128), pdf: z.string().min(1).max(4194304) }).strict(), req.body);
+  await stagePayrollPayslip(batchId, itemId, input.revision, input.pdf, req.admin!.id);
+  success(res, {});
+}));
 router.post('/payroll-batches/:id/disbursement/issue', asyncHandler(async (req, res) => {
   const batchId = parse(id, req.params.id); const input = parse(issueSchema, req.body);
   const result = await issueDisbursement(batchId, input.revision, req.admin!.id);

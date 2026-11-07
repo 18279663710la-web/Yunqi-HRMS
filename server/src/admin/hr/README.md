@@ -8,7 +8,7 @@
 
 - 主要文件：`contractFilesRepository.ts`、`contractFilesService.ts`、`hrContractFilesRoutes.ts`、`hrDisbursementRoutes.ts`、`hrDisbursementService.ts`、`hrDepartureService.ts`、`hrLifecycleRoutes.ts`、`hrOnboardingService.ts`、`hrPolicy.ts`、`hrRoutes.ts`等。
 - `hrLifecycleRoutes.ts` 提供出勤与加班绩效规则的区间/单位配置接口及旧接口兼容。`hrTransitionService.ts` 处理调岗、晋升及撤销；`hrLifecycleRoutes.ts` 和 `hrRoutes.ts` 仍包含需要逐步拆分的业务与 SQL。
-- 工资批次列表支持按月份查询；`hrDisbursementRoutes.ts` 校验请求，`hrDisbursementService.ts` 管理补充项、金额、版本及发放快照。发放事务锁定批次并验证版本，写入按批次汇总的不可变记录，禁止重复发放及后续补充项修改；不执行付款。逐人工资条仅对已发放快照发送，重发保留原 PDF 并更新未读版本。工资固定字段、扩展字段与手工扣除按快照校验和重算，固定字段覆盖保留原值，保留事务、行锁与审计。
+- 工资批次列表支持按月份查询；`hrDisbursementRoutes.ts` 校验请求，`hrDisbursementService.ts` 管理补充项、金额、版本及发放快照。发放事务锁定批次并验证版本，写入按批次汇总的不可变记录，禁止重复发放及后续补充项修改；不执行付款。发放前按管理员及版本暂存工资条，发放时事务内验证文件齐全并同时发送；重发替换 PDF 并更新未读版本。工资固定字段、扩展字段与手工扣除按快照校验和重算，固定字段覆盖保留原值，保留事务、行锁与审计。
 
 ## 维护约束
 

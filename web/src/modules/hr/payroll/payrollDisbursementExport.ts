@@ -19,5 +19,5 @@ export function buildPayslipExportData(batch: PayrollBatch, item: PayrollBatchIt
   const row = disbursement.rows.find(entry => entry.itemId === item.id);
   if (!row) throw new Error('工资发放数据不完整，请刷新后重试');
   const data = buildDisbursementExportData(batch, [item], model, { ...disbursement, rows: [row] });
-  return { ...data, title: '工资条', filename: `工资条_${batch.month}_批次${batch.id}` };
+  return { ...data, showTotals: false, title: '工资条', filename: `工资条_${batch.month}_批次${batch.id}` };
 }

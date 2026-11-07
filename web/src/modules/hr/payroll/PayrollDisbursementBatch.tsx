@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { App, Button, Descriptions, Input, Modal, Pagination, Space, Table, Typography } from 'antd';
 import { getDisbursement, saveDisbursementValue, sendPayrollPayslip, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
+import { generatePayslipPdf } from './payrollIssuePayslips';
 import { buildPayslipExportData } from './payrollDisbursementExport';
 import { payrollFieldNames } from './payrollFieldOrder';
 import { disbursementStorage, readDisbursementPosition, rememberDisbursementScroll } from './disbursementPosition';
@@ -58,14 +59,8 @@ export function PayrollDisbursementBatch({ batch, items, model, disbursement, on
     if (!locked || sendingRef.current || refreshing) return;
     sendingRef.current = true; setSendingItem(item.id);
     try {
-      let pdf: string | undefined;
       const alreadySent = disbursement.sentItemIds?.includes(item.id);
-      if (!alreadySent) {
-        const data = buildPayslipExportData(batch, item, model, disbursement);
-        const document = await (await import('./payrollExportPdf')).createPayrollPdf(data);
-        pdf = document.output('datauristring').split(',')[1];
-        if (!pdf) throw new Error('工资条生成失败');
-      }
+      const pdf = await generatePayslipPdf(buildPayslipExportData(batch, item, model, disbursement));
       await sendPayrollPayslip(batch.id, item.id, pdf);
       onChange({ ...disbursement, sentItemIds: Array.from(new Set([...(disbursement.sentItemIds ?? []), item.id])) });
       message.success(alreadySent ? '工资条已重新发送' : '工资条已发送');

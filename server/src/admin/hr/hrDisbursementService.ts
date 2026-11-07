@@ -1,5 +1,5 @@
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { transaction } from '../../shared/db/pool';
+import { execute, transaction } from '../../shared/db/pool';
 import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 import { calculateDisbursementNet, type DisbursementCategory } from '../../domains/payroll/payrollDisbursementCalculation';
 import { readSalaryModel } from '../../domains/payroll/salaryModelService';
@@ -38,7 +38,7 @@ async function readState(conn: PoolConnection, batchId: number) {
 
 async function readSnapshotState(conn: PoolConnection, batchId: number) {
   const state = await readState(conn, batchId);
-  const [items] = await conn.query<(RowDataPacket & { gross: number; modelSnapshot: unknown })[]>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, e.position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id WHERE i.batch_id = ? ORDER BY i.id', [batchId]);
+  const [items] = await conn.query<(RowDataPacket & { id: number; employeeId: string; gross: number; modelSnapshot: unknown })[]>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, e.position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id WHERE i.batch_id = ? ORDER BY i.id', [batchId]);
   const normalizedItems = items.map(item => ({ ...item, modelSnapshot: typeof item.modelSnapshot === 'string' ? JSON.parse(item.modelSnapshot) : item.modelSnapshot }));
   if (items.length !== state.rows.length) throw badRequest('工资批次员工明细不完整');
   const model = await readSalaryModel(conn);
@@ -95,6 +95,29 @@ export async function setDisbursementValue(batchId: number, itemId: number, fiel
   });
 }
 
+function decodePayslipPdf(pdfBase64: string): Buffer {
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(pdfBase64)) throw badRequest('工资条 PDF 格式无效');
+  const bytes = Buffer.from(pdfBase64, 'base64');
+  if (bytes.length < 20 || bytes.length > 3 * 1024 * 1024 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-')) || !bytes.subarray(-1024).includes(Buffer.from('%%EOF'))) throw badRequest('工资条 PDF 格式或大小无效');
+  return bytes;
+}
+
+/** 按管理员及发放数据版本暂存单人文件，尚不会发送给员工。 */
+export async function stagePayrollPayslip(batchId: number, itemId: number, revision: string, pdfBase64: string, adminId: number) {
+  const pdf = decodePayslipPdf(pdfBase64);
+  await execute('DELETE FROM hr_payroll_payslip_staging WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)');
+  await transaction(async conn => {
+    await lockReviewedBatch(conn, batchId);
+    if (await findIssued(conn, batchId)) throw conflict('该批次已发放');
+    const state = await readSnapshotState(conn, batchId);
+    if (state.revision !== revision) throw conflict('工资发放数据已更改，请刷新后重新发放');
+    if (!state.snapshot.items.some(item => Number(item.id) === itemId)) throw notFound('工资明细不存在');
+    await conn.execute('DELETE FROM hr_payroll_payslip_staging WHERE batch_id = ? AND admin_id = ? AND source_revision <> ?', [batchId, adminId, revision]);
+    await conn.execute(`INSERT INTO hr_payroll_payslip_staging (batch_id, item_id, admin_id, source_revision, pdf_data, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE source_revision = VALUES(source_revision), pdf_data = VALUES(pdf_data), created_at = NOW()`, [batchId, itemId, adminId, revision, pdf]);
+  });
+}
+
 export async function issueDisbursement(batchId: number, revision: string, adminId: number) {
   return transaction(async conn => {
     const batch = await lockReviewedBatch(conn, batchId);
@@ -103,15 +126,25 @@ export async function issueDisbursement(batchId: number, revision: string, admin
     const { snapshot: frozen, ...disbursement } = fullState;
     if (revision !== disbursement.revision) throw conflict('工资发放数据已更改，请刷新后重新发放');
     if (!frozen.items.length) throw badRequest('工资批次没有员工明细');
+    const [staged] = await conn.query<RowDataPacket[]>('SELECT item_id AS itemId FROM hr_payroll_payslip_staging WHERE batch_id = ? AND admin_id = ? AND source_revision = ? FOR UPDATE', [batchId, adminId, revision]);
+    const stagedIds = new Set(staged.map(row => Number(row.itemId)));
+    if (stagedIds.size !== frozen.items.length || frozen.items.some(item => !stagedIds.has(Number(item.id)))) throw conflict('工资条尚未全部准备完成，请重试发放');
+
     const snapshot = { batch: { id: Number(batch.id), month: batch.month, status: 'reviewed', createdAt: batch.createdAt, reviewedAt: batch.reviewedAt }, ...frozen, disbursement };
     const grossTotal = frozen.items.reduce((sum, item) => sum + Math.round(Number(item.gross) * 100), 0) / 100;
     const netTotal = disbursement.rows.reduce((sum, row) => sum + Math.round(row.net * 100), 0) / 100;
     const [result] = await conn.execute<ResultSetHeader>('INSERT INTO hr_payroll_disbursement_records (batch_id, payroll_month, gross_total, net_total, note, snapshot_json, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)', [batchId, batch.month, grossTotal, netTotal, '', JSON.stringify(snapshot), adminId]);
+    const [sent] = await conn.execute<ResultSetHeader>(`INSERT INTO hr_payroll_payslips (batch_id, item_id, employee_id, pdf_data, revision, sent_at, sent_by)
+      SELECT s.batch_id, s.item_id, i.employee_id, s.pdf_data, 1, NOW(), ? FROM hr_payroll_payslip_staging s
+      JOIN hr_payroll_batch_items i ON i.id = s.item_id AND i.batch_id = s.batch_id
+      WHERE s.batch_id = ? AND s.admin_id = ? AND s.source_revision = ?`, [adminId, batchId, adminId, revision]);
+    if (sent.affectedRows !== frozen.items.length) throw conflict('工资条准备不完整，请重试发放');
+    await conn.execute('DELETE FROM hr_payroll_payslip_staging WHERE batch_id = ?', [batchId]);
     return { id: result.insertId };
   });
 }
 
-/** 工资条来自已发放快照；重发保留首次文件，只更新提醒版本。 */
+/** 工资条来自已发放快照；重发替换文件并更新提醒版本。 */
 export async function sendPayrollPayslip(batchId: number, itemId: number, pdfBase64: string | undefined, adminId: number) {
   return transaction(async conn => {
     await lockReviewedBatch(conn, batchId);
@@ -120,14 +153,13 @@ export async function sendPayrollPayslip(batchId: number, itemId: number, pdfBas
     const snapshot = typeof record.snapshot === 'string' ? JSON.parse(record.snapshot) : record.snapshot;
     const item = snapshot.items?.find((entry: { id: number }) => Number(entry.id) === itemId);
     if (!item || typeof item.employeeId !== 'string') throw notFound('工资明细不存在');
+    if (!pdfBase64) throw badRequest('工资条 PDF 格式无效');
+    const bytes = decodePayslipPdf(pdfBase64);
     const [existing] = await conn.query<RowDataPacket[]>('SELECT id, revision FROM hr_payroll_payslips WHERE item_id = ? FOR UPDATE', [itemId]);
     if (existing.length) {
-      await conn.execute('UPDATE hr_payroll_payslips SET revision = revision + 1, sent_at = NOW(), sent_by = ?, read_at = NULL WHERE id = ?', [adminId, existing[0].id]);
+      await conn.execute('UPDATE hr_payroll_payslips SET pdf_data = ?, revision = revision + 1, sent_at = NOW(), sent_by = ?, read_at = NULL WHERE id = ?', [bytes, adminId, existing[0].id]);
       return { id: Number(existing[0].id), revision: Number(existing[0].revision) + 1 };
     }
-    if (!pdfBase64 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(pdfBase64)) throw badRequest('工资条 PDF 格式无效');
-    const bytes = Buffer.from(pdfBase64, 'base64');
-    if (bytes.length < 20 || bytes.length > 3 * 1024 * 1024 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-')) || !bytes.subarray(-1024).includes(Buffer.from('%%EOF'))) throw badRequest('工资条 PDF 格式或大小无效');
     const [result] = await conn.execute<ResultSetHeader>('INSERT INTO hr_payroll_payslips (batch_id, item_id, employee_id, pdf_data, revision, sent_at, sent_by) VALUES (?, ?, ?, ?, 1, NOW(), ?)', [batchId, itemId, item.employeeId, bytes, adminId]);
     return { id: Number(result.insertId), revision: 1 };
   });

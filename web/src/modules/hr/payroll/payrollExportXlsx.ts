@@ -31,15 +31,17 @@ export async function createPayrollWorkbook(data: PayrollExportData): Promise<Ex
   total[0] = '本批次合计';
   const totalIndexes = data.totalColumnIndexes ?? [data.headers.length - 1];
   totalIndexes.forEach((index, number) => { total[index] = data.totals[number]; });
-  const totalRow = sheet.addRow(total);
-  totalRow.font = { bold: true };
-  const labelColumns = Math.min(3, fieldCount);
-  if (labelColumns > 1) sheet.mergeCells(totalRow.number, 1, totalRow.number, labelColumns);
-  let start = labelColumns;
-  for (let index = labelColumns; index <= data.headers.length; index++) {
-    if (index === data.headers.length || totalIndexes.includes(index)) {
-      if (index - start > 1) sheet.mergeCells(totalRow.number, start + 1, totalRow.number, index);
-      start = index + 1;
+  if (data.showTotals !== false) {
+    const totalRow = sheet.addRow(total);
+    totalRow.font = { bold: true };
+    const labelColumns = Math.min(3, fieldCount);
+    if (labelColumns > 1) sheet.mergeCells(totalRow.number, 1, totalRow.number, labelColumns);
+    let start = labelColumns;
+    for (let index = labelColumns; index <= data.headers.length; index++) {
+      if (index === data.headers.length || totalIndexes.includes(index)) {
+        if (index - start > 1) sheet.mergeCells(totalRow.number, start + 1, totalRow.number, index);
+        start = index + 1;
+      }
     }
   }
   const textWidth = (value: string) => Array.from(value).reduce((size, char) => size + (char.charCodeAt(0) > 255 ? 2 : 1), 0);

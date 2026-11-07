@@ -3,7 +3,8 @@ import { Alert, App, Button, Checkbox, DatePicker, Dropdown, Form, Input, Modal,
 import dayjs, { type Dayjs } from 'dayjs';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
-import { addDisbursementField, getDisbursement, getDisbursementRecords, getPayrollBatches, issueDisbursement, type DisbursementFieldInput, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type PayrollDisbursementRecord, type SalaryComponentModel } from '../api';
+import { addDisbursementField, getDisbursement, getDisbursementRecords, getPayrollBatches, type DisbursementFieldInput, type DisbursementState, type PayrollBatch, type PayrollBatchItem, type PayrollDisbursementRecord, type SalaryComponentModel } from '../api';
+import { prepareAndIssuePayroll } from './payrollIssuePayslips';
 import { PayrollDisbursementBatch } from './PayrollDisbursementBatch';
 import { clearDisbursementPosition, disbursementStorage, readDisbursementPosition, rememberDisbursementBatch } from './disbursementPosition';
 import { buildDisbursementExportData } from './payrollDisbursementExport';
@@ -26,6 +27,7 @@ export function HrPayrollDisbursement() {
   const [fieldOpen, setFieldOpen] = useState(false);
   const [fieldSaving, setFieldSaving] = useState(false);
   const [issuing, setIssuing] = useState(false);
+  const [issueProgress, setIssueProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [editingBusy, setEditingBusy] = useState(false);
   const [form] = Form.useForm<DisbursementFieldInput>();
@@ -79,10 +81,13 @@ export function HrPayrollDisbursement() {
   const busy = editingBusy || fieldSaving || issuing || exporting;
   const issue = async () => {
     if (!selectedBatch || !detail?.disbursement.revision || busy || detail.disbursement.issued) return;
-    setIssuing(true);
-    try { const result = await issueDisbursement(selectedBatch.id, detail.disbursement.revision); setDetail(current => current && current.batchId === selectedBatch.id ? { ...current, disbursement: { ...current.disbursement, issued: true, recordId: result.id } } : current); message.success('工资批次已发放'); setRetry(value => value + 1); }
-    catch (error) { message.error((error as Error).message); setRetry(value => value + 1); }
-    finally { setIssuing(false); }
+    setIssuing(true); setIssueProgress(0);
+    try {
+      const result = await prepareAndIssuePayroll(selectedBatch, detail.items, detail.model, detail.disbursement, undefined, completed => setIssueProgress(completed));
+      setDetail(current => current && current.batchId === selectedBatch.id ? { ...current, disbursement: { ...current.disbursement, issued: true, recordId: result.id, sentItemIds: detail.items.map(item => item.id) } } : current);
+      message.success('工资批次已发放，工资条已发送'); setRetry(value => value + 1);
+    } catch (error) { message.error((error as Error).message); setRetry(value => value + 1); }
+    finally { setIssuing(false); setIssueProgress(0); }
   };
   const exportBatch = async (format: 'pdf' | 'xlsx') => {
     if (!selectedBatch || !detail || busy || detailLoading || detailError) return;
@@ -100,8 +105,8 @@ export function HrPayrollDisbursement() {
       <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} disabled={busy} onChange={value => { setPendingRestore(undefined); clearDisbursementPosition(disbursementStorage()); setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }} />
       <button type="button" className="salary-model-entry" disabled={!selectedMonth || busy} onClick={() => setBatchOpen(true)}>选择批次</button>
       <button type="button" className="salary-model-entry" disabled={!selectedBatch || !detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued} onClick={() => { form.setFieldsValue({ name: '', category: 'info', required: true, displaySetting: 'none' }); setFieldOpen(true); }}>添加补充项</button>
-      <Popconfirm title="确认发放该工资批次？发放后不能修改。" onConfirm={() => void issue()} okText="确认" cancelText="取消" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>
-        <button type="button" className="salary-model-entry payroll-issue-action" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>发放</button>
+      <Popconfirm title="确认发放该工资批次并发送工资条？发放后不能修改。" onConfirm={() => void issue()} okText="确认" cancelText="取消" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>
+        <button type="button" className="salary-model-entry payroll-issue-action" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>{issuing ? `发放 ${issueProgress}/${detail?.items.length ?? 0}` : '发放'}</button>
       </Popconfirm>
       <Dropdown trigger={['click']} disabled={!detail || detailLoading || !!detailError || busy || !detail.items.length} menu={{ items: [{ key: 'pdf', label: 'PDF' }, { key: 'xlsx', label: 'XLSX' }], onClick: ({ key }) => void exportBatch(key as 'pdf' | 'xlsx') }}>
         <button type="button" className="salary-model-entry" disabled={!detail || detailLoading || !!detailError || busy || !detail.items.length}>输出</button>

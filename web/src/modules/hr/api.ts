@@ -73,6 +73,7 @@ export const getPayrollBatches = (month?: string) => request<PayrollBatch[]>(`/a
 export const createPayrollBatch = (month: string) => request<{ id: number }>('/admin/hr/payroll-batches', { method: 'POST', body: { month } });
 export const getPayrollBatchItems = (id: number) => request<PayrollBatchItem[]>(`/admin/hr/payroll-batches/${id}/items`);
 export const getDisbursement = (id: number) => request<DisbursementState>(`/admin/hr/payroll-batches/${id}/disbursement`);
+export const stagePayrollPayslip = (batchId: number, itemId: number, revision: string, pdf: string) => request(`/admin/hr/payroll-batches/${batchId}/disbursement/items/${itemId}/payslip-stage`, { method: 'POST', body: { revision, pdf } });
 export const issueDisbursement = (id: number, revision: string) => request<{ id: number }>(`/admin/hr/payroll-batches/${id}/disbursement/issue`, { method: 'POST', body: { revision } });
 export const sendPayrollPayslip = (batchId: number, itemId: number, pdf?: string) => request<{ id: number; revision: number }>(`/admin/hr/payroll-batches/${batchId}/disbursement/items/${itemId}/payslip`, { method: 'POST', body: pdf ? { pdf } : {} });
 export const getDisbursementRecords = () => request<PayrollDisbursementRecord[]>('/admin/hr/payroll-disbursement-records');

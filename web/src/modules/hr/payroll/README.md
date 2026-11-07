@@ -12,11 +12,11 @@
 
 草稿的固定薪资字段（包含考勤、绩效结果）和手工扩展字段在单元格中编辑，输入时调用薪资模型计算工具预览行和批次应发，使用明细版本保存后以服务端结果为准；身份字段、考勤来源扩展字段和已复核明细只读。固定字段覆盖仅改变当前明细，保留首次原值，不联动其他字段。模型收入减模型扣款得到应发；工资批次列表、合计及导出只显示应发，历史独立扣除与实发数据保留。
 
-工资发放页面选择月份和当月已复核批次，按模型顺序展示只读原明细。顶部可新增批次共用的数字补充项，各员工独立填写，表格、发放记录和 PDF/XLSX 输出均将补充项放在应发之前；回车或失焦保存、Esc 取消，冲突刷新后重试。服务端按分计算实发；保存和刷新保留横向位置，整页刷新从会话存储恢复经验证的批次和位置。合计位于表格末行之后，PDF/XLSX 输出包含全部员工、补充项及应发和实发合计，发放记录及输出中的应发、实发表头上边界对齐。发放后补充项只读，记录页按批次汇总并在独立页签展示不可变工资表快照；已发放批次可逐人发送或重发工资条；PDF 从单人发放快照生成，重发沿用已保存文件。
+工资发放页面选择月份和当月已复核批次，按模型顺序展示只读原明细。顶部可新增批次共用的数字补充项，各员工独立填写，表格、发放记录和 PDF/XLSX 输出均将补充项放在应发之前；回车或失焦保存、Esc 取消，冲突刷新后重试。服务端按分计算实发；保存和刷新保留横向位置，整页刷新从会话存储恢复经验证的批次和位置。合计位于表格末行之后，PDF/XLSX 输出包含全部员工、补充项及应发和实发合计，发放记录及输出中的应发、实发表头上边界对齐。发放后补充项只读，记录页按批次汇总并在独立页签展示不可变工资表快照；发放前逐人生成不含批次合计行的 PDF 并暂存，服务端验证版本后原子登记发放及发送；已发放批次可逐人重新生成并发送工资条。
 
 ## 主要内容
 
-- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`PayrollDisbursementBatch.tsx`、`PayrollRecordDetail.tsx`、`disbursementPosition.ts`、`payrollPagination.ts`、`payrollInlineEdit.ts`、`payrollFieldOrder.ts`、`payrollDisbursementExport.ts`、`payrollExportData.ts`、`payrollExportPdf.ts`、`payrollPdfLayout.ts`、`payrollExportXlsx.ts`。
+- 主要文件：`HrPayrollBatches.tsx`、`HrPayrollDisbursement.tsx`、`PayrollDisbursementBatch.tsx`、`PayrollRecordDetail.tsx`、`disbursementPosition.ts`、`payrollPagination.ts`、`payrollInlineEdit.ts`、`payrollFieldOrder.ts`、`payrollDisbursementExport.ts`、`payrollIssuePayslips.ts`、`payrollExportData.ts`、`payrollExportPdf.ts`、`payrollPdfLayout.ts`、`payrollExportXlsx.ts`。
 
 ## 维护约束
 

@@ -217,6 +217,17 @@ CREATE TABLE IF NOT EXISTS `hr_payroll_batch_items` (
   UNIQUE KEY `idx_hr_batch_employee` (`batch_id`, `employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `hr_payroll_payslip_staging` (
+  `batch_id` BIGINT NOT NULL,
+  `item_id` BIGINT NOT NULL,
+  `admin_id` INT NOT NULL,
+  `source_revision` CHAR(64) NOT NULL,
+  `pdf_data` MEDIUMBLOB NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`batch_id`, `admin_id`, `item_id`),
+  KEY `idx_payslip_staging_time` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `hr_payroll_payslips` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
   `batch_id` BIGINT NOT NULL,
