@@ -42,7 +42,7 @@ async function getCandidate(id: string, type: ApprovalApproverType): Promise<Can
     const account = await getChairpersonAccount();
     return account ? mapChairperson(account.status === 'active') : null;
   }
-  const row = await queryOne<EmployeeRow>(`SELECT e.id, e.name, e.employee_no, e.job_category, a.status AS account_status
+  const row = await queryOne<EmployeeRow>(`SELECT e.id, e.name, e.employee_no, e.position AS job_category, a.status AS account_status
     FROM employees e LEFT JOIN employee_accounts a ON a.employee_id = e.id WHERE e.id = ?`, [id]);
   return row ? mapEmployee(row) : null;
 }
@@ -50,7 +50,7 @@ async function getCandidate(id: string, type: ApprovalApproverType): Promise<Can
 export async function getApprovalApproverSettings(type: ApprovalApproverType) {
   const [configured, candidates, chairperson] = await Promise.all([
     queryOne<{ employee_id: string }>('SELECT employee_id FROM approval_approvers WHERE type = ?', [type]),
-    queryRows<EmployeeRow>(`SELECT e.id, e.name, e.employee_no, e.job_category, a.status AS account_status
+    queryRows<EmployeeRow>(`SELECT e.id, e.name, e.employee_no, e.position AS job_category, a.status AS account_status
       FROM employees e JOIN employee_accounts a ON a.employee_id = e.id
       WHERE a.status = 'active' ORDER BY e.pinyin, e.id`),
     chairpersonCanApprove(type) ? getChairpersonAccount() : Promise.resolve(null),

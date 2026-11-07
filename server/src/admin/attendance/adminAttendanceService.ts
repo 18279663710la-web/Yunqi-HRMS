@@ -14,6 +14,7 @@ import { getPunch, getPunchMapForEmployees, buildDayRecord, summarizeRecords } f
 import { recordAdminLog } from '../../domains/audit/adminLogService';
 import { getAttendanceSettings } from '../../domains/attendance/attendanceSettings';
 import { getOvertimeMapForEmployees } from '../../domains/attendance/overtimeAttendanceService';
+import { listJobTitles } from '../../domains/employees/jobTitleService';
 
 interface AdminEmployeeRow {
   id: string;
@@ -23,7 +24,6 @@ interface AdminEmployeeRow {
   dept_id: string;
   dept_name: string | null;
   position: string;
-  job_category: '研发员' | '业务员' | '员工' | null;
   join_date: string;
   login_name: string | null;
   account_status: string | null;
@@ -31,7 +31,7 @@ interface AdminEmployeeRow {
 }
 
 const EMPLOYEE_SELECT = `
-  SELECT e.id, e.name, e.employee_no, e.pinyin, e.dept_id, e.position, e.job_category, e.join_date,
+  SELECT e.id, e.name, e.employee_no, e.pinyin, e.dept_id, e.position, e.join_date,
          d.name AS dept_name, a.login_name, a.status AS account_status,
          (SELECT MAX(hd.last_date) FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed') AS departure_date
   FROM employees e
@@ -74,7 +74,7 @@ async function queryEmployees(
     args.push(...ids);
   }
   if (jobCategory) {
-    where.push('e.job_category = ?');
+    where.push('e.position = ?');
     args.push(jobCategory);
   }
   return queryRows<AdminEmployeeRow>(
@@ -181,7 +181,7 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
         employeeNo: employee.employee_no,
         deptId: employee.dept_id,
         deptName: employee.dept_name || '',
-        jobCategory: employee.job_category || '员工',
+        jobCategory: employee.position,
         position: employee.position,
       });
     }
@@ -208,7 +208,7 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
       employeeName: employee.name,
       employeeNo: employee.employee_no,
       deptName: employee.dept_name || '',
-      jobCategory: employee.job_category || '员工',
+      jobCategory: employee.position,
       presentDays: summary.presentDays,
       totalHours: Math.round((totalMinutes / 60) * 10) / 10,
     };
@@ -301,7 +301,7 @@ export async function updateAttendancePunch(
     employeeNo: employee.employee_no,
     deptId: employee.dept_id,
     deptName: employee.dept_name || '',
-    jobCategory: employee.job_category || '员工',
+    jobCategory: employee.position,
     position: employee.position,
   };
 }
@@ -333,10 +333,7 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
   });
   todayStats.notChecked = Math.max(0, todayStats.total - todayStats.checkedIn - todayStats.rest - todayStats.onLeave);
 
-  const jobCategoryCounts = ['研发员', '业务员', '员工'].map((name) => ({
-    name: name as '研发员' | '业务员' | '员工',
-    count: employees.filter((employee) => (employee.job_category || '员工') === name).length,
-  }));
+  const jobCategoryCounts = await listJobTitles();
 
   const recentRows = await queryRows<AdminEmployeeRow>(
     `${EMPLOYEE_SELECT} WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed') ORDER BY e.join_date DESC, e.id DESC LIMIT 5`

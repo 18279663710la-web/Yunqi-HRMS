@@ -104,6 +104,7 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'quick_actions',
     'approval_types',
     'employees',
+    'hr_payroll_legacy_job_titles',
     'job_titles',
     'departments',
     'companies',

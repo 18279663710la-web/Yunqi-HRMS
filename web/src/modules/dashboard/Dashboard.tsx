@@ -77,7 +77,7 @@ export function DashboardPage() {
       ),
     },
     { title: '部门', dataIndex: 'deptName' },
-    { title: '职位', dataIndex: 'position' },
+    { title: '职务', dataIndex: 'position' },
     { title: '入职日期', dataIndex: 'joinDate' },
     {
       title: '账号',
@@ -122,9 +122,9 @@ export function DashboardPage() {
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="职位分类" value={data?.jobCategoryCounts.length || 0} prefix={<TagsOutlined style={{ color: '#7A5AF8' }} />} />
+                <Statistic title="职务类型" value={data?.jobCategoryCounts.length || 0} prefix={<TagsOutlined style={{ color: '#7A5AF8' }} />} />
                 <div className="stat-card-foot">
-                  {(data?.jobCategoryCounts || []).map((item) => `${item.name} ${item.count}`).join(' · ') || '研发员 · 业务员 · 员工'}
+                  {(data?.jobCategoryCounts || []).map((item) => `${item.name} ${item.count}`).join(' · ') || '暂无职务'}
                 </div>
               </Card>
             </Col>

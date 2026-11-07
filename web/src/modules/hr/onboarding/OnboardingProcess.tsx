@@ -3,9 +3,10 @@ import { Alert, App, Button, Checkbox, DatePicker, Divider, Form, Input, List, M
 import dayjs, { type Dayjs } from 'dayjs';
 import { pinyin } from 'pinyin-pro';
 import { addOnboardingTask, confirmOnboarding, getOnboardingTasks, updateOnboardingTask, type OnboardingRecord, type OnboardingTask } from '../api';
+import { fetchJobTitles, type JobTitle } from '../../organization/api';
 
 interface Props { record: OnboardingRecord; onClose: () => void; onCompleted: () => Promise<void> }
-interface EmployeeForm { name: string; employeeNo: string; phone: string; joinDate: Dayjs; jobCategory: '研发员' | '业务员' | '员工' }
+interface EmployeeForm { name: string; employeeNo: string; phone: string; joinDate: Dayjs; jobCategory: string }
 
 export function OnboardingProcess({ record, onClose, onCompleted }: Props) {
   const { message } = App.useApp();
@@ -16,6 +17,7 @@ export function OnboardingProcess({ record, onClose, onCompleted }: Props) {
   const [required, setRequired] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [form] = Form.useForm<EmployeeForm>();
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
   const loadTasks = async () => {
     setLoading(true);
     try { setTasks(await getOnboardingTasks(record.id)); setLoadError(false); }
@@ -23,6 +25,7 @@ export function OnboardingProcess({ record, onClose, onCompleted }: Props) {
     finally { setLoading(false); }
   };
   useEffect(() => { void loadTasks(); }, [record.id]);
+  useEffect(() => { fetchJobTitles().then(setJobTitles).catch((error: Error) => message.error(error.message)); }, []);
   const addTask = async () => {
     if (!title.trim()) { message.warning('请输入任务名称'); return; }
     setSaving(true);
@@ -76,7 +79,7 @@ export function OnboardingProcess({ record, onClose, onCompleted }: Props) {
         <Form.Item label="工号" name="employeeNo" rules={[{ required: true, whitespace: true }]}><Input maxLength={30} /></Form.Item>
         <Form.Item label="联系电话" name="phone" rules={[{ required: true, min: 5, max: 20 }]}><Input maxLength={20} /></Form.Item>
         <Form.Item label="入职日期" name="joinDate" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
-        <Form.Item label="职位分类" name="jobCategory" rules={[{ required: true }]}><Select options={['研发员', '业务员', '员工'].map((value) => ({ value, label: value }))} /></Form.Item>
+        <Form.Item label="职务" name="jobCategory" rules={[{ required: true }]}><Select options={jobTitles.map(title => ({ value: title.name, label: title.name }))} /></Form.Item>
         <Button type="primary" htmlType="submit" loading={saving} disabled={loading || loadError || tasks.some((task) => task.required && !task.completed)}>确认建档</Button>
       </Form>
     </>}

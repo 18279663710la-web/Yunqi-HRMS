@@ -82,8 +82,7 @@ router.get(
     const accountStatus =
       rawStatus === 'active' || rawStatus === 'disabled' || rawStatus === 'none' ? rawStatus : 'all';
     const rawJob = String(req.query.jobCategory || '');
-    const jobCategory =
-      rawJob === '研发员' || rawJob === '业务员' || rawJob === '员工' ? rawJob : undefined;
+    const jobCategory = rawJob || undefined;
     success(
       res,
       await getAdminEmployeeList({
@@ -104,7 +103,7 @@ const employeeSchema = z.object({
   gender: z.enum(['男', '女']).optional(),
   deptId: z.string().trim().min(1).max(10),
   position: z.string().trim().min(1).max(100),
-  jobCategory: z.enum(['研发员', '业务员', '员工']).optional(),
+  jobCategory: z.string().trim().min(1).max(100).optional(),
   level: z.string().trim().min(1).max(20),
   employeeNo: z.string().trim().min(1).max(30),
   phone: z.string().trim().min(5).max(20),
@@ -122,7 +121,7 @@ const accountSchema = z.object({
 });
 
 const createEmployeeSchema = employeeSchema.extend({
-  jobCategory: z.enum(['研发员', '业务员', '员工']),
+  jobCategory: z.string().trim().min(1).max(100),
   account: accountSchema.optional(),
 });
 

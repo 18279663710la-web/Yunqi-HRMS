@@ -27,6 +27,7 @@ test('请假使用后台指定审批人，董事长账号只能处理分配给�
     assert.equal((seededApprovals as Array<{ total: number }>)[0].total, 0);
     const { backfillEmployeeJobCategories } = await import('../src/admin/employees/adminEmployeeService');
     await backfillEmployeeJobCategories();
+    await (await import('../src/domains/employees/jobTitleService')).backfillJobTitles();
     const { ensureDefaultAdmin } = await import('../src/admin/admin-accounts/adminAuthService');
     await ensureDefaultAdmin();
     const { config } = await import('../src/config');

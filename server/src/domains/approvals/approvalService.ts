@@ -178,8 +178,9 @@ export function toApproval(
 
 async function loadApprovalRows(): Promise<ApprovalRow[]> {
   return queryRows<ApprovalRow>(
-    `SELECT a.*, CASE WHEN a.applicant_position IN ('研发员', '业务员', '员工')
-       THEN a.applicant_position ELSE COALESCE(e.job_category, a.applicant_position) END AS applicant_position
+    `SELECT a.*, CASE WHEN a.applicant_position IN ('研发员', '业务员', '员工') OR EXISTS
+       (SELECT 1 FROM job_titles t WHERE t.name = a.applicant_position)
+       THEN a.applicant_position ELSE COALESCE(e.position, a.applicant_position) END AS applicant_position
      FROM approvals a LEFT JOIN employees e ON e.id = a.applicant_id
      ORDER BY a.urgent DESC, a.created_at DESC, a.id DESC`
   );

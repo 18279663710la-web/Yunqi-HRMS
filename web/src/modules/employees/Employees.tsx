@@ -43,6 +43,8 @@ import type {
   JobCategoryName,
 } from '../../types';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
+import { fetchJobTitles, type JobTitle } from '../organization/api';
+import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 
 const { Text } = Typography;
 
@@ -73,6 +75,8 @@ interface ResetFormValues {
 
 export function EmployeesPage() {
   const { message, modal } = AntApp.useApp();
+  const active = useWorkspaceActive();
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [list, setList] = useState<AdminEmployee[]>([]);
@@ -81,7 +85,7 @@ export function EmployeesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
-  const [jobFilter, setJobFilter] = useState<'all' | JobCategoryName>('all');
+  const [jobFilter, setJobFilter] = useState<JobCategoryName>();
   const [accountStatus, setAccountStatus] = useState<'all' | AccountStatus | 'none'>('all');
 
 
@@ -107,7 +111,7 @@ export function EmployeesPage() {
     try {
       const result = await fetchEmployees({
         keyword,
-        jobCategory: jobFilter === 'all' ? undefined : jobFilter,
+        jobCategory: jobFilter,
         accountStatus,
         page,
         pageSize,
@@ -122,8 +126,13 @@ export function EmployeesPage() {
   };
 
   useEffect(() => {
-    void load();
-  }, [page, pageSize, keyword, jobFilter, accountStatus]);
+    if (active) void load();
+  }, [page, pageSize, keyword, jobFilter, accountStatus, active]);
+
+  useEffect(() => {
+    if (!active) return;
+    fetchJobTitles().then(setJobTitles).catch((error: Error) => message.error(error.message));
+  }, [active]);
 
   useEffect(() => {
     if (editOpen) {
@@ -211,7 +220,7 @@ export function EmployeesPage() {
         pinyin: editing ? editing.pinyin : generatedPinyin,
         gender: values.gender,
         deptId: editing ? editing.deptId : 'D00',
-        position: editing ? editing.position : '员工',
+        position: editing ? editing.position : (values.jobCategory || '员工'),
         level: editing ? editing.level : '—',
         employeeNo: values.employeeNo.trim(),
         phone: values.phone.trim(),
@@ -356,7 +365,7 @@ export function EmployeesPage() {
       ),
     },
     {
-      title: '职位',
+      title: '职务',
       dataIndex: 'position',
       width: 150,
       render: (_, record) => {
@@ -453,13 +462,11 @@ export function EmployeesPage() {
           />
           <Select
             style={{ width: 180 }}
+            aria-label="筛选职务"
             value={jobFilter}
-            options={[
-              { value: 'all', label: '全部职位' },
-              { value: '研发员', label: '研发员' },
-              { value: '业务员', label: '业务员' },
-              { value: '员工', label: '员工' },
-            ]}
+            allowClear
+            placeholder="全部职务"
+            options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
             onChange={(value) => {
               setPage(1);
               setJobFilter(value);
@@ -537,16 +544,12 @@ export function EmployeesPage() {
               <Col span={8}>
                 <Form.Item
                   name="jobCategory"
-                  label="职位"
-                  rules={[{ required: true, message: '请选择职位' }]}
+                  label="职务"
+                  rules={[{ required: true, message: '请选择职务' }]}
                 >
                   <Select
-                    placeholder="请选择职位"
-                    options={[
-                      { value: '研发员', label: '研发员' },
-                      { value: '业务员', label: '业务员' },
-                      { value: '员工', label: '员工' },
-                    ]}
+                    placeholder="请选择职务"
+                    options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
                   />
                 </Form.Item>
               </Col>
@@ -588,7 +591,7 @@ export function EmployeesPage() {
           {!editing ? (
             <>
               <div className="form-tip" style={{ marginBottom: 18 }}>
-                只需填写基础信息、职位与登录账号。拼音会自动生成，部门默认归入公司根节点，
+                只需填写基础信息、职务与登录账号。拼音会自动生成，部门默认归入公司根节点，
                 职级/工位/直属上级使用默认值，不影响账号创建与登录。
               </div>
               <Divider orientation="left" plain>登录账号</Divider>

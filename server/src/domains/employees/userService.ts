@@ -41,7 +41,6 @@ interface EmployeeRow {
   email: string;
   join_date: string;
   is_leader: number;
-  job_category: '研发员' | '业务员' | '员工' | null;
   seat: string;
   leader_id: string | null;
   departed: number;
@@ -129,7 +128,7 @@ function toEmployee(row: EmployeeRow, depts: Map<string, DepartmentRow>): Employ
     email: row.email,
     joinDate: row.join_date,
     isLeader: !!row.is_leader,
-    jobCategory: row.job_category || '员工',
+    jobCategory: row.position,
     seat: row.seat,
     leaderId: row.leader_id || undefined,
   };

@@ -38,7 +38,7 @@ async function readState(conn: PoolConnection, batchId: number) {
 
 async function readSnapshotState(conn: PoolConnection, batchId: number) {
   const state = await readState(conn, batchId);
-  const [items] = await conn.query<(RowDataPacket & { id: number; employeeId: string; gross: number; modelSnapshot: unknown })[]>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, e.position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id WHERE i.batch_id = ? ORDER BY i.id', [batchId]);
+  const [items] = await conn.query<(RowDataPacket & { id: number; employeeId: string; gross: number; modelSnapshot: unknown })[]>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, COALESCE(p.position, e.position) AS position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id LEFT JOIN hr_payroll_legacy_job_titles p ON p.item_id = i.id WHERE i.batch_id = ? ORDER BY i.id', [batchId]);
   const normalizedItems = items.map(item => ({ ...item, modelSnapshot: typeof item.modelSnapshot === 'string' ? JSON.parse(item.modelSnapshot) : item.modelSnapshot }));
   if (items.length !== state.rows.length) throw badRequest('工资批次员工明细不完整');
   const model = await readSalaryModel(conn);

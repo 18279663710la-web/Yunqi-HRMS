@@ -32,7 +32,7 @@ async function employeeExists(id: string): Promise<void> {
 }
 
 router.get('/employees', asyncHandler(async (_req, res) => {
-  const rows = await queryRows<{ id: string; name: string; employeeNo: string; position: string; departed: number }>("SELECT e.id, e.name, e.employee_no AS employeeNo, COALESCE(e.job_category, '未设置职位') AS position, EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departed FROM employees e ORDER BY e.pinyin ASC");
+  const rows = await queryRows<{ id: string; name: string; employeeNo: string; position: string; departed: number }>("SELECT e.id, e.name, e.employee_no AS employeeNo, e.position, EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departed FROM employees e ORDER BY e.pinyin ASC");
   success(res, rows.map(({ departed, ...row }) => ({ ...row, employmentStatus: departed ? 'departed' : 'active' })));
 }));
 router.get('/onboarding/fields', asyncHandler(async (_req, res) => {

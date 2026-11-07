@@ -36,6 +36,6 @@ export async function getChairpersonUser(): Promise<CurrentUser | null> {
   return {
     id: CHAIRPERSON_ID, name: '董事长', pinyin: 'dongshizhang', deptId: '', deptName: '',
     position: '董事长', level: '', employeeNo: '', phone: '', email: '', joinDate: '',
-    isLeader: false, jobCategory: '员工', seat: '', leaderId: '', leaderName: '', isChairperson: true,
+    isLeader: false, jobCategory: '董事长', seat: '', leaderId: '', leaderName: '', isChairperson: true,
   };
 }

@@ -3,7 +3,7 @@ import { downloadFile, request } from '../../api/client';
 export interface HrEmployee { id: string; name: string; employeeNo: string; position: string; employmentStatus: 'active' | 'departed' }
 export interface OnboardingRecord { id: number; fields: Record<string, string>; createdAt: string; employeeId: string | null; taskStatus: 'pending' | 'in_progress' | 'completed'; taskCount: number; completedCount: number }
 export interface OnboardingTask { id: number; title: string; description: string; startDate: string | null; endDate: string | null; required: boolean; completed: boolean }
-export interface OnboardingEmployeeInput { name: string; pinyin: string; employeeNo: string; phone: string; joinDate: string; jobCategory: '研发员' | '业务员' | '员工' }
+export interface OnboardingEmployeeInput { name: string; pinyin: string; employeeNo: string; phone: string; joinDate: string; jobCategory: string }
 export interface TaskTemplateItem { title: string; required: boolean; description?: string; beginOn?: number | null; duration?: number | null }
 export interface HrEvent { id: number; employeeId: string; type: string; effectiveDate: string; note: string }
 export interface HrTransition { id: number; type: 'promotion' | 'transfer'; effectiveDate: string; before: Record<string, string | null>; after: Record<string, string | null>; note: string; status: 'submitted' | 'cancelled'; createdAt: string }

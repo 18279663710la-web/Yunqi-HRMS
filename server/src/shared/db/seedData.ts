@@ -23,7 +23,7 @@ const currentUser = {
   gender: '男',
   deptId: 'D02',
   deptName: '产品技术中心 · 前端研发组',
-  position: '高级前端工程师',
+  position: '研发员',
   level: 'P6',
   employeeNo: 'YQ2021038',
   phone: '13888886688',
@@ -55,32 +55,32 @@ const departments = [
 const employees = [
   {
     id: 'U001', name: '陈亦然', pinyin: 'chenyiran', deptId: 'D02', deptName: '前端研发组',
-    position: '高级前端工程师', level: 'P6', employeeNo: 'YQ2021038', phone: '13888886688',
+    position: '研发员', level: 'P6', employeeNo: 'YQ2021038', phone: '13888886688',
     email: 'chenyiran@yunqi-tech.com', joinDate: '2021-03-15', isLeader: false, seat: '12F-A-032',
   },
   {
     id: 'U005', name: '周明远', pinyin: 'zhoumingyuan', deptId: 'D02', deptName: '前端研发组',
-    position: '产品技术中心负责人', level: 'M3', employeeNo: 'YQ2018009', phone: '13600001111',
+    position: '研发员', level: 'M3', employeeNo: 'YQ2018009', phone: '13600001111',
     email: 'zhoumingyuan@yunqi-tech.com', joinDate: '2018-04-09', isLeader: true, seat: '12F-A-020',
   },
   {
     id: 'U010', name: '吴静婷', pinyin: 'wujingting', deptId: 'D10', deptName: '人力资源部',
-    position: '人力资源总监', level: 'M3', employeeNo: 'YQ2017012', phone: '13900009999',
+    position: '员工', level: 'M3', employeeNo: 'YQ2017012', phone: '13900009999',
     email: 'wujingting@yunqi-tech.com', joinDate: '2017-03-06', isLeader: true, seat: '11F-A-006',
   },
   {
     id: 'U011', name: '黄可欣', pinyin: 'huangkexin', deptId: 'D10', deptName: '人力资源部',
-    position: 'HRBP', level: 'P6', employeeNo: 'YQ2021042', phone: '13911112222',
+    position: '员工', level: 'P6', employeeNo: 'YQ2021042', phone: '13911112222',
     email: 'huangkexin@yunqi-tech.com', joinDate: '2021-04-12', isLeader: false, seat: '11F-A-008',
   },
   {
     id: 'U012', name: '梁思远', pinyin: 'liangsiyuan', deptId: 'D07', deptName: '品牌市场组',
-    position: '市场运营中心负责人', level: 'M3', employeeNo: 'YQ2019015', phone: '13822223333',
+    position: '业务员', level: 'M3', employeeNo: 'YQ2019015', phone: '13822223333',
     email: 'liangsiyuan@yunqi-tech.com', joinDate: '2019-11-04', isLeader: true, seat: '11F-B-002',
   },
   {
     id: 'U013', name: '叶芷楠', pinyin: 'yezhinan', deptId: 'D07', deptName: '品牌市场组',
-    position: '品牌策划', level: 'P5', employeeNo: 'YQ2023055', phone: '13844445555',
+    position: '业务员', level: 'P5', employeeNo: 'YQ2023055', phone: '13844445555',
     email: 'yezhinan@yunqi-tech.com', joinDate: '2023-05-22', isLeader: false, seat: '11F-B-004',
   },
 ];

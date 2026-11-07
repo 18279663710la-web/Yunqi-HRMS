@@ -2,8 +2,8 @@ import type { ApprovalStatus, AttendanceRecord, AttendanceSummary } from './mode
 
 export type AdminRole = 'super_admin' | 'hr_admin';
 export type AccountStatus = 'active' | 'disabled';
-export type JobCategoryName = '研发员' | '业务员' | '员工';
-export type JobCategoryKey = 'rd' | 'sales' | 'staff';
+export type JobCategoryName = string;
+export type JobCategoryKey = string;
 
 export interface AdminUser {
   id: number;

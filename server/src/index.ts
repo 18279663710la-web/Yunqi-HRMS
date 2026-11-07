@@ -17,7 +17,6 @@ async function bootstrap(): Promise<void> {
     await ensureDatabase();
     await ensureSchema();
     const seeded = await seedDatabase(false);
-    await backfillJobTitles();
     if (seeded) console.log('[db] 首次启动：已写入演示数据');
     const attendanceSeeded = await seedAttendanceIfEmpty();
     if (attendanceSeeded) console.log('[db] 已生成演示考勤记录');
@@ -25,6 +24,7 @@ async function bootstrap(): Promise<void> {
     if (adminSeeded) console.log('[admin] 已创建默认管理员');
     const backfilled = await backfillEmployeeJobCategories();
     if (backfilled) console.log(`[db] 已补齐 ${backfilled} 名员工的职位分类`);
+    await backfillJobTitles();
   }
 
   const app = createApp();

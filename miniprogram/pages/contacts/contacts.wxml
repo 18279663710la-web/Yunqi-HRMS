@@ -5,7 +5,7 @@
       <view class="search-icon"></view>
       <input
         class="search-input"
-        placeholder="搜索姓名 / 职位 / 手机号"
+        placeholder="搜索姓名 / 职务 / 手机号"
         placeholder-class="search-placeholder"
         value="{{keyword}}"
         confirm-type="search"

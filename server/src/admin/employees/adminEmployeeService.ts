@@ -14,6 +14,7 @@ import { hashPassword } from '../../shared/utils/password';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
 import type { AdminUser } from '../../shared/types/admin';
 import { getDepartmentTree, getEmployeeGroups } from '../../domains/employees/userService';
+import { assertJobTitle, listAdminJobTitles } from '../../domains/employees/jobTitleService';
 import { revokeEmployeeSessions } from '../../domains/accounts/employeeSessionService';
 import type { PoolConnection } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2';
@@ -58,12 +59,6 @@ const SELECT_EMPLOYEE = `
   LEFT JOIN employee_accounts a ON a.employee_id = e.id
 `;
 
-const JOB_CATEGORY_ORDER: Array<{ key: 'rd' | 'sales' | 'staff'; name: JobCategoryName }> = [
-  { key: 'rd', name: '研发员' },
-  { key: 'sales', name: '业务员' },
-  { key: 'staff', name: '员工' },
-];
-
 /** 按部门归属把员工归入三类职位：研发员 / 业务员 / 员工 */
 async function buildJobCategoryByDept(): Promise<Map<string, JobCategoryName>> {
   const rows = await queryRows<{ id: string; parent_id: string | null; name: string }>(
@@ -90,7 +85,7 @@ async function buildJobCategoryByDept(): Promise<Map<string, JobCategoryName>> {
   return result;
 }
 
-function mapEmployee(row: EmployeeRow, categoryMap: Map<string, JobCategoryName>): AdminEmployee {
+function mapEmployee(row: EmployeeRow): AdminEmployee {
   let account: EmployeeAccount | null = null;
   if (row.login_name) {
     account = {
@@ -119,8 +114,7 @@ function mapEmployee(row: EmployeeRow, categoryMap: Map<string, JobCategoryName>
     seat: row.seat,
     leaderId: row.leader_id || '',
     leaderName: row.leader_name || '',
-    jobCategory:
-      row.job_category || categoryMap.get(row.dept_id) || '员工',
+    jobCategory: row.position,
     employmentStatus: row.departed ? 'departed' : 'active',
     account,
   };
@@ -173,7 +167,7 @@ export async function getAdminEmployeeList(
   }
 
   if (params.jobCategory) {
-    where.push('e.job_category = ?');
+    where.push('e.position = ?');
     args.push(params.jobCategory);
   }
 
@@ -193,18 +187,15 @@ export async function getAdminEmployeeList(
     args
   );
 
-  const [rows, categoryMap] = await Promise.all([
-    queryRows<EmployeeRow>(
+  const rows = await queryRows<EmployeeRow>(
       `${SELECT_EMPLOYEE} ${whereSql}
        ORDER BY e.is_leader DESC, e.pinyin ASC
        LIMIT ? OFFSET ?`,
       [...args, pageSize, (page - 1) * pageSize]
-    ),
-    buildJobCategoryByDept(),
-  ]);
+    );
 
   return {
-    list: rows.map((row) => mapEmployee(row, categoryMap)),
+    list: rows.map(mapEmployee),
     total: Number(countRow?.total || 0),
     page,
     pageSize,
@@ -212,11 +203,8 @@ export async function getAdminEmployeeList(
 }
 
 export async function getAdminEmployeeById(id: string): Promise<AdminEmployee | null> {
-  const [row, categoryMap] = await Promise.all([
-    queryOne<EmployeeRow>(`${SELECT_EMPLOYEE} WHERE e.id = ?`, [id]),
-    buildJobCategoryByDept(),
-  ]);
-  return row ? mapEmployee(row, categoryMap) : null;
+  const row = await queryOne<EmployeeRow>(`${SELECT_EMPLOYEE} WHERE e.id = ?`, [id]);
+  return row ? mapEmployee(row) : null;
 }
 
 export async function getAllEmployeesForSelect(): Promise<Array<{ id: string; name: string; deptName: string; position: string; employeeNo: string }>> {
@@ -310,8 +298,7 @@ export async function createEmployee(
   const id = await nextEmployeeId();
   const leaderId = input.leaderId || (await resolveLeaderId(input.deptId, id));
   await assertLeader(leaderId || '', id);
-  const categoryMap = await buildJobCategoryByDept();
-  const jobCategory = input.jobCategory || categoryMap.get(input.deptId) || '员工';
+  const position = input.jobCategory || input.position;
 
   let account: EmployeeAccountInput | undefined;
   if (input.account) {
@@ -328,7 +315,7 @@ export async function createEmployee(
   }
 
   await transaction(async (conn) => {
-    await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [input.position]);
+    await assertJobTitle(conn, position);
     await conn.query(
       `INSERT INTO employees
         (id, name, pinyin, gender, dept_id, position, job_category, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
@@ -339,8 +326,8 @@ export async function createEmployee(
         input.pinyin,
         input.gender || null,
         input.deptId,
-        input.position,
-        jobCategory,
+        position,
+        null,
         input.level,
         input.employeeNo,
         input.phone,
@@ -385,13 +372,13 @@ export async function updateEmployee(
   await assertLeader(input.leaderId || '', id);
 
   const leaderId = input.leaderId || (await resolveLeaderId(input.deptId, id));
-  const jobCategory = input.jobCategory || current.jobCategory;
+  const position = input.position;
 
   await transaction(async (conn) => {
-    await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [input.position]);
+    await assertJobTitle(conn, position);
     await conn.execute(
     `UPDATE employees
-     SET name = ?, pinyin = ?, gender = ?, dept_id = ?, position = ?, job_category = ?, level = ?,
+     SET name = ?, pinyin = ?, gender = ?, dept_id = ?, position = ?, level = ?,
          employee_no = ?, phone = ?, email = ?, join_date = ?, is_leader = ?, seat = ?, leader_id = ?
      WHERE id = ?`,
     [
@@ -399,8 +386,7 @@ export async function updateEmployee(
       input.pinyin,
       input.gender || null,
       input.deptId,
-      input.position,
-      jobCategory,
+      position,
       input.level,
       input.employeeNo,
       input.phone,
@@ -517,6 +503,7 @@ export async function getAdminEmployeeGroups(deptId?: string): Promise<EmployeeG
 
 /** 历史员工补齐职位分类（新增列后执行一次即可；幂等） */
 export async function backfillEmployeeJobCategories(): Promise<number> {
+  if (await queryOne("SELECT 1 FROM app_meta WHERE `k` = 'unified_job_titles_v1'")) return 0;
   const [rows, categoryMap] = await Promise.all([
     queryRows<{ id: string; dept_id: string }>(
       'SELECT id, dept_id FROM employees WHERE job_category IS NULL'
@@ -532,38 +519,7 @@ export async function backfillEmployeeJobCategories(): Promise<number> {
 
 /** 职位分类汇总：三类职位对应的员工列表 */
 export async function getAdminJobCategories(): Promise<JobCategoryGroup[]> {
-  const [rows, categoryMap] = await Promise.all([
-    queryRows<EmployeeRow>(`${SELECT_EMPLOYEE} ORDER BY e.pinyin ASC`),
-    buildJobCategoryByDept(),
-  ]);
-
-  const groups: JobCategoryGroup[] = JOB_CATEGORY_ORDER.map((item) => ({
-    ...item,
-    count: 0,
-    employees: [],
-  }));
-
-  rows.forEach((row) => {
-    const category = row.job_category || categoryMap.get(row.dept_id) || '员工';
-    const group = groups.find((item) => item.name === category);
-    if (!group) return;
-    group.count += 1;
-    group.employees.push({
-      id: row.id,
-      name: row.name,
-      employeeNo: row.employee_no,
-      phone: row.phone,
-      joinDate: row.join_date,
-      isLeader: !!row.is_leader,
-      accountStatus:
-        row.account_status === 'active' || row.account_status === 'disabled'
-          ? row.account_status
-          : 'none',
-      loginName: row.login_name || '',
-    });
-  });
-
-  return groups;
+  return (await listAdminJobTitles()).map(title => ({ ...title, key: String(title.id), employees: title.employees.map(employee => ({ ...employee, accountStatus: employee.accountStatus === 'active' || employee.accountStatus === 'disabled' ? employee.accountStatus : 'none', loginName: employee.loginName || '' })) }));
 }
 
 /** 部门树（带负责人姓名） */

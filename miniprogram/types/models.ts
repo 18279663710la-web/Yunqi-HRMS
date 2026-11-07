@@ -59,7 +59,7 @@ export interface Employee {
   email: string;
   joinDate: string;
   isLeader: boolean;
-  jobCategory: '研发员' | '业务员' | '员工';
+  jobCategory: string;
   seat: string;
   leaderId?: string;
 }

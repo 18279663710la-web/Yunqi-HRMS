@@ -5,11 +5,17 @@ import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 
 export interface JobTitle { id: number; name: string; count: number }
 
-// 仅首次迁移历史职务，避免删除后在重启时重新出现。
+// 一次性将旧职位分类统一为职务，保留旧工资明细原有回退显示值。
 export async function backfillJobTitles(): Promise<void> {
   await transaction(async (conn) => {
-    const [result] = await conn.execute<any>("INSERT IGNORE INTO app_meta (`k`, `v`) VALUES ('job_titles_backfilled', '1')");
-    if (result.affectedRows) await conn.execute("INSERT IGNORE INTO job_titles (name) SELECT DISTINCT TRIM(position) FROM employees WHERE TRIM(position) <> ''");
+    const [result] = await conn.execute<any>("INSERT IGNORE INTO app_meta (`k`, `v`) VALUES ('unified_job_titles_v1', '1')");
+    if (!result.affectedRows) return;
+    await conn.execute(`INSERT IGNORE INTO hr_payroll_legacy_job_titles (item_id, position)
+      SELECT i.id, e.position FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id
+      WHERE i.model_snapshot IS NULL OR JSON_EXTRACT(i.model_snapshot, '$.position') IS NULL OR JSON_TYPE(JSON_EXTRACT(i.model_snapshot, '$.position')) = 'NULL'`);
+    await conn.execute("INSERT IGNORE INTO job_titles (name) VALUES ('研发员'), ('业务员'), ('员工')");
+    await conn.execute("UPDATE employees SET position = COALESCE(NULLIF(job_category, ''), '员工')");
+    await conn.execute("DELETE FROM job_titles WHERE name NOT IN ('研发员', '业务员', '员工')");
   });
 }
 

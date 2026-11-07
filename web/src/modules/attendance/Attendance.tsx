@@ -30,6 +30,8 @@ import { fetchAttendance, saveAttendancePunch } from './api';
 import { fetchEmployeeOptions } from '../employees/api';
 import { PageTitle } from '../../components/PageTitle';
 import { AttendanceSettingsCard } from './AttendanceSettingsCard';
+import { fetchJobTitles, type JobTitle } from '../organization/api';
+import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type {
   AdminAttendanceRecord,
   AttendanceResponse,
@@ -73,6 +75,8 @@ const overtimeDuration = (seconds: number) => `${Math.floor(seconds / 3600)}小�
 
 export function AttendancePage() {
   const { message } = AntApp.useApp();
+  const active = useWorkspaceActive();
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
   const [month, setMonth] = useState<Dayjs>(dayjs().startOf('month'));
   const [day, setDay] = useState<Dayjs>(dayjs().startOf('day'));
   const [jobCategory, setJobCategory] = useState<JobCategoryName | undefined>(undefined);
@@ -122,8 +126,13 @@ export function AttendancePage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [month, day, tab, jobCategory, employeeId, status]);
+    if (!active) return;
+    fetchJobTitles().then(setJobTitles).catch((error: Error) => message.error(error.message));
+  }, [active]);
+
+  useEffect(() => {
+    if (active) void load();
+  }, [month, day, tab, jobCategory, employeeId, status, active]);
 
   useEffect(() => {
     if (editOpen) {
@@ -183,7 +192,7 @@ export function AttendancePage() {
   const exportCsv = () => {
     if (!data) return;
     downloadCsv(`考勤明细-${tab === 'daily' ? data.startDate : data.month}.csv`, [
-      ['日期', '员工', '工号', '职位', '上班', '下班', '工时', '状态', '加班打卡', '加班时长', '备注'],
+      ['日期', '员工', '工号', '职务', '上班', '下班', '工时', '状态', '加班打卡', '加班时长', '备注'],
       ...data.list.map((row) => [
         row.date,
         row.employeeName,
@@ -232,7 +241,7 @@ export function AttendancePage() {
       ),
     },
     {
-      title: '职位',
+      title: '职务',
       dataIndex: 'jobCategory',
       width: 120,
       render: (category: JobCategoryName) => jobCategoryTag(category),
@@ -288,7 +297,7 @@ export function AttendancePage() {
         </div>
       ),
     },
-    { title: '职位', dataIndex: 'jobCategory', render: (category: JobCategoryName) => jobCategoryTag(category) },
+    { title: '职务', dataIndex: 'jobCategory', render: (category: JobCategoryName) => jobCategoryTag(category) },
     { title: '正常', dataIndex: 'normal' },
     { title: '未打上班卡', dataIndex: 'missingIn' },
     { title: '未打下班卡', dataIndex: 'missingOut' },
@@ -343,18 +352,15 @@ export function AttendancePage() {
               style={{ width: 140 }}
             />
           )}
-          <Select<JobCategoryName | 'all'>
+          <Select<JobCategoryName>
             id="attendance-job-category"
-            aria-label="筛选职位"
+            aria-label="筛选职务"
             style={{ width: 150 }}
-            value={jobCategory ?? 'all'}
-            options={[
-              { value: 'all', label: '全部职位' },
-              { value: '研发员', label: '研发员' },
-              { value: '业务员', label: '业务员' },
-              { value: '员工', label: '员工' },
-            ]}
-            onChange={(value) => setJobCategory(value === 'all' ? undefined : value)}
+            value={jobCategory}
+            allowClear
+            placeholder="全部职务"
+            options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
+            onChange={setJobCategory}
           />
           <Select
             id="attendance-employee"

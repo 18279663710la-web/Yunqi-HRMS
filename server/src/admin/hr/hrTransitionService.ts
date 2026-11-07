@@ -5,16 +5,19 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { queryRows, transaction } from '../../shared/db/pool';
 import { dateKey } from '../../shared/utils/datetime';
 import { badRequest, notFound } from '../../shared/utils/errors';
+import { assertJobTitle } from '../../domains/employees/jobTitleService';
 
-const fields = { position: 'position', level: 'level', jobCategory: 'job_category', deptId: 'dept_id' } as const;
+const fields = { position: 'position', level: 'level', jobCategory: 'position', deptId: 'dept_id' } as const;
 type Field = keyof typeof fields;
 type Snapshot = Partial<Record<Field, string | null>>;
 const changesSchema = z.object({
   position: z.string().trim().min(1).max(100).optional(),
   level: z.string().trim().min(1).max(20).optional(),
-  jobCategory: z.enum(['研发员', '业务员', '员工']).optional(),
+  jobCategory: z.string().trim().min(1).max(100).optional(),
   deptId: z.string().trim().min(1).max(10).optional(),
-}).strict().refine((value) => Object.keys(value).length > 0, '请选择至少一个变更字段');
+}).strict().refine((value) => Object.keys(value).length > 0, '请选择至少一个变更字段')
+  .refine(value => !value.position || !value.jobCategory || value.position === value.jobCategory, '职务不能同时设置为不同的值')
+  .transform(({ jobCategory, ...value }) => ({ ...value, ...(value.position || jobCategory ? { position: value.position || jobCategory } : {}) }));
 export const transitionSchema = z.object({
   employeeId: z.string().trim().min(1).max(10),
   type: z.enum(['promotion', 'transfer']),
@@ -35,8 +38,8 @@ export async function listTransitions(employeeId: string) {
 export async function submitTransition(input: Input, adminId: number) {
   if (input.effectiveDate > dateKey()) throw badRequest('异动生效日期未到，不能提交');
   return transaction(async (conn) => {
-    if (input.changes.position) await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [input.changes.position]);
-    const [employees] = await conn.query<RowDataPacket[]>('SELECT position, level, job_category, dept_id FROM employees WHERE id = ? FOR UPDATE', [input.employeeId]);
+    if (input.changes.position) await assertJobTitle(conn, input.changes.position);
+    const [employees] = await conn.query<RowDataPacket[]>('SELECT position, level, dept_id FROM employees WHERE id = ? FOR UPDATE', [input.employeeId]);
     if (!employees.length) throw notFound('员工不存在');
     const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [input.employeeId]);
     if (departures.length) throw badRequest('已离职员工不能提交人事异动');
@@ -45,7 +48,7 @@ export async function submitTransition(input: Input, adminId: number) {
       if (!departments.length) throw badRequest('部门不存在');
     }
     const before: Snapshot = {}; const after: Snapshot = {};
-    for (const key of Object.keys(input.changes) as Field[]) {
+    for (const key of Object.keys(input.changes) as Array<keyof Input['changes']>) {
       const next = input.changes[key]; const current = employees[0][fields[key]] as string | null;
       if (next !== undefined && next !== current) { before[key] = current; after[key] = next; }
     }
@@ -61,10 +64,12 @@ export async function cancelTransition(id: string, adminId: number) {
   await transaction(async (conn) => {
     const [identities] = await conn.query<RowDataPacket[]>('SELECT employee_id, before_json FROM hr_employee_transitions WHERE id = ?', [id]);
     if (!identities.length) throw notFound('人事异动不存在');
-    const previousPosition = parseJson(identities[0].before_json).position;
-    if (previousPosition) await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [previousPosition]);
+    const oldSnapshot = parseJson(identities[0].before_json);
+    if (oldSnapshot.position && oldSnapshot.jobCategory && oldSnapshot.position !== oldSnapshot.jobCategory) throw badRequest('旧异动包含不同的岗位和职位分类，无法直接撤销');
+    const previousPosition = oldSnapshot.position || oldSnapshot.jobCategory;
+    if (previousPosition) await assertJobTitle(conn, previousPosition);
     const employeeId = String(identities[0].employee_id);
-    const [employees] = await conn.query<RowDataPacket[]>('SELECT position, level, job_category, dept_id FROM employees WHERE id = ? FOR UPDATE', [employeeId]);
+    const [employees] = await conn.query<RowDataPacket[]>('SELECT position, level, dept_id FROM employees WHERE id = ? FOR UPDATE', [employeeId]);
     if (!employees.length) throw notFound('员工不存在');
     const [records] = await conn.query<RowDataPacket[]>('SELECT id, status, before_json, after_json FROM hr_employee_transitions WHERE id = ? FOR UPDATE', [id]);
     if (!records.length || records[0].status !== 'submitted') throw badRequest('异动已撤销');
@@ -72,6 +77,7 @@ export async function cancelTransition(id: string, adminId: number) {
     if (String(latest[0]?.id) !== String(id)) throw badRequest('请先撤销较晚的人事异动');
     const before = parseJson(records[0].before_json); const after = parseJson(records[0].after_json);
     const keys = Object.keys(after) as Field[];
+    if (keys.includes('position') && keys.includes('jobCategory')) throw badRequest('旧异动包含两个职务字段，无法直接撤销');
     if (!keys.length || keys.some((key) => !Object.hasOwn(fields, key) || !Object.hasOwn(before, key))) throw badRequest('异动记录无效，无法撤销');
     if (keys.some((key) => employees[0][fields[key]] !== after[key])) throw badRequest('员工资料已被修改，不能直接撤销');
     await conn.execute(`UPDATE employees SET ${keys.map((key) => `\`${fields[key]}\` = ?`).join(', ')} WHERE id = ?`, [...keys.map((key) => before[key] ?? null), employeeId]);

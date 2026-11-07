@@ -2,6 +2,7 @@ import type { RowDataPacket } from 'mysql2';
 import { z } from 'zod';
 import { transaction } from '../../shared/db/pool';
 import { badRequest, notFound } from '../../shared/utils/errors';
+import { assertJobTitle } from '../../domains/employees/jobTitleService';
 
 export const taskSchema = z.object({ title: z.string().trim().min(1).max(100), required: z.boolean() });
 export const completionSchema = z.object({ completed: z.boolean() });
@@ -11,7 +12,7 @@ export const onboardingEmployeeSchema = z.object({
   employeeNo: z.string().trim().min(1).max(30),
   phone: z.string().trim().min(5).max(20),
   joinDate: z.string().date(),
-  jobCategory: z.enum(['研发员', '业务员', '员工']),
+  jobCategory: z.string().trim().min(1).max(100),
 });
 type EmployeeInput = z.infer<typeof onboardingEmployeeSchema>;
 
@@ -50,9 +51,9 @@ export async function confirmOnboarding(id: string, input: EmployeeInput) {
     const max = employees.reduce((n, row) => Math.max(n, Number(String(row.id).slice(1)) || 0), 0);
     const employeeId = `U${String(max + 1).padStart(3, '0')}`;
     if (employeeId.length > 10) throw badRequest('员工编号已用完');
-    await conn.execute("INSERT IGNORE INTO job_titles (name) VALUES ('员工')");
+    await assertJobTitle(conn, input.jobCategory);
     await conn.execute(`INSERT INTO employees (id, name, pinyin, gender, dept_id, position, job_category, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
-      VALUES (?, ?, ?, NULL, 'D00', '员工', ?, '—', ?, ?, '', ?, 0, '', NULL)`,
+      VALUES (?, ?, ?, NULL, 'D00', ?, NULL, '—', ?, ?, '', ?, 0, '', NULL)`,
     [employeeId, input.name, input.pinyin, input.jobCategory, input.employeeNo, input.phone, input.joinDate]);
     await conn.execute('INSERT INTO hr_onboarding_links (onboarding_id, employee_id, created_at) VALUES (?, ?, NOW())', [id, employeeId]);
     return { employeeId };

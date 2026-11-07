@@ -13,7 +13,10 @@ test('人事异动生效、撤销及并发保护', async () => {
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool;
-    await pool.ensureSchema(); await (await import('../src/shared/db/seed')).seedDatabase(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
+    await pool.ensureSchema(); await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/admin/employees/adminEmployeeService')).backfillEmployeeJobCategories();
+    const titles = await import('../src/domains/employees/jobTitleService'); await titles.backfillJobTitles(); await titles.createJobTitle('测试岗位');
+    await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     await conn.query(`INSERT INTO \`${database}\`.admins (username, password_hash, name, role, status, created_at) VALUES ('hr_test', 'x', 'HR', 'hr_admin', 1, NOW())`);
     const { config } = await import('../src/config'); const server = (await import('../src/app')).createApp().listen(0, '127.0.0.1');
     await new Promise<void>((resolve) => server.once('listening', resolve)); closeServer = () => new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));

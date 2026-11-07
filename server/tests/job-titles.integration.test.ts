@@ -14,6 +14,12 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
     await (await import('../src/shared/db/seed')).seedDatabase();
+    await pool.execute("UPDATE employees SET position = '高级前端工程师' WHERE id = 'U001'");
+    await pool.execute("INSERT INTO job_titles (name) VALUES ('高级前端工程师')");
+    await pool.execute("INSERT INTO app_meta (`k`, `v`) VALUES ('job_titles_backfilled', '1')");
+    await pool.execute("INSERT INTO hr_payroll_batches (id, payroll_month, status, created_at) VALUES (1, '2025-01', 'reviewed', NOW())");
+    await pool.execute("INSERT INTO hr_payroll_batch_items (id, batch_id, employee_id, gross, deductions, net, note) VALUES (1, 1, 'U001', 100, 0, 100, '')");
+    await (await import('../src/admin/employees/adminEmployeeService')).backfillEmployeeJobCategories();
     await (await import('../src/domains/employees/jobTitleService')).backfillJobTitles();
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     const { config } = await import('../src/config');
@@ -24,7 +30,14 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     const admin = jwt.sign({ typ: 'admin', role: 'super_admin' }, config.jwt.secret, { subject: '1' });
     const employee = (await issueTokens('U001')).accessToken;
     const call = async (path: string, token: string, method = 'GET', body?: unknown) => { const r = await fetch(`http://127.0.0.1:${addr.port}/api${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }); return { status: r.status, body: await r.json() as { data?: any; message?: string } }; };
-    const initial = await call('/admin/job-titles', admin); assert.equal(initial.status, 200); assert.ok(initial.body.data.some((title: any) => title.name));
+    const initial = await call('/admin/job-titles', admin); assert.equal(initial.status, 200);
+    assert.deepEqual(initial.body.data.map((title: any) => title.name).sort(), ['业务员', '员工', '研发员'].sort());
+    const originalEmployee = (await call('/admin/employees/U001', admin)).body.data;
+    assert.equal(originalEmployee.position, '研发员'); assert.equal(originalEmployee.jobCategory, '研发员');
+    const oldPayroll = await call('/admin/hr/payroll-batches/1/items', admin);
+    assert.equal(oldPayroll.status, 200); assert.equal(oldPayroll.body.data[0].position, '高级前端工程师');
+    const oldDisbursement = await call('/admin/hr/payroll-batches/1/disbursement', admin);
+    assert.equal(oldDisbursement.status, 200); assert.equal(oldDisbursement.body.data.snapshot.items[0].position, '高级前端工程师');
     assert.equal((await call('/admin/job-titles', employee, 'POST', { name: '无权创建' })).status, 401);
     const createdTitle = await call('/admin/job-titles', admin, 'POST', { name: '测试职务' }); assert.equal(createdTitle.status, 200);
     assert.equal((await call('/admin/job-titles', admin, 'POST', { name: '测试职务' })).status, 409);
@@ -32,6 +45,16 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     const salary = (await call('/admin/hr/employees/U001/salary', admin)).body.data;
     assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', { ...salary, jobTitle: '测试职务' })).status, 200);
     assert.equal((await call('/admin/hr/employees/U001/salary', admin)).body.data.jobTitle, '测试职务');
+    const changedEmployee = (await call('/admin/employees/U001', admin)).body.data;
+    assert.equal(changedEmployee.position, '测试职务'); assert.equal(changedEmployee.jobCategory, '测试职务');
+    const employeeList = await call(`/admin/employees?jobCategory=${encodeURIComponent('测试职务')}`, admin);
+    assert.deepEqual(employeeList.body.data.list.map((row: any) => row.id), ['U001']);
+    const attendance = await call(`/admin/attendance?date=2025-01-03&jobCategory=${encodeURIComponent('测试职务')}`, admin);
+    assert.equal(attendance.status, 200); assert.deepEqual(attendance.body.data.list.map((row: any) => row.employeeId), ['U001']);
+    const dashboard = await call('/admin/dashboard', admin);
+    assert.ok(dashboard.body.data.jobCategoryCounts.some((title: any) => title.name === '测试职务' && title.count === 1));
+    const miniUser = (await call('/employees/U001', employee)).body.data;
+    assert.equal(miniUser.position, '测试职务'); assert.equal(miniUser.jobCategory, '测试职务');
     assert.equal((await call(`/admin/job-titles/${titleId}`, admin, 'DELETE')).status, 409);
     const filtered = await call(`/employees/groups?jobTitle=${encodeURIComponent('测试职务')}`, employee);
     assert.equal(filtered.status, 200); assert.deepEqual(filtered.body.data.flatMap((group: any) => group.list).map((item: any) => item.id), ['U001']);
@@ -41,5 +64,19 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     assert.equal((await call(`/admin/job-titles/${titleId}`, admin, 'DELETE')).status, 200);
     await (await import('../src/domains/employees/jobTitleService')).backfillJobTitles();
     assert.ok(!(await call('/admin/job-titles', admin)).body.data.some((title: any) => title.name === '测试职务'));
+
+    assert.equal((await call('/admin/job-titles', admin, 'POST', { name: '设计师' })).status, 200);
+    const createdEmployee = await call('/admin/employees', admin, 'POST', {
+      name: '测试员工', pinyin: 'ceshiyuangong', deptId: 'D00', position: '设计师', jobCategory: '设计师', level: '—', employeeNo: 'TEST-001', phone: '12345678900', joinDate: '2025-01-01',
+    });
+    assert.equal(createdEmployee.status, 200); assert.equal(createdEmployee.body.data.position, '设计师'); assert.equal(createdEmployee.body.data.jobCategory, '设计师');
+    const filteredEmployees = await call(`/admin/employees?jobCategory=${encodeURIComponent('设计师')}`, admin);
+    assert.deepEqual(filteredEmployees.body.data.list.map((row: any) => row.id), [createdEmployee.body.data.id]);
+    const transition = await call('/admin/hr/employee-transitions', admin, 'POST', { employeeId: createdEmployee.body.data.id, type: 'transfer', effectiveDate: '2025-01-01', changes: { position: '研发员' }, note: '' });
+    assert.equal(transition.status, 200);
+    const moved = (await call(`/admin/employees/${createdEmployee.body.data.id}`, admin)).body.data;
+    assert.equal(moved.position, '研发员'); assert.equal(moved.jobCategory, '研发员');
+    assert.equal((await call(`/admin/hr/employee-transitions/${transition.body.data.id}/cancel`, admin, 'POST', {})).status, 200);
+    assert.equal((await call(`/admin/employees/${createdEmployee.body.data.id}`, admin)).body.data.position, '设计师');
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });

@@ -189,6 +189,7 @@ router.delete('/payroll-batches/:id', asyncHandler(async (req, res) => {
     const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [id]);
     if (!batches.length) throw notFound('工资批次不存在');
     if (batches[0].status !== 'draft') throw badRequest('已复核的批次不能删除');
+    await conn.execute('DELETE p FROM hr_payroll_legacy_job_titles p JOIN hr_payroll_batch_items i ON i.id = p.item_id WHERE i.batch_id = ?', [id]);
     await conn.execute('DELETE FROM hr_payroll_batch_items WHERE batch_id = ?', [id]);
     await conn.execute('DELETE FROM hr_payroll_batches WHERE id = ?', [id]);
   });
@@ -199,7 +200,7 @@ router.get('/payroll-batches/:id/items', asyncHandler(async (req, res) => {
   const batchId = parse(batchIdSchema, req.params.id);
   if (!await queryOne('SELECT id FROM hr_payroll_batches WHERE id = ?', [batchId])) throw notFound('工资批次不存在');
   await syncDraftBatch(batchId);
-  const rows = await queryRows<{ modelSnapshot: unknown }>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, e.position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id WHERE i.batch_id = ? ORDER BY i.id', [req.params.id]);
+  const rows = await queryRows<{ modelSnapshot: unknown }>('SELECT i.id, i.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, i.gross, i.base_gross AS baseGross, i.attendance_rate AS attendanceRate, i.attendance_adjustment AS attendanceAdjustment, i.overtime_seconds AS overtimeSeconds, i.overtime_pay AS overtimePay, i.model_snapshot AS modelSnapshot, COALESCE(p.position, e.position) AS position, i.deductions, i.net, i.note FROM hr_payroll_batch_items i JOIN employees e ON e.id = i.employee_id LEFT JOIN hr_payroll_legacy_job_titles p ON p.item_id = i.id WHERE i.batch_id = ? ORDER BY i.id', [req.params.id]);
   success(res, rows.map(row => ({ ...row, modelSnapshot: row.modelSnapshot ? json(row.modelSnapshot) : null })));
 }));
 router.post('/payroll-batches/:id/items', asyncHandler(async (req, res) => {

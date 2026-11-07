@@ -29,8 +29,7 @@ router.get(
   '/attendance',
   asyncHandler(async (req, res) => {
     const rawJob = String(req.query.jobCategory || '');
-    const jobCategory =
-      rawJob === '研发员' || rawJob === '业务员' || rawJob === '员工' ? rawJob : undefined;
+    const jobCategory = rawJob || undefined;
     success(
       res,
       await getAdminAttendance({

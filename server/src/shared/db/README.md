@@ -4,6 +4,8 @@
 
 MySQL 连接池、事务、增量迁移、种子、演示数据和建库入口。
 
+初始化先补齐旧员工分类，再调用员工领域职务迁移；迁移标记保证重复启动不覆盖管理员后续维护的职务。
+
 ## 主要内容
 
 - 主要文件：`attendanceSeed.ts`、`invoiceSamples.ts`、`pool.ts`、`seed.ts`、`seedApprovalCleanup.ts`、`seedData.ts`、`setup.ts`。

@@ -12,7 +12,6 @@ async function main(): Promise<void> {
   await ensureDatabase();
   await ensureSchema();
   const seeded = await seedDatabase(reset);
-  await backfillJobTitles();
   console.log(seeded ? '[db] 演示数据已写入' : '[db] 数据库已有数据，跳过播种（如需重置请用 npm run db:reset）');
   const attendanceSeeded = await seedAttendanceIfEmpty();
   if (attendanceSeeded) console.log('[db] 演示考勤已生成');
@@ -20,6 +19,7 @@ async function main(): Promise<void> {
   if (adminSeeded) console.log('[admin] 已创建默认管理员');
   const backfilled = await backfillEmployeeJobCategories();
   if (backfilled) console.log(`[db] 已补齐 ${backfilled} 名员工的职位分类`);
+  await backfillJobTitles();
   await closePool();
 }
 
