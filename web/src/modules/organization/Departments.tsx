@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Avatar, Button, Card, Form, Input, List, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { App, Avatar, Button, Form, Input, List, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { PageTitle } from '../../components/PageTitle';
+import { PlusOutlined } from '@ant-design/icons';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
 import { createJobTitle, deleteJobTitle, fetchJobTitles, type JobTitle, type JobTitleEmployee } from './api';
+import './organization.css';
 
 export function DepartmentsPage() {
   const { message } = App.useApp();
@@ -43,11 +43,14 @@ export function DepartmentsPage() {
     catch (error) { message.error((error as Error).message); }
     finally { setDeletingId(undefined); }
   };
-  return <div className="page-stack">
-    <PageTitle title="组织架构" extra={<Button type="primary" icon={<EditOutlined />} onClick={() => setOpen(true)}>编辑</Button>} />
-    <Card className="panel-card" bordered={false} extra={<Select aria-label="筛选职务" allowClear placeholder="全部职务" value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} style={{ minWidth: 180 }} />}>
+  return <section className="organization-page" aria-label="组织架构">
+    <div className="organization-toolbar">
+      <Select aria-label="筛选职务" allowClear placeholder="全部职务" variant="borderless" value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} className="organization-filter" />
+      <button type="button" className="organization-toolbar-action" onClick={() => setOpen(true)}>编辑</button>
+    </div>
+    <div className="organization-table">
       <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ pageSize: 15, showSizeChanger: true, showTotal: total => `共 ${total} 人` }} scroll={{ x: 850 }} />
-    </Card>
+    </div>
     <Modal title="编辑职务" open={open} onCancel={() => { setOpen(false); form.resetFields(); }} footer={<Button onClick={() => { setOpen(false); form.resetFields(); }}>关闭</Button>} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={add}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -65,5 +68,5 @@ export function DepartmentsPage() {
         renderItem={title => <List.Item actions={[<Popconfirm key="delete" title={`删除职务“${title.name}”？`} onConfirm={() => remove(title)} okText="删除" cancelText="取消" okButtonProps={{ loading: deletingId === title.id }}><Button type="link" danger aria-label={`删除${title.name}`} disabled={saving || deletingId !== undefined}>删除</Button></Popconfirm>]}><span>{title.name}（{title.count}）</span></List.Item>}
       />
     </Modal>
-  </div>;
+  </section>;
 }
