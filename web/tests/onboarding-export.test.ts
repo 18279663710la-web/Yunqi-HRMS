@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import ExcelJS from 'exceljs';
-import { createOnboardingWorkbook } from '../src/utils/onboardingExcel';
+import { createOnboardingWorkbook } from '../src/modules/models-formulas/onboarding-template/onboardingExcel';
 
 test('导出工作簿包含普通字段、单选、表格子字段和固定声明签名区域', async () => {
   const workbook = createOnboardingWorkbook('入职表', [

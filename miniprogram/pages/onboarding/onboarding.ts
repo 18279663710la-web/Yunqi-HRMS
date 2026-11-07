@@ -1,7 +1,11 @@
-import { get, post } from '../../utils/request';
+import { get, post, upload } from '../../utils/request';
 import type { InputEvent, TapEvent } from '../../types/ui';
 
-interface OnboardingField { name: string; type: 'text' | 'number' | 'date' | 'select' | 'table'; required: boolean; maxLength?: number; min?: number; max?: number; options?: string[]; value: string; valueIndex?: number; children?: OnboardingField[]; rows?: { id: string; values: Record<string, string>; indexes?: Record<string, number> }[] }
+interface AttachmentRef { id: string; name: string; size: number }
+interface OnboardingField { name: string; type: 'text' | 'number' | 'date' | 'select' | 'attachment' | 'table'; required: boolean; maxLength?: number; min?: number; max?: number; options?: string[]; value: string; valueIndex?: number; files?: AttachmentRef[]; children?: OnboardingField[]; rows?: { id: string; values: Record<string, string>; indexes?: Record<string, number>; files?: Record<string, AttachmentRef[]> }[] }
+function previousFiles(value: unknown): AttachmentRef[] {
+  return Array.isArray(value) ? value.filter((file): file is AttachmentRef => !!file && typeof file === 'object' && typeof file.id === 'string' && typeof file.name === 'string' && typeof file.size === 'number').slice(0, 5) : [];
+}
 function compatiblePreviousValue(field: OnboardingField, value: unknown): string {
   if (typeof value !== 'string' && typeof value !== 'number') return '';
   const text = String(value);
@@ -17,7 +21,7 @@ function compatiblePreviousValue(field: OnboardingField, value: unknown): string
 }
 interface PendingOnboarding { id: number; expectedDate: string; template: OnboardingField[]; declaration: string; previous?: { values?: Record<string, unknown>; photo?: string } | null }
 interface FormData {
-  onboarding: PendingOnboarding | null; loading: boolean; loadError: boolean; onboardingSaving: boolean;
+  onboarding: PendingOnboarding | null; loading: boolean; loadError: boolean; onboardingSaving: boolean; onboardingUploading: boolean;
   onboardingHasPhoto: boolean; onboardingPhotoPreview: string; onboardingSignature: string; onboardingSignaturePreview: string;
   declarationAccepted: boolean;
 }
@@ -25,9 +29,10 @@ interface FormMethods {
   onboardingPhotoValue?: string;
   loadOnboarding(): Promise<void>; changeOnboarding(e: InputEvent): void; selectOnboarding(e: InputEvent): void; addOnboardingRow(e: TapEvent): void; removeOnboardingRow(e: TapEvent): void;
   changeOnboardingCell(e: InputEvent): void; selectOnboardingCell(e: InputEvent): void; chooseOnboardingPhoto(): void; openSignature(): void; toggleDeclaration(e: WechatMiniprogram.CustomEvent<{ value: string[] }>): void; submitOnboarding(): Promise<void>;
+  chooseAttachment(e: TapEvent): void; removeAttachment(e: TapEvent): void;
 }
 Page<FormData, FormMethods>({
-  data: { onboarding: null, loading: true, loadError: false, onboardingSaving: false, onboardingHasPhoto: false, onboardingPhotoPreview: '', onboardingSignature: '', onboardingSignaturePreview: '', declarationAccepted: false },
+  data: { onboarding: null, loading: true, loadError: false, onboardingSaving: false, onboardingUploading: false, onboardingHasPhoto: false, onboardingPhotoPreview: '', onboardingSignature: '', onboardingSignaturePreview: '', declarationAccepted: false },
   onLoad() { void this.loadOnboarding(); },
   async loadOnboarding() {
     this.setData({ loading: true, loadError: false });
@@ -39,17 +44,19 @@ Page<FormData, FormMethods>({
         const value = values[f.name];
         if (f.type === 'table') {
           const rows = Array.isArray(value) ? value.map((raw, index) => {
-            const rowValues: Record<string, string> = {}; const indexes: Record<string, number> = {};
+            const rowValues: Record<string, string> = {}; const indexes: Record<string, number> = {}; const files: Record<string, AttachmentRef[]> = {};
             for (const child of f.children || []) {
               const item = raw && typeof raw === 'object' ? raw[child.name] : undefined;
+              if (child.type === 'attachment') { files[child.name] = previousFiles(item); continue; }
               const compatible = compatiblePreviousValue(child, item);
               if (compatible) rowValues[child.name] = compatible;
               if (child.type === 'select') indexes[child.name] = Math.max(0, (child.options || []).indexOf(rowValues[child.name]));
             }
-            return { id: `previous-${index}`, values: rowValues, indexes };
+            return { id: `previous-${index}`, values: rowValues, indexes, files };
           }) : [];
           return { ...f, value: '', rows };
         }
+        if (f.type === 'attachment') return { ...f, value: '', files: previousFiles(value) };
         const text = compatiblePreviousValue(f, value);
         return { ...f, value: text, valueIndex: f.type === 'select' ? Math.max(0, (f.options || []).indexOf(text)) : undefined };
       });
@@ -77,7 +84,7 @@ Page<FormData, FormMethods>({
   addOnboardingRow(e: TapEvent) {
     const onboarding = this.data.onboarding; const field = onboarding?.template[Number(e.currentTarget.dataset.index)];
     if (!onboarding || !field || field.type !== 'table' || (field.rows?.length || 0) >= 50) return;
-    field.rows = [...(field.rows || []), { id: `${Date.now()}-${Math.random()}`, values: {}, indexes: {} }]; this.setData({ onboarding });
+    field.rows = [...(field.rows || []), { id: `${Date.now()}-${Math.random()}`, values: {}, indexes: {}, files: {} }]; this.setData({ onboarding });
   },
   removeOnboardingRow(e: TapEvent) {
     const onboarding = this.data.onboarding; const field = onboarding?.template[Number(e.currentTarget.dataset.index)];
@@ -97,6 +104,62 @@ Page<FormData, FormMethods>({
     const optionIndex = Number(e.detail.value); const option = child.options?.[optionIndex];
     if (option === undefined) return;
     row.values[child.name] = option; row.indexes = row.indexes || {}; row.indexes[child.name] = optionIndex; this.setData({ onboarding });
+  },
+  chooseAttachment(e: TapEvent) {
+    if (this.data.onboardingUploading || this.data.onboardingSaving) return;
+    const fieldIndex = Number(e.currentTarget.dataset.index);
+    const rowIndex = e.currentTarget.dataset.row === undefined ? -1 : Number(e.currentTarget.dataset.row);
+    const childIndex = e.currentTarget.dataset.child === undefined ? -1 : Number(e.currentTarget.dataset.child);
+    const field = this.data.onboarding?.template[fieldIndex];
+    const row = rowIndex >= 0 ? field?.rows?.[rowIndex] : undefined;
+    const child = childIndex >= 0 ? field?.children?.[childIndex] : undefined;
+    if (!field || (rowIndex >= 0 ? !row || child?.type !== 'attachment' : field.type !== 'attachment')) return;
+    const current = row && child ? row.files?.[child.name] || [] : field.files || [];
+    const remaining = 5 - current.length;
+    if (remaining <= 0) { wx.showToast({ title: '每个字段最多上传 5 个附件', icon: 'none' }); return; }
+    const rowId = row?.id; const fieldName = field.name; const childName = child?.name;
+    const processFiles = async (files: Array<{ path: string; name: string; size: number }>) => {
+      this.setData({ onboardingUploading: true });
+      try {
+        for (const file of files.slice(0, remaining)) {
+          if (!file.size || file.size > 10 * 1024 * 1024) { wx.showToast({ title: '单个附件不能超过 10MB', icon: 'none' }); continue; }
+          const formData: Record<string, string> = { field: fieldName, filename: file.name };
+          if (childName) formData.child = childName;
+          const saved = await upload<AttachmentRef>({ url: '/onboarding-form/attachments', filePath: file.path, name: 'file', formData });
+          const onboarding = this.data.onboarding; const target = onboarding?.template.find(item => item.name === fieldName);
+          if (!onboarding || !target) continue;
+          if (rowId && childName) {
+            const targetRow = target.rows?.find(item => item.id === rowId);
+            if (!targetRow) continue;
+            targetRow.files = targetRow.files || {}; targetRow.files[childName] = [...(targetRow.files[childName] || []), saved];
+          } else target.files = [...(target.files || []), saved];
+          this.setData({ onboarding });
+        }
+      } catch { /* 请求层负责提示 */ }
+      finally { this.setData({ onboardingUploading: false }); }
+    };
+    wx.showActionSheet({ itemList: ['从相册选择', '拍照', '从聊天记录选择'], success: choice => {
+      if (choice.tapIndex === 2) {
+        wx.chooseMessageFile({ count: remaining, type: 'all', success: result => {
+          void processFiles(result.tempFiles.map(file => ({ path: file.path, name: file.name, size: file.size })));
+        } });
+      } else {
+        wx.chooseMedia({ count: choice.tapIndex === 1 ? 1 : remaining, mediaType: ['image'], sourceType: [choice.tapIndex === 1 ? 'camera' : 'album'], success: result => {
+          void processFiles(result.tempFiles.map((file, index) => ({ path: file.tempFilePath, name: `图片-${Date.now()}-${index + 1}.${file.tempFilePath.split('.').pop()?.split('?')[0] || 'jpg'}`, size: file.size })));
+        } });
+      }
+    } });
+  },
+  removeAttachment(e: TapEvent) {
+    const onboarding = this.data.onboarding; const field = onboarding?.template[Number(e.currentTarget.dataset.index)];
+    if (!onboarding || !field || this.data.onboardingUploading) return;
+    const id = String(e.currentTarget.dataset.id || '');
+    if (e.currentTarget.dataset.row !== undefined) {
+      const row = field.rows?.[Number(e.currentTarget.dataset.row)]; const child = field.children?.[Number(e.currentTarget.dataset.child)];
+      if (!row || !child || !row.files) return;
+      row.files[child.name] = (row.files[child.name] || []).filter(file => file.id !== id);
+    } else field.files = (field.files || []).filter(file => file.id !== id);
+    this.setData({ onboarding });
   },
   chooseOnboardingPhoto() {
     wx.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'], success: result => {
@@ -119,15 +182,16 @@ Page<FormData, FormMethods>({
   toggleDeclaration(e) { this.setData({ declarationAccepted: e.detail.value.includes('accepted') }); },
   async submitOnboarding() {
     const onboarding = this.data.onboarding;
-    if (!onboarding || this.data.onboardingSaving) return;
-    const answers: Record<string, string | number | Record<string, string | number>[]> = {};
+    if (!onboarding || this.data.onboardingSaving || this.data.onboardingUploading) return;
+    const answers: Record<string, string | number | AttachmentRef[] | Record<string, string | number | AttachmentRef[]>[]> = {};
     for (const field of onboarding.template) {
       if (field.type === 'table') {
         const rows = field.rows || []; if (!rows.length && field.required) { wx.showToast({ title: `请填写${field.name}`, icon: 'none' }); return; }
-        const result: Record<string, string | number>[] = [];
+        const result: Record<string, string | number | AttachmentRef[]>[] = [];
         for (const row of rows) {
-          const output: Record<string, string | number> = {};
+          const output: Record<string, string | number | AttachmentRef[]> = {};
           for (const child of field.children || []) {
+            if (child.type === 'attachment') { const files = row.files?.[child.name] || []; if (!files.length && child.required) { wx.showToast({ title: `请上传${child.name}`, icon: 'none' }); return; } if (files.length) output[child.name] = files; continue; }
             const cell = (row.values[child.name] || '').trim();
             if (!cell) { if (child.required) { wx.showToast({ title: `请填写${child.name}`, icon: 'none' }); return; } continue; }
             if (child.type === 'number') { const n = Number(cell); if (!Number.isFinite(n)) { wx.showToast({ title: `${child.name}需填写数字`, icon: 'none' }); return; } output[child.name] = n; }
@@ -139,6 +203,7 @@ Page<FormData, FormMethods>({
         if (result.length) answers[field.name] = result;
         continue;
       }
+      if (field.type === 'attachment') { const files = field.files || []; if (!files.length && field.required) { wx.showToast({ title: `请上传${field.name}`, icon: 'none' }); return; } if (files.length) answers[field.name] = files; continue; }
       const value = field.value.trim();
       if (!value) { if (field.required) { wx.showToast({ title: `请填写${field.name}`, icon: 'none' }); return; } continue; }
       if (field.type === 'number') { const n = Number(value); if (!Number.isFinite(n)) { wx.showToast({ title: `${field.name}需填写数字`, icon: 'none' }); return; } answers[field.name] = n; }

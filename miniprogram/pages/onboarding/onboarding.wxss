@@ -51,3 +51,9 @@ page { background: #f5f7fb; }
 .onboarding-status { padding: 56rpx 32rpx; color: #718096; text-align: center; line-height: 1.6; }
 .onboarding-retry { margin-top: 24rpx; }
 @media (max-height: 600px) { .onboarding-fields { height: 0; } }
+.onboarding-attachments { display: flex; flex-direction: column; align-items: flex-start; gap: 12rpx; }
+.onboarding-attachment { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 14rpx 18rpx; box-sizing: border-box; background: #f5f7fb; border-radius: 12rpx; }
+.onboarding-attachment-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 25rpx; color: #36465f; }
+.onboarding-attachment-remove { margin: 0; padding: 0 14rpx; color: #e15454; background: transparent; font-size: 23rpx; }
+.onboarding-attachment-remove::after { border: 0; }
+.onboarding-attachment-hint { color: #929eae; font-size: 22rpx; }

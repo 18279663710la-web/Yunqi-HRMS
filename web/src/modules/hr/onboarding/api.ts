@@ -1,6 +1,6 @@
 export const ONBOARDING_FORM_URL = '/admin/onboarding-form';
 
-export type FieldType = 'text' | 'number' | 'date' | 'select' | 'table';
+export type FieldType = 'text' | 'number' | 'date' | 'select' | 'attachment' | 'table';
 
 export interface Field {
   name: string;

@@ -3,7 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import { App } from 'antd';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { OnboardingForms } from '../src/pages/OnboardingForms';
+import { OnboardingForms } from '../src/modules/hr/onboarding/OnboardingForms';
 
 test('入职管理只保留入职申请，不再展示入职申请表设置', () => {
   const html = renderToStaticMarkup(<App><OnboardingForms /></App>);

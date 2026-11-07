@@ -4,9 +4,10 @@ import { badRequest } from '../../shared/utils/errors';
 
 const scalarField = z.object({ name: z.string().trim().min(1).max(30), type: z.enum(['text', 'number', 'date']), required: z.boolean(), maxLength: z.number().int().min(1).max(500).optional(), min: z.number().finite().optional(), max: z.number().finite().optional() }).refine(v => v.min === undefined || v.max === undefined || v.min <= v.max, '最小值不能大于最大值');
 const selectField = z.object({ name: z.string().trim().min(1).max(30), type: z.literal('select'), required: z.boolean(), options: z.array(z.string().trim().min(1).max(50)).min(1).max(30).refine(options => new Set(options).size === options.length, '选项不能重复') });
-const childField = z.union([scalarField, selectField]);
+const attachmentField = z.object({ name: z.string().trim().min(1).max(30), type: z.literal('attachment'), required: z.boolean() });
+const childField = z.union([scalarField, selectField, attachmentField]);
 const tableField = z.object({ name: z.string().trim().min(1).max(30), type: z.literal('table'), required: z.boolean(), children: z.array(childField).min(1).max(30).refine(fields => new Set(fields.map(f => f.name)).size === fields.length, '子字段名称不能重复') });
-const field = z.union([scalarField, selectField, tableField]);
+const field = z.union([scalarField, selectField, attachmentField, tableField]);
 export const formTemplateSchema = z.array(field).min(1).max(30).refine(fields => new Set(fields.map(f => f.name)).size === fields.length, '字段名称不能重复');
 export const templateNameSchema = z.string().trim().min(1, '请填写模板名称').max(50, '模板名称不能超过 50 个字符');
 export type FormField = z.infer<typeof field>;
@@ -31,7 +32,8 @@ export function validateOnboardingAttachments(photo: unknown, signature: unknown
   };
   return { photo: check(photo, '照片', ['jpeg', 'png']), signature: check(signature, '签名', ['png']) };
 }
-export type AnswerValue = string | number | Record<string, string | number>[];
+export type AttachmentRef = { id: string; name: string; size: number };
+export type AnswerValue = string | number | AttachmentRef[] | Record<string, string | number | AttachmentRef[]>[];
 export type AnswerValues = Record<string, AnswerValue>;
 export type AnswerChange =
   | { kind: 'field'; field: string; before?: string | number; after?: string | number }
@@ -88,9 +90,16 @@ export function validateAnswers(fields: FormField[], raw: unknown): Record<strin
   for (const f of fields) {
     const value = input[f.name];
     if (value === undefined || value === null || value === '') { if (f.required) throw badRequest(`请填写${f.name}`); continue; }
+    if (f.type === 'attachment') {
+      const item = z.object({ id: z.string().uuid(), name: z.string().min(1).max(255), size: z.number().int().positive().max(10 * 1024 * 1024) }).strict();
+      const parsed = z.array(item).max(5).safeParse(value);
+      if (!parsed.success || (f.required && parsed.data.length === 0) || new Set(parsed.data.map(v => v.id)).size !== parsed.data.length) throw badRequest(`${f.name}附件无效`);
+      if (parsed.data.length) result[f.name] = parsed.data;
+      continue;
+    }
     if (f.type === 'table') {
       if (!Array.isArray(value) || value.length > 50 || (f.required && value.length === 0)) throw badRequest(`${f.name}需要填写有效的表格内容`);
-      result[f.name] = value.map(row => validateAnswers(f.children, row) as Record<string, string | number>);
+      result[f.name] = value.map(row => validateAnswers(f.children, row) as Record<string, string | number | AttachmentRef[]>);
       continue;
     }
     if (f.type === 'select') {

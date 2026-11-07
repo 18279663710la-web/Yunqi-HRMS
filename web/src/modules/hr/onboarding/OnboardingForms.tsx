@@ -5,10 +5,10 @@ import dayjs from 'dayjs';
 import { request } from '../../../api/client';
 import { getOnboardingRecords, type OnboardingRecord } from '../api';
 import { ONBOARDING_FORM_URL, type Field } from './api';
+import { OnboardingAnswer } from './OnboardingSubmission';
 
 type Candidate = { id: string; name: string; employeeNo: string; loginName: string };
-type AnswerValue = string | number | Record<string, string | number>[];
-type AnswerValues = Record<string, AnswerValue>;
+type AnswerValues = Record<string, unknown>;
 type Application = { id: number; name: string; employeeNo: string; loginName: string; expectedDate: string; createdAt: string; submittedAt: string | null; archivedAt: string | null; template: Field[]; answers: AnswerValues | null; photo?: string | null; signature?: string | null; declaration?: string | null; declarationAccepted?: boolean | null };
 type Change =
   | { kind: 'field'; field: string; before?: string | number; after?: string | number }
@@ -109,7 +109,7 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
         <Button onClick={() => setDetail(undefined)}>关闭</Button>
       </div> : null}>
       {detail && !detail.submittedAt && detail.answers && <Tag color="orange" style={{ marginBottom: 16 }}>已打回，等待员工重新提交；可在填写历史中查看上次提交内容</Tag>}
-      {detail && (detail.submittedAt && detail.answers ? detail.template.map(f => { const value = detail.answers?.[f.name]; return <div key={f.name} style={{ marginBottom: 12 }}><b>{f.name}：</b>{Array.isArray(value) ? value.length ? <Table size="small" rowKey={(_, i) => String(i)} dataSource={value} pagination={false} scroll={{ x: true }} columns={(f.children || []).map(child => ({ title: child.name, dataIndex: child.name, render: (item: string | number | undefined) => item ?? '—' }))} /> : '未填写' : value ?? '未填写'}</div>; }) : <Typography.Text type="secondary">员工尚未提交入职信息。</Typography.Text>)}
+      {detail && (detail.submittedAt && detail.answers ? detail.template.map(f => <div key={f.name} style={{ marginBottom: 12 }}><b>{f.name}：</b><OnboardingAnswer field={f} value={detail.answers?.[f.name]} /></div>) : <Typography.Text type="secondary">员工尚未提交入职信息。</Typography.Text>)}
       {detail?.submittedAt && detail.answers && <Space direction="vertical"><div><b>照片：</b>{detail.photo ? <img src={detail.photo} alt="员工照片" style={{ maxWidth: 150, maxHeight: 150, verticalAlign: 'top' }} /> : '未填写'}</div><div><b>签名：</b>{detail.signature ? <img src={detail.signature} alt="员工手写签名" style={{ maxWidth: 280, maxHeight: 150, verticalAlign: 'top', border: '1px solid #eee' }} /> : '未填写'}</div></Space>}
       {detail?.submittedAt && detail.declaration && <div style={{ marginTop: 16 }}><b>声明：</b><p>{detail.declaration}</p><p>{detail.declarationAccepted ? '员工已勾选确认' : '员工未勾选确认'}</p></div>}
     </Modal>
@@ -120,7 +120,7 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
             const payload = entry.answers as { __onboardingFormat?: number; values?: AnswerValues; photo?: string; signature?: string; declaration?: string; declarationAccepted?: boolean };
             const values = payload.__onboardingFormat === 2 ? payload.values ?? {} : entry.answers as AnswerValues;
             return <Card key={`submission-${entry.id}`} size="small" title={`提交于 ${dayjs(entry.submittedAt).format('YYYY-MM-DD HH:mm:ss')}`} extra={<Typography.Text type="secondary">{entry.adminName} · {dayjs(entry.returnedAt).format('YYYY-MM-DD HH:mm:ss')} 打回</Typography.Text>}>
-              {entry.template.map(field => { const value = values[field.name]; return <div key={field.name} style={{ marginBottom: 8 }}><b>{field.name}：</b>{Array.isArray(value) ? value.length ? <Table size="small" rowKey={(_, index) => String(index)} dataSource={value} pagination={false} scroll={{ x: true }} columns={(field.children || []).map(child => ({ title: child.name, dataIndex: child.name, render: (item: string | number | undefined) => item ?? '—' }))} /> : '未填写' : value ?? '未填写'}</div>; })}
+              {entry.template.map(field => <div key={field.name} style={{ marginBottom: 8 }}><b>{field.name}：</b><OnboardingAnswer field={field} value={values[field.name]} /></div>)}
               {payload.__onboardingFormat === 2 && <Space direction="vertical"><div><b>照片：</b>{payload.photo ? <img src={payload.photo} alt="历史员工照片" style={{ maxWidth: 150, maxHeight: 150, verticalAlign: 'top' }} /> : '未填写'}</div><div><b>签名：</b>{payload.signature ? <img src={payload.signature} alt="历史员工签名" style={{ maxWidth: 280, maxHeight: 150, verticalAlign: 'top' }} /> : '未填写'}</div>{payload.declaration && <div><b>声明：</b><p>{payload.declaration}</p><p>{payload.declarationAccepted ? '员工已勾选确认' : '员工未勾选确认'}</p></div>}</Space>}
             </Card>;
           })}

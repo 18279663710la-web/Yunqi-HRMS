@@ -99,6 +99,17 @@ CREATE TABLE IF NOT EXISTS `hr_self_onboarding` (
   UNIQUE KEY `uk_self_onboarding_employee` (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `hr_onboarding_attachments` (
+  `id` CHAR(36) PRIMARY KEY,
+  `onboarding_id` BIGINT NOT NULL,
+  `field_key` VARCHAR(255) NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `file_size` INT NOT NULL,
+  `file_data` LONGBLOB NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  KEY `idx_onboarding_attachment_application` (`onboarding_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `hr_onboarding_form_templates` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `name` VARCHAR(50) NOT NULL DEFAULT '',

@@ -2,11 +2,11 @@
 
 ## 职责
 
-入职表字段、声明、员工填写规则及本人提交的数据访问。
+入职表字段、附件、声明、员工填写规则及本人提交的数据访问。
 
 ## 主要内容
 
-- 主要文件：`employeeOnboardingRepository.ts`、`employeeOnboardingService.ts`、`onboardingDeclaration.ts`、`onboardingForm.ts`、`paperOnboardingTemplate.ts`。
+- 主要文件：`employeeOnboardingRepository.ts`、`employeeOnboardingService.ts`、`onboardingDeclaration.ts`、`onboardingForm.ts`、`onboardingFiles.ts`、`paperOnboardingTemplate.ts`。
 
 ## 维护约束
 

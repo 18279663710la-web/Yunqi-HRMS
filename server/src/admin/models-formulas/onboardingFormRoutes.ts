@@ -19,6 +19,7 @@ import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 import { success } from '../../shared/utils/response';
 import type { AdminUser } from '../../shared/types/admin';
+import { getOnboardingFile } from '../../domains/onboarding/onboardingFiles';
 
 const decode = (x: unknown) => typeof x === 'string' ? JSON.parse(x) : x;
 const templateIdSchema = z.coerce.number().int().positive().max(2147483647);
@@ -30,7 +31,7 @@ type TemplateRow = { id: number; name: string; fields_json: unknown; version: nu
 type TemplateSnapshot = { name: string; fields: FormField[] };
 type TemplateChange = { label: string; before?: unknown; after?: unknown };
 
-const typeLabels: Record<FormField['type'], string> = { text: '字符串', number: '数字', date: '日期', select: '单选', table: '表格' };
+const typeLabels: Record<FormField['type'], string> = { text: '字符串', number: '数字', date: '日期', select: '单选', attachment: '附件', table: '表格' };
 const fieldTitle = (field: FormField) => `${field.name}（${typeLabels[field.type]}）`;
 const fieldMaxLength = (field: FormField) => field.type === 'text' || field.type === 'date' ? field.maxLength : undefined;
 const fieldMin = (field: FormField) => field.type === 'number' ? field.min : undefined;
@@ -154,6 +155,13 @@ async function recordTemplateHistory(conn: PoolConnection, input: {
 
 const admin = Router();
 admin.use(requireAdmin, requireSuperAdmin);
+admin.get('/attachments/:id', asyncHandler(async (req, res) => {
+  const id = parse(z.string().uuid(), req.params.id);
+  const file = await getOnboardingFile(id);
+  const encoded = encodeURIComponent(file.file_name).replace(/['()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="attachment"; filename*=UTF-8''${encoded}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.send(file.file_data);
+}));
 admin.get('/template', asyncHandler(async (_req, res) => {
   const row = await queryOne<{ value_json: unknown }>("SELECT value_json FROM hr_settings WHERE setting_key = 'self_onboarding_template'");
   success(res, row ? decode(row.value_json) : defaultTemplate);

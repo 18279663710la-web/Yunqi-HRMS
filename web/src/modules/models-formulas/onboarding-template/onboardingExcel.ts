@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 
-export type ExportField = { name: string; type: 'text' | 'number' | 'date' | 'select' | 'table'; required: boolean; maxLength?: number; min?: number; max?: number; options?: string[]; children?: ExportField[] };
+export type ExportField = { name: string; type: 'text' | 'number' | 'date' | 'select' | 'attachment' | 'table'; required: boolean; maxLength?: number; min?: number; max?: number; options?: string[]; children?: ExportField[] };
 const declaration = '本人保证所填写的上述信息真实、准确。如因提供虚假或遗漏相关信息导致用人单位误解而与本人签订劳动合同的，在试用期内，用人单位可以本人不符合录用条件而解除劳动合同；在试用期过后劳动合同期限内，用人单位可以因本人严重违反用人单位的规章制度而与本人解除劳动合同关系。';
 const border: Partial<ExcelJS.Borders> = { top: { style: 'thin', color: { argb: 'FFB6C3D4' } }, bottom: { style: 'thin', color: { argb: 'FFB6C3D4' } }, left: { style: 'thin', color: { argb: 'FFB6C3D4' } }, right: { style: 'thin', color: { argb: 'FFB6C3D4' } } };
 
@@ -20,7 +20,7 @@ export function createOnboardingWorkbook(name: string, fields: ExportField[]): E
     return target;
   };
   const label = (f: ExportField) => `${f.name}${f.required ? ' *' : ''}`;
-  const note = (f: ExportField) => [f.required ? '必填' : '选填', f.type === 'select' ? `选项：${(f.options ?? []).join('、')}` : '', f.type === 'text' && f.maxLength ? `最多 ${f.maxLength} 个字符` : '', f.type === 'number' && f.min !== undefined ? `最小值：${f.min}` : '', f.type === 'number' && f.max !== undefined ? `最大值：${f.max}` : '', f.type === 'date' ? '请填写日期' : ''].filter(Boolean).join('；');
+  const note = (f: ExportField) => [f.required ? '必填' : '选填', f.type === 'select' ? `选项：${(f.options ?? []).join('、')}` : '', f.type === 'attachment' ? '通过小程序上传附件' : '', f.type === 'text' && f.maxLength ? `最多 ${f.maxLength} 个字符` : '', f.type === 'number' && f.min !== undefined ? `最小值：${f.min}` : '', f.type === 'number' && f.max !== undefined ? `最大值：${f.max}` : '', f.type === 'date' ? '请填写日期' : ''].filter(Boolean).join('；');
   cell(row, 1, columns, name, true).font = { name: '微软雅黑', size: 16, bold: true, color: { argb: 'FF203858' } }; sheet.getRow(row++).height = 36;
   cell(row, 1, 2, '照片', true); cell(row, 3, columns, ''); sheet.getRow(row++).height = 54;
   for (const field of fields) {
