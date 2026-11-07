@@ -11,6 +11,7 @@ export interface PayrollExportData {
   rows: PayrollExportCell[][];
   totals: number[];
   totalColumnIndexes?: number[];
+  alignTotalHeaders?: boolean;
 }
 
 /** 使用当前页面显示的模型顺序和已保存的明细快照。 */

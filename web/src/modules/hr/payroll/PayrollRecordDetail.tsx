@@ -11,6 +11,7 @@ const format = (value: PayrollExportCell) => typeof value === 'number' ? value.t
 export function PayrollRecordSheet({ data }: { data: PayrollExportData }) {
   const last = data.headers.length - 1;
   const indexes = data.totalColumnIndexes ?? [last];
+  const headerFieldCount = data.alignTotalHeaders ? data.headers.length : last;
   const labelColumns = Math.min(3, last);
   const summary: Array<{ key: number; span: number; value: string | number }> = [];
   for (let index = labelColumns; index < data.headers.length;) {
@@ -26,9 +27,9 @@ export function PayrollRecordSheet({ data }: { data: PayrollExportData }) {
     <table className="payroll-record-sheet">
       <caption>{data.title}</caption>
       <thead>
-        <tr><th colSpan={last}>{data.periodLabel}</th><th rowSpan={3}>{data.headers[last]}</th></tr>
-        <tr>{data.headers.slice(0, last).map((name, index) => <th key={index} rowSpan={data.columnNumbers[index] ? 1 : 2}>{name}</th>)}</tr>
-        <tr>{data.headers.slice(0, last).map((_, index) => data.columnNumbers[index] ? <th key={index}>{data.columnNumbers[index]}</th> : null)}</tr>
+        <tr><th colSpan={headerFieldCount}>{data.periodLabel}</th>{!data.alignTotalHeaders && <th rowSpan={3}>{data.headers[last]}</th>}</tr>
+        <tr>{data.headers.slice(0, headerFieldCount).map((name, index) => <th key={index} rowSpan={data.columnNumbers[index] ? 1 : 2}>{name}</th>)}</tr>
+        <tr>{data.headers.slice(0, headerFieldCount).map((_, index) => data.columnNumbers[index] ? <th key={index}>{data.columnNumbers[index]}</th> : null)}</tr>
       </thead>
       <tbody>
         {data.rows.map((row, index) => <tr key={index}>{row.map((value, column) => <td key={column}>{format(value)}</td>)}</tr>)}

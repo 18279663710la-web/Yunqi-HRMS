@@ -19,9 +19,15 @@ test('工资发放输出包含全部补充项、应发和实发及各自合计',
   assert.equal(sheet.getCell('D3').value, '补扣');
   assert.equal(sheet.getCell('E3').value, '补贴');
   assert.equal(sheet.getCell('F3').value, '应发');
-  assert.equal(sheet.getCell('G2').value, '实发');
+  assert.equal(sheet.getCell('G2').master.address, 'A2');
+  assert.equal(sheet.getCell('G3').value, '实发');
+  assert.equal(sheet.getCell('F4').master.address, 'F3');
+  assert.equal(sheet.getCell('G4').master.address, 'G3');
   assert.equal(sheet.getCell('D5').value, 20);
   assert.equal(sheet.getCell('F6').value, 100.1);
   assert.equal(sheet.getCell('G6').value, 85.1);
-  assert.equal(buildPayrollPdfLayout(sheet).widths.length, 7);
+  const layout = buildPayrollPdfLayout(sheet);
+  assert.equal(layout.widths.length, 7);
+  assert.ok(layout.merges.some(merge => merge.top === 3 && merge.bottom === 4 && merge.left === 6 && merge.right === 6));
+  assert.ok(layout.merges.some(merge => merge.top === 3 && merge.bottom === 4 && merge.left === 7 && merge.right === 7));
 });

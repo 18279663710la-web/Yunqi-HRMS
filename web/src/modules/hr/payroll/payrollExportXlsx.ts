@@ -11,14 +11,15 @@ export async function createPayrollWorkbook(data: PayrollExportData): Promise<Ex
   title.alignment = { horizontal: 'center', vertical: 'middle' };
   sheet.getRow(1).height = 36;
   const fieldCount = data.headers.length - 1;
-  if (fieldCount > 1) sheet.mergeCells(2, 1, 2, fieldCount);
+  const headerFieldCount = data.alignTotalHeaders ? data.headers.length : fieldCount;
+  if (headerFieldCount > 1) sheet.mergeCells(2, 1, 2, headerFieldCount);
   sheet.getCell(2, 1).value = data.periodLabel;
   sheet.getRow(2).height = 28;
   sheet.getRow(3).height = 30;
   sheet.getRow(4).height = 22;
   data.headers.forEach((name, index) => {
     const column = index + 1;
-    if (index >= fieldCount) { sheet.mergeCells(2, column, 4, column); sheet.getCell(2, column).value = name; }
+    if (index >= headerFieldCount) { sheet.mergeCells(2, column, 4, column); sheet.getCell(2, column).value = name; }
     else {
       sheet.getCell(3, column).value = name;
       if (data.columnNumbers[index]) sheet.getCell(4, column).value = data.columnNumbers[index];
