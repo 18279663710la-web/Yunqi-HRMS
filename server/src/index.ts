@@ -8,6 +8,7 @@ import { seedAttendanceIfEmpty } from './shared/db/attendanceSeed';
 import { ensureDefaultAdmin } from './admin/admin-accounts/adminAuthService';
 import { backfillEmployeeJobCategories } from './admin/employees/adminEmployeeService';
 import { startExpenseAiWorker } from './domains/approvals/expenseAiService';
+import { backfillJobTitles } from './domains/employees/jobTitleService';
 
 async function bootstrap(): Promise<void> {
   fs.mkdirSync(config.uploadDir, { recursive: true });
@@ -16,6 +17,7 @@ async function bootstrap(): Promise<void> {
     await ensureDatabase();
     await ensureSchema();
     const seeded = await seedDatabase(false);
+    await backfillJobTitles();
     if (seeded) console.log('[db] 首次启动：已写入演示数据');
     const attendanceSeeded = await seedAttendanceIfEmpty();
     if (attendanceSeeded) console.log('[db] 已生成演示考勤记录');

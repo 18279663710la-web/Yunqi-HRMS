@@ -16,6 +16,7 @@ import hrDisbursement from './hrDisbursementRoutes';
 import hrContractFiles from './hrContractFilesRoutes';
 import payrollWorkflow from '../models-formulas/payrollWorkflowRoutes';
 import salaryModels from '../models-formulas/salaryModelsRoutes';
+import { assertJobTitle } from '../../domains/employees/jobTitleService';
 
 const router = Router();
 router.use(requireAdmin, requireSuperAdmin);
@@ -86,7 +87,7 @@ router.get('/employees/:id/:section', asyncHandler(async (req, res) => {
   if (section === 'salary') {
     const data = (row ? json(row.data_json) : {}) as Record<string, unknown>;
     const model = await readSalaryModel();
-    const employee = await queryOne<{ position: string }>('SELECT position FROM employees WHERE id = ?', [req.params.id]);
+    const employee = await queryOne<{ position: string }>('SELECT COALESCE(t.name, e.position) AS position FROM employees e LEFT JOIN job_titles t ON t.name = TRIM(e.position) WHERE e.id = ?', [req.params.id]);
     success(res, { ...data, jobTitle: employee?.position ?? '', modelVersion: model.version, values: buildSalaryValues(data, model) });
     return;
   }
@@ -98,8 +99,11 @@ router.put('/employees/:id/:section', asyncHandler(async (req, res) => {
   if (section === 'profile') throw badRequest('个人信息来自已封存的入职申请，不允许修改');
   await employeeExists(req.params.id);
   let data = parse<Record<string, unknown>>(hrRecordSchemas[section], req.body);
+  const jobTitle = section === 'salary' && Object.hasOwn(req.body, 'jobTitle')
+    ? parse(z.string().trim().min(1).max(100), req.body.jobTitle) : undefined;
   const fallbackModel = section === 'salary' ? await readSalaryModel() : null;
   await transaction(async (conn) => {
+    if (jobTitle !== undefined) await assertJobTitle(conn, jobTitle);
     if (section === 'salary' && fallbackModel) {
       await conn.execute('INSERT INTO hr_settings (setting_key, value_json, updated_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key)', ['salary_component_model', JSON.stringify(fallbackModel)]);
       const model = await readSalaryModel(conn, true);
@@ -110,6 +114,7 @@ router.put('/employees/:id/:section', asyncHandler(async (req, res) => {
       }
     }
     await conn.query('SELECT id FROM employees WHERE id = ? FOR UPDATE', [req.params.id]);
+    if (jobTitle !== undefined) await conn.execute('UPDATE employees SET position = ? WHERE id = ?', [jobTitle, req.params.id]);
     if (section === 'contract' || section === 'salary') {
       const [old] = await conn.query<RowDataPacket[]>('SELECT data_json, updated_at FROM hr_employee_records WHERE employee_id = ? AND section = ?', [req.params.id, section]);
       if (section === 'salary' && !Object.hasOwn(req.body, 'attendanceRules')) {
@@ -122,7 +127,7 @@ router.put('/employees/:id/:section', asyncHandler(async (req, res) => {
     }
     await conn.execute('INSERT INTO hr_employee_records (employee_id, section, data_json, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE data_json = VALUES(data_json), updated_at = NOW()', [req.params.id, section, JSON.stringify(data)]);
   });
-  await recordAdminLog(req.admin!, '修改人事资料', 'hr_employee_records', req.params.id, { section });
+  await recordAdminLog(req.admin!, '修改人事资料', 'hr_employee_records', req.params.id, { section, ...(jobTitle === undefined ? {} : { jobTitle }) });
   success(res, data);
 }));
 export default router;

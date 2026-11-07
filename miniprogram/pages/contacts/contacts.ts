@@ -1,12 +1,11 @@
 import * as contactsApi from '../../services/contacts/api';
-import type { DepartmentFlat, EmployeeGroup } from '../../types/models';
+import type { EmployeeGroup } from '../../types/models';
 import { getCustomTabBar, type InputEvent, type TapEvent } from '../../types/ui';
 import { toast } from '../../utils/util';
 
 interface ContactsData {
-  departments: DepartmentFlat[];
-  activeDept: string;
-  activeDeptName: string;
+  jobTitles: contactsApi.JobTitle[];
+  activeJobTitle: string;
   keyword: string;
   groups: EmployeeGroup[];
   letters: string[];
@@ -16,7 +15,7 @@ interface ContactsData {
 interface ContactsCustom {
   loadSeq: number;
   load(): Promise<void>;
-  onDept(e: TapEvent): void;
+  onJobTitle(e: TapEvent): void;
   onSearch(e: InputEvent): void;
   clearSearch(): void;
   onLetterTap(e: TapEvent): void;
@@ -26,9 +25,8 @@ interface ContactsCustom {
 
 Page<ContactsData, ContactsCustom>({
   data: {
-    departments: [],
-    activeDept: '',
-    activeDeptName: '全部同事',
+    jobTitles: [],
+    activeJobTitle: '',
     keyword: '',
     groups: [],
     letters: [],
@@ -37,20 +35,17 @@ Page<ContactsData, ContactsCustom>({
 
   loadSeq: 0,
 
-  async onLoad() {
-    try {
-      this.setData({ departments: await contactsApi.getDepartmentList() });
-    } catch {
-      // 请求层已提示
-    }
-  },
-
-  onShow() {
+  async onShow() {
     const tabBar = getCustomTabBar(this);
     if (tabBar) {
       tabBar.setData({ selected: 2 });
       tabBar.refreshBadge();
     }
+    try {
+      const jobTitles = await contactsApi.getJobTitles();
+      const activeJobTitle = jobTitles.some(title => title.name === this.data.activeJobTitle) ? this.data.activeJobTitle : '';
+      this.setData({ jobTitles, activeJobTitle });
+    } catch { /* 请求层已提示 */ }
     void this.load();
   },
 
@@ -58,7 +53,7 @@ Page<ContactsData, ContactsCustom>({
     const seq = ++this.loadSeq;
     try {
       const groups = await contactsApi.getEmployeeGroups({
-        deptId: this.data.activeDept,
+        jobTitle: this.data.activeJobTitle,
         keyword: this.data.keyword,
       });
       if (seq !== this.loadSeq) return; // 丢弃过期请求（快速输入时）
@@ -72,13 +67,9 @@ Page<ContactsData, ContactsCustom>({
     }
   },
 
-  onDept(e: TapEvent) {
-    const id = String(e.currentTarget.dataset.id || '');
-    const dept = this.data.departments.find((d) => d.id === id);
-    this.setData({
-      activeDept: id,
-      activeDeptName: dept ? dept.name : '全部同事',
-    });
+  onJobTitle(e: TapEvent) {
+    const name = String(e.currentTarget.dataset.name || '');
+    this.setData({ activeJobTitle: name });
     void this.load();
   },
 

@@ -35,6 +35,7 @@ export async function listTransitions(employeeId: string) {
 export async function submitTransition(input: Input, adminId: number) {
   if (input.effectiveDate > dateKey()) throw badRequest('异动生效日期未到，不能提交');
   return transaction(async (conn) => {
+    if (input.changes.position) await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [input.changes.position]);
     const [employees] = await conn.query<RowDataPacket[]>('SELECT position, level, job_category, dept_id FROM employees WHERE id = ? FOR UPDATE', [input.employeeId]);
     if (!employees.length) throw notFound('员工不存在');
     const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [input.employeeId]);
@@ -58,8 +59,10 @@ export async function submitTransition(input: Input, adminId: number) {
 
 export async function cancelTransition(id: string, adminId: number) {
   await transaction(async (conn) => {
-    const [identities] = await conn.query<RowDataPacket[]>('SELECT employee_id FROM hr_employee_transitions WHERE id = ?', [id]);
+    const [identities] = await conn.query<RowDataPacket[]>('SELECT employee_id, before_json FROM hr_employee_transitions WHERE id = ?', [id]);
     if (!identities.length) throw notFound('人事异动不存在');
+    const previousPosition = parseJson(identities[0].before_json).position;
+    if (previousPosition) await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [previousPosition]);
     const employeeId = String(identities[0].employee_id);
     const [employees] = await conn.query<RowDataPacket[]>('SELECT position, level, job_category, dept_id FROM employees WHERE id = ? FOR UPDATE', [employeeId]);
     if (!employees.length) throw notFound('员工不存在');

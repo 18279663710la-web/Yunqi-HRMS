@@ -7,7 +7,6 @@
       <text class="profile-leader-tag" wx:if="{{emp.isLeader}}">负责人</text>
     </view>
     <view class="profile-position">{{emp.position}}</view>
-    <view class="profile-dept">{{emp.deptFullName}}</view>
 
     <view class="profile-tags">
       <view class="profile-tag">工号 {{emp.employeeNo}}</view>
@@ -84,7 +83,7 @@
           <view class="avatar avatar-md">{{item.initial}}</view>
           <view class="emp-line-main">
             <view class="emp-line-name">{{item.name}}</view>
-            <view class="emp-line-meta ellipsis">{{item.deptName}} · {{item.position}}</view>
+            <view class="emp-line-meta ellipsis">{{item.position}}</view>
           </view>
           <view class="chevron"></view>
         </view>

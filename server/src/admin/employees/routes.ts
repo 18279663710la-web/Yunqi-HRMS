@@ -20,8 +20,24 @@ updateEmployee,
 upsertEmployeeAccount
 } from './adminEmployeeService';
 import { adminOf } from '../adminContext';
+import { createJobTitle, deleteJobTitle, listAdminJobTitles } from '../../domains/employees/jobTitleService';
+import { recordAdminLog } from '../../domains/audit/adminLogService';
 
 const router = Router();
+
+router.get('/job-titles', asyncHandler(async (_req, res) => { success(res, await listAdminJobTitles()); }));
+router.post('/job-titles', asyncHandler(async (req, res) => {
+  const { name } = parse(z.object({ name: z.string().trim().min(1).max(100) }), req.body);
+  const title = await createJobTitle(name);
+  await recordAdminLog(adminOf(req), '创建职务', 'job_title', String(title.id), { name });
+  success(res, title);
+}));
+router.delete('/job-titles/:id', asyncHandler(async (req, res) => {
+  const id = parse(z.coerce.number().int().positive().safe(), req.params.id);
+  await deleteJobTitle(id);
+  await recordAdminLog(adminOf(req), '删除职务', 'job_title', String(id), {});
+  success(res, {});
+}));
 
 /* ---------------- 员工与账号 ---------------- */
 

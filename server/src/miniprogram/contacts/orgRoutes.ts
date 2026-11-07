@@ -11,9 +11,11 @@ import {
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { notFound } from '../../shared/utils/errors';
 import { success } from '../../shared/utils/response';
+import { listJobTitles } from '../../domains/employees/jobTitleService';
 
 const router = Router();
 router.use(requireAuth);
+router.get('/job-titles', asyncHandler(async (_req, res) => { success(res, await listJobTitles()); }));
 
 router.get(
   '/departments/tree',
@@ -34,7 +36,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const deptId = String(req.query.deptId || '');
     const keyword = String(req.query.keyword || '');
-    success(res, await getEmployeeList({ deptId, keyword }));
+    success(res, await getEmployeeList({ deptId, keyword, jobTitle: String(req.query.jobTitle || '') }));
   })
 );
 
@@ -43,7 +45,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const deptId = String(req.query.deptId || '');
     const keyword = String(req.query.keyword || '');
-    success(res, await getEmployeeGroups({ deptId, keyword }));
+    success(res, await getEmployeeGroups({ deptId, keyword, jobTitle: String(req.query.jobTitle || '') }));
   })
 );
 

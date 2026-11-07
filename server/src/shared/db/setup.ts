@@ -4,6 +4,7 @@ import { seedDatabase } from './seed';
 import { seedAttendanceIfEmpty } from './attendanceSeed';
 import { ensureDefaultAdmin } from '../../admin/admin-accounts/adminAuthService';
 import { backfillEmployeeJobCategories } from '../../admin/employees/adminEmployeeService';
+import { backfillJobTitles } from '../../domains/employees/jobTitleService';
 
 async function main(): Promise<void> {
   const reset = process.argv.includes('--reset');
@@ -11,6 +12,7 @@ async function main(): Promise<void> {
   await ensureDatabase();
   await ensureSchema();
   const seeded = await seedDatabase(reset);
+  await backfillJobTitles();
   console.log(seeded ? '[db] 演示数据已写入' : '[db] 数据库已有数据，跳过播种（如需重置请用 npm run db:reset）');
   const attendanceSeeded = await seedAttendanceIfEmpty();
   if (attendanceSeeded) console.log('[db] 演示考勤已生成');

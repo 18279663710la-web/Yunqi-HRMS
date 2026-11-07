@@ -17,6 +17,7 @@ import { HrTransitions } from './employee-records/HrTransitions';
 import { HrContractFiles } from './employee-records/HrContractFiles';
 import { getHrEmployees, getHrRecord, getSalaryComponentModel, saveHrRecord, type HrEmployee, type HrSection, type SalaryComponentModel } from './api';
 import { salaryAmountFields } from '../models-formulas/salary/salaryModel';
+import { fetchJobTitles, type JobTitle } from '../organization/api';
 
 const { Text } = Typography;
 const employeeOptions = (items: HrEmployee[]) => items.map((e) => ({ value: e.id, label: `${e.name} · ${e.employeeNo} · ${e.position}${e.employmentStatus === 'departed' ? ' · 已离职' : ''}` }));
@@ -38,16 +39,18 @@ function EmployeeRecords({ employees, archiveRevision }: { employees: HrEmployee
   const [revision, setRevision] = useState(0);
   const [salaryModel, setSalaryModel] = useState<SalaryComponentModel | null>(null);
   const [salaryModelFailed, setSalaryModelFailed] = useState(false);
-  const [salaryJobTitle, setSalaryJobTitle] = useState('');
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [titlesFailed, setTitlesFailed] = useState(false);
+  const workspaceActive = useWorkspaceActive();
   const [form] = Form.useForm();
   const profileRevision = section === 'profile' ? archiveRevision : 0;
   useEffect(() => {
-    form.resetFields(); setArchived(null); setSalaryJobTitle(''); setLoadFailed(false);
+    form.resetFields(); setArchived(null); setLoadFailed(false);
     if (!employeeId || section === 'transitions' || section === 'events') { setLoading(false); return; }
     let active = true; setLoading(true);
     const load = section === 'profile'
       ? request<ArchivedOnboarding | null>(`/admin/onboarding-form/archived/${encodeURIComponent(employeeId)}`).then(data => { if (active) setArchived(data); })
-      : getHrRecord(employeeId, section).then(data => { if (active) { form.setFieldsValue(data); if (section === 'salary') setSalaryJobTitle(typeof data.jobTitle === 'string' ? data.jobTitle : ''); } });
+      : getHrRecord(employeeId, section).then(data => { if (active) form.setFieldsValue(data); });
     load.catch((error: Error) => { if (active) { setLoadFailed(true); message.error(error.message); } }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [employeeId, section, profileRevision]);
@@ -58,6 +61,12 @@ function EmployeeRecords({ employees, archiveRevision }: { employees: HrEmployee
     getSalaryComponentModel().then(value => { if (active) setSalaryModel(value); }).catch((error: Error) => { if (active) setSalaryModelFailed(true); message.error(error.message); });
     return () => { active = false; };
   }, [section, salaryModel]);
+  useEffect(() => {
+    if (!workspaceActive || section !== 'salary') return;
+    let active = true;
+    fetchJobTitles().then(titles => { if (active) { setJobTitles(titles); setTitlesFailed(false); } }).catch((error: Error) => { if (active) { setTitlesFailed(true); message.error(error.message); } });
+    return () => { active = false; };
+  }, [section, workspaceActive]);
   const salaryFields = salaryAmountFields(salaryModel);
   const save = async (data: Record<string, unknown>) => {
     if (!employeeId || (section !== 'contract' && section !== 'salary')) return;
@@ -75,14 +84,14 @@ function EmployeeRecords({ employees, archiveRevision }: { employees: HrEmployee
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 300px' }}><Text strong>选择员工</Text><div style={{ marginTop: 8 }}><Select aria-label="选择员工" showSearch optionFilterProp="label" placeholder="选择已有员工" value={employeeId} onChange={setEmployeeId} options={employeeOptions(employees)} style={{ width: 'min(100%, 420px)' }} /></div></div>
-        {employeeId && (section === 'contract' || section === 'salary') && <Button type="primary" onClick={() => form.submit()} loading={saving} disabled={loading || loadFailed || (section === 'salary' && (!salaryModel || salaryModelFailed))}>保存</Button>}
+        {employeeId && (section === 'contract' || section === 'salary') && <Button type="primary" onClick={() => form.submit()} loading={saving} disabled={loading || loadFailed || (section === 'salary' && (!salaryModel || salaryModelFailed || titlesFailed))}>保存</Button>}
       </div>
       {employeeId ? <>
         <Tabs activeKey={section} onChange={key => setSection(key as EmployeeTab)} items={sections} />
         {section === 'profile' && <Spin spinning={loading}>{!loading && (loadFailed ? <Alert type="error" message="个人信息加载失败" /> : archived ? <OnboardingSubmission record={archived} /> : <Empty description="该员工暂无已封存的入职申请表" />)}</Spin>}
         {(section === 'contract' || section === 'salary') && <><Spin spinning={loading}><Form form={form} layout="vertical" onFinish={save} style={{ maxWidth: 600 }}>
           {section === 'contract' && <><Form.Item name="number" label="合同编号" rules={[{ required: true, whitespace: true, message: '请填写合同编号' }]}><Input maxLength={200} /></Form.Item><Form.Item name="startDate" label="合同开始日期" rules={[{ required: true, message: '请选择合同开始日期' }]}><Input type="date" /></Form.Item><Form.Item name="endDate" label="合同结束日期" dependencies={['startDate']} rules={[{ required: true, message: '请选择合同结束日期' }, ({ getFieldValue }) => ({ validator(_, value: string) { return !value || !getFieldValue('startDate') || value >= getFieldValue('startDate') ? Promise.resolve() : Promise.reject(new Error('合同结束日期不能早于开始日期')); } })]}><Input type="date" /></Form.Item><Form.Item name="note" label="备注"><Input.TextArea maxLength={200} /></Form.Item></>}
-          {section === 'salary' && <><Form.Item label="职务"><Input value={salaryJobTitle} readOnly /></Form.Item><Form.Item name="effectiveDate" label="定薪生效日期"><Input type="date" /></Form.Item>{salaryModelFailed ? <Alert type="error" message="薪资构成模型加载失败" /> : salaryModel ? (salaryFields.length ? salaryFields.map(field => <Form.Item key={field.name} name={['values', field.name]} label={field.type === 'number' && field.category !== 'info' ? `${field.name}（元）` : field.name} rules={field.required ? [{ required: true, message: `请填写${field.name}` }] : undefined}>{field.type === 'text' ? <Input maxLength={200} /> : <InputNumber min={0} max={9999999999.99} precision={2} style={{ width: '100%' }} />}</Form.Item>) : <Empty description="暂无固定薪资字段" />) : null}<Form.Item name="note" label="备注"><Input.TextArea maxLength={200} /></Form.Item></>}
+          {section === 'salary' && <><Form.Item name="jobTitle" label="职务" rules={[{ required: true, message: '请选择职务' }]}><Select showSearch optionFilterProp="label" placeholder="请选择职务" options={jobTitles.map(title => ({ value: title.name, label: title.name }))} /></Form.Item><Form.Item name="effectiveDate" label="定薪生效日期"><Input type="date" /></Form.Item>{salaryModelFailed ? <Alert type="error" message="薪资构成模型加载失败" /> : salaryModel ? (salaryFields.length ? salaryFields.map(field => <Form.Item key={field.name} name={['values', field.name]} label={field.type === 'number' && field.category !== 'info' ? `${field.name}（元）` : field.name} rules={field.required ? [{ required: true, message: `请填写${field.name}` }] : undefined}>{field.type === 'text' ? <Input maxLength={200} /> : <InputNumber min={0} max={9999999999.99} precision={2} style={{ width: '100%' }} />}</Form.Item>) : <Empty description="暂无固定薪资字段" />) : null}<Form.Item name="note" label="备注"><Input.TextArea maxLength={200} /></Form.Item></>}
         </Form></Spin>{section === 'contract' && <HrContractFiles key={employeeId} employeeId={employeeId} />}<HrRecordHistory employeeId={employeeId} section={section} revision={revision} /></>}
         {section === 'transitions' && <HrTransitions key={`transitions-${employeeId}`} employeeId={employeeId} />}
         {section === 'events' && <HrEvents key={`events-${employeeId}`} employeeId={employeeId} />}

@@ -328,6 +328,7 @@ export async function createEmployee(
   }
 
   await transaction(async (conn) => {
+    await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [input.position]);
     await conn.query(
       `INSERT INTO employees
         (id, name, pinyin, gender, dept_id, position, job_category, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
@@ -386,7 +387,9 @@ export async function updateEmployee(
   const leaderId = input.leaderId || (await resolveLeaderId(input.deptId, id));
   const jobCategory = input.jobCategory || current.jobCategory;
 
-  await execute(
+  await transaction(async (conn) => {
+    await conn.execute('INSERT IGNORE INTO job_titles (name) VALUES (?)', [input.position]);
+    await conn.execute(
     `UPDATE employees
      SET name = ?, pinyin = ?, gender = ?, dept_id = ?, position = ?, job_category = ?, level = ?,
          employee_no = ?, phone = ?, email = ?, join_date = ?, is_leader = ?, seat = ?, leader_id = ?
@@ -408,7 +411,8 @@ export async function updateEmployee(
       leaderId,
       id,
     ]
-  );
+    );
+  });
 
   await recordAdminLog(operator, '修改员工', 'employee', id, {
     before: { name: current.name, deptId: current.deptId, position: current.position },

@@ -104,6 +104,7 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'quick_actions',
     'approval_types',
     'employees',
+    'job_titles',
     'departments',
     'companies',
     'app_meta',

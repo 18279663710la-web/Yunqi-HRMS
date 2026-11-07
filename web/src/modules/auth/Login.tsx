@@ -20,7 +20,7 @@ interface LoginForm {
 const FEATURES = [
   { icon: <TeamOutlined />, title: '员工与账号', desc: '创建员工档案，开通或停用小程序登录账号' },
   { icon: <ClockCircleOutlined />, title: '考勤管理', desc: '按部门/员工查询打卡，支持补卡与请假登记' },
-  { icon: <TagsOutlined />, title: '组织架构', desc: '按研发员 / 业务员 / 员工三类汇总员工' },
+  { icon: <TagsOutlined />, title: '组织架构', desc: '维护职务并查看员工分布' },
   { icon: <SafetyCertificateOutlined />, title: '权限隔离', desc: '管理员账号分级，操作留痕可审计' },
 ];
 

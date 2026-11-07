@@ -1,180 +1,55 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  App as AntApp,
-  Avatar,
-  Card,
-  Col,
-  Row,
-  Segmented,
-  Space,
-  Table,
-  Tag,
-  Typography,
-} from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { App, Avatar, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ExperimentOutlined, ShopOutlined, UserOutlined } from '@ant-design/icons';
-
-import { fetchJobCategories } from '../employees/api';
+import { PlusOutlined } from '@ant-design/icons';
 import { PageTitle } from '../../components/PageTitle';
-import type { JobCategoryEmployee, JobCategoryGroup, JobCategoryName } from '../../types';
+import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
-
-const { Text } = Typography;
-
-const CATEGORY_META: Record<
-  JobCategoryName,
-  { icon: ReactNode; color: string; desc: string }
-> = {
-  研发员: {
-    icon: <ExperimentOutlined />,
-    color: '#3D6EF7',
-    desc: '技术研发与产品实现',
-  },
-  业务员: {
-    icon: <ShopOutlined />,
-    color: '#F79009',
-    desc: '市场拓展与客户运营',
-  },
-  员工: {
-    icon: <UserOutlined />,
-    color: '#7A5AF8',
-    desc: '综合职能与日常支持',
-  },
-};
-
-type TableRow = JobCategoryEmployee & { jobCategory: JobCategoryName };
+import { createJobTitle, deleteJobTitle, fetchJobTitles, type JobTitle, type JobTitleEmployee } from './api';
 
 export function DepartmentsPage() {
-  const { message } = AntApp.useApp();
-  const [groups, setGroups] = useState<JobCategoryGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | JobCategoryName>('all');
-
-  useEffect(() => {
-    fetchJobCategories()
-      .then(setGroups)
-      .catch((err) => message.error((err as Error).message))
-      .finally(() => setLoading(false));
+  const { message } = App.useApp();
+  const active = useWorkspaceActive();
+  const [titles, setTitles] = useState<JobTitle[]>([]);
+  const [filter, setFilter] = useState<number | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [form] = Form.useForm<{ name: string }>();
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setTitles(await fetchJobTitles()); } catch (error) { message.error((error as Error).message); }
+    finally { setLoading(false); }
   }, [message]);
-
-  const rows = useMemo<TableRow[]>(() => {
-    return groups.flatMap((group) =>
-      group.employees.map((employee) => ({ ...employee, jobCategory: group.name }))
-    );
-  }, [groups]);
-
-  const filteredRows = useMemo(
-    () => (filter === 'all' ? rows : rows.filter((row) => row.jobCategory === filter)),
-    [rows, filter]
-  );
-
-  const columns: ColumnsType<TableRow> = [
-    {
-      title: '员工',
-      dataIndex: 'name',
-      width: 240,
-      render: (_, row) => (
-        <Space>
-          <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7' }}>
-            {initialOf(row.name)}
-          </Avatar>
-          <div>
-            <div className="table-primary">
-              {row.name}
-              {row.isLeader ? <span className="leader-dot">负责人</span> : null}
-            </div>
-            <Text type="secondary" className="table-secondary">{row.employeeNo}</Text>
-          </div>
-        </Space>
-      ),
-    },
-    {
-      title: '职位',
-      dataIndex: 'jobCategory',
-      width: 140,
-      render: (category: JobCategoryName) => {
-        const color = category === '研发员' ? 'blue' : category === '业务员' ? 'orange' : 'purple';
-        return <Tag color={color}>{category}</Tag>;
-      },
-    },
-    { title: '手机号', dataIndex: 'phone', width: 160 },
-    { title: '入职日期', dataIndex: 'joinDate', width: 130 },
-    {
-      title: '登录账号',
-      dataIndex: 'loginName',
-      width: 220,
-      render: (_, row) => (
-        <Space size={6}>
-          {accountStatusTag(row.accountStatus)}
-          {row.loginName ? <Text>{row.loginName}</Text> : null}
-        </Space>
-      ),
-    },
+  useEffect(() => { if (active) void load(); }, [active, load]);
+  const rows = useMemo(() => titles.filter(title => !filter || title.id === filter).flatMap(title => title.employees), [titles, filter]);
+  const columns: ColumnsType<JobTitleEmployee> = [
+    { title: '员工', dataIndex: 'name', render: (_, row) => <Space><Avatar style={{ background: '#EAF0FF', color: '#3D6EF7' }}>{initialOf(row.name)}</Avatar><div><div className="table-primary">{row.name}{row.isLeader ? <span className="leader-dot">负责人</span> : null}</div><Typography.Text type="secondary">{row.employeeNo}</Typography.Text></div></Space> },
+    { title: '职务', dataIndex: 'position' },
+    { title: '手机号', dataIndex: 'phone' },
+    { title: '入职日期', dataIndex: 'joinDate' },
+    { title: '登录账号', render: (_, row) => <Space>{accountStatusTag(row.accountStatus)}{row.loginName}</Space> },
   ];
-
-  return (
-    <div className="page-stack">
-      <PageTitle
-        title="组织架构"
-        extra={
-          <Segmented
-            value={filter}
-            onChange={(value) => setFilter(value as 'all' | JobCategoryName)}
-            options={[
-              { label: '全部', value: 'all' },
-              ...groups.map((group) => ({ label: group.name, value: group.name })),
-            ]}
-          />
-        }
-      />
-
-      <Row gutter={[16, 16]}>
-        {groups.map((group) => {
-          const meta = CATEGORY_META[group.name];
-          return (
-            <Col xs={24} md={8} key={group.key}>
-              <Card
-                className="stat-card job-category-card"
-                bordered={false}
-                onClick={() => setFilter(group.name)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="job-category-head">
-                  <div
-                    className="job-category-icon"
-                    style={{ background: `${meta.color}14`, color: meta.color }}
-                  >
-                    {meta.icon}
-                  </div>
-                  <div>
-                    <div className="job-category-name">{group.name}</div>
-                    <div className="job-category-desc">{meta.desc}</div>
-                  </div>
-                </div>
-                <div className="job-category-count">
-                  <strong>{group.count}</strong>
-                  <span>人</span>
-                </div>
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
-
-      <Card className="panel-card" bordered={false}>
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={filteredRows}
-          pagination={{
-            pageSize: 15,
-            showSizeChanger: true,
-            showTotal: (value) => `共 ${value} 人`,
-          }}
-          scroll={{ x: 900 }}
-        />
-      </Card>
-    </div>
-  );
+  const add = async ({ name }: { name: string }) => {
+    setSaving(true);
+    try { await createJobTitle(name.trim()); setOpen(false); form.resetFields(); await load(); message.success('职务已创建'); }
+    catch (error) { message.error((error as Error).message); }
+    finally { setSaving(false); }
+  };
+  const remove = async (title: JobTitle) => {
+    try { await deleteJobTitle(title.id); if (filter === title.id) setFilter(undefined); await load(); message.success('职务已删除'); }
+    catch (error) { message.error((error as Error).message); }
+  };
+  return <div className="page-stack">
+    <PageTitle title="组织架构" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>创建职务</Button>} />
+    <Card className="panel-card" bordered={false} title="职务管理" loading={loading}>
+      <Space wrap>{titles.map(title => <Space.Compact key={title.id}><Button type={filter === title.id ? 'primary' : 'default'} onClick={() => setFilter(filter === title.id ? undefined : title.id)}>{title.name}（{title.count}）</Button><Popconfirm title={`删除职务“${title.name}”？`} onConfirm={() => remove(title)} okText="删除" cancelText="取消"><Button danger aria-label={`删除${title.name}`}>删除</Button></Popconfirm></Space.Compact>)}</Space>
+    </Card>
+    <Card className="panel-card" bordered={false} extra={<Select aria-label="筛选职务" allowClear placeholder="全部职务" value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} style={{ minWidth: 180 }} />}>
+      <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ pageSize: 15, showSizeChanger: true, showTotal: total => `共 ${total} 人` }} scroll={{ x: 850 }} />
+    </Card>
+    <Modal title="创建职务" open={open} confirmLoading={saving} onOk={() => form.submit()} onCancel={() => { setOpen(false); form.resetFields(); }} destroyOnHidden>
+      <Form form={form} layout="vertical" onFinish={add}><Form.Item name="name" label="职务名称" rules={[{ required: true, whitespace: true, message: '请输入职务名称' }]}><Input maxLength={100} /></Form.Item></Form>
+    </Modal>
+  </div>;
 }

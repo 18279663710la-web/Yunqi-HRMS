@@ -64,8 +64,8 @@ async function loadDepartments(): Promise<DepartmentRow[]> {
   return queryRows<DepartmentRow>('SELECT * FROM departments ORDER BY sort_order, id');
 }
 
-async function loadEmployees(): Promise<EmployeeRow[]> {
-  return queryRows<EmployeeRow>("SELECT e.*, EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departed FROM employees e ORDER BY e.pinyin");
+async function loadEmployees(jobTitle?: string): Promise<EmployeeRow[]> {
+  return queryRows<EmployeeRow>(`SELECT e.*, EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departed FROM employees e ${jobTitle ? 'WHERE TRIM(e.position) = ?' : ''} ORDER BY e.pinyin`, jobTitle ? [jobTitle] : []);
 }
 
 function deptMapOf(rows: DepartmentRow[]): Map<string, DepartmentRow> {
@@ -173,8 +173,8 @@ function collectDeptIds(deptId: string, rows: DepartmentRow[]): Set<string> {
   return ids;
 }
 
-export async function getEmployeeList(params: { deptId?: string; keyword?: string } = {}): Promise<EmployeeListItem[]> {
-  const [deptRows, empRows] = await Promise.all([loadDepartments(), loadEmployees()]);
+export async function getEmployeeList(params: { deptId?: string; keyword?: string; jobTitle?: string } = {}): Promise<EmployeeListItem[]> {
+  const [deptRows, empRows] = await Promise.all([loadDepartments(), loadEmployees(params.jobTitle)]);
   const depts = deptMapOf(deptRows);
   let rows = empRows.filter((employee) => !employee.departed);
 
@@ -204,7 +204,7 @@ export async function getEmployeeList(params: { deptId?: string; keyword?: strin
     .map((row) => toListItem(row, depts));
 }
 
-export async function getEmployeeGroups(params: { deptId?: string; keyword?: string } = {}): Promise<EmployeeGroup[]> {
+export async function getEmployeeGroups(params: { deptId?: string; keyword?: string; jobTitle?: string } = {}): Promise<EmployeeGroup[]> {
   const list = await getEmployeeList(params);
   const groups = new Map<string, EmployeeListItem[]>();
   for (const emp of list) {

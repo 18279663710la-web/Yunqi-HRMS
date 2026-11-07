@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS `departments` (
   KEY `idx_departments_leader` (`leader_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `job_titles` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(100) NOT NULL,
+  UNIQUE KEY `uk_job_titles_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `employees` (
   `id` VARCHAR(10) PRIMARY KEY,
   `name` VARCHAR(50) NOT NULL,

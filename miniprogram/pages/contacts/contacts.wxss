@@ -48,7 +48,7 @@
   flex-shrink: 0;
 }
 
-/* ============ 部门筛选 ============ */
+/* ============ 职务筛选 ============ */
 .dept-scroll {
   width: 100%;
   padding: 0 24rpx 16rpx;
@@ -64,7 +64,7 @@
   background: #FFFFFF;
   font-size: 24rpx;
   color: #5A6472;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;

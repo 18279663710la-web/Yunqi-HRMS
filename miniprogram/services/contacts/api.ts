@@ -17,12 +17,15 @@ export function getDepartmentList(): Promise<DepartmentFlat[]> {
   return get<DepartmentFlat[]>('/departments');
 }
 
+export interface JobTitle { id: number; name: string; count: number }
+export function getJobTitles(): Promise<JobTitle[]> { return get<JobTitle[]>('/job-titles'); }
+
 export function getEmployeeList(params: { deptId?: string; keyword?: string } = {}): Promise<EmployeeListItem[]> {
   return get<EmployeeListItem[]>('/employees', params);
 }
 
 export function getEmployeeGroups(
-  params: { deptId?: string; keyword?: string } = {}
+  params: { deptId?: string; keyword?: string; jobTitle?: string } = {}
 ): Promise<EmployeeGroup[]> {
   return get<EmployeeGroup[]>('/employees/groups', params);
 }

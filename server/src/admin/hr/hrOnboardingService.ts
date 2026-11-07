@@ -50,6 +50,7 @@ export async function confirmOnboarding(id: string, input: EmployeeInput) {
     const max = employees.reduce((n, row) => Math.max(n, Number(String(row.id).slice(1)) || 0), 0);
     const employeeId = `U${String(max + 1).padStart(3, '0')}`;
     if (employeeId.length > 10) throw badRequest('员工编号已用完');
+    await conn.execute("INSERT IGNORE INTO job_titles (name) VALUES ('员工')");
     await conn.execute(`INSERT INTO employees (id, name, pinyin, gender, dept_id, position, job_category, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
       VALUES (?, ?, ?, NULL, 'D00', '员工', ?, '—', ?, ?, '', ?, 0, '', NULL)`,
     [employeeId, input.name, input.pinyin, input.jobCategory, input.employeeNo, input.phone, input.joinDate]);

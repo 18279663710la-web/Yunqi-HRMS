@@ -15,28 +15,28 @@
     </view>
   </view>
 
-  <!-- 部门筛选 -->
+  <!-- 职务筛选 -->
   <scroll-view class="dept-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
     <view
-      class="dept-item {{activeDept === '' ? 'active' : ''}}"
-      data-id=""
-      bindtap="onDept"
+      class="dept-item {{activeJobTitle === '' ? 'active' : ''}}"
+      data-name=""
+      bindtap="onJobTitle"
     >
       全部
     </view>
     <view
-      class="dept-item {{activeDept === item.id ? 'active' : ''}}"
-      wx:for="{{departments}}"
+      class="dept-item {{activeJobTitle === item.name ? 'active' : ''}}"
+      wx:for="{{jobTitles}}"
       wx:key="id"
-      data-id="{{item.id}}"
-      bindtap="onDept"
+      data-name="{{item.name}}"
+      bindtap="onJobTitle"
     >
       {{item.name}}
     </view>
   </scroll-view>
 
   <view class="count-tip">
-    <text class="count-name">{{activeDeptName}}</text>
+    <text class="count-name">{{activeJobTitle || '全部同事'}}</text>
     <text class="count-num">共 {{total}} 人</text>
   </view>
 
@@ -61,7 +61,7 @@
                 {{emp.name}}
                 <text class="emp-leader" wx:if="{{emp.isLeader}}">负责人</text>
               </view>
-              <view class="emp-meta ellipsis">{{emp.deptName}} · {{emp.position}}</view>
+              <view class="emp-meta ellipsis">{{emp.position}}</view>
             </view>
             <view
               class="emp-call"
