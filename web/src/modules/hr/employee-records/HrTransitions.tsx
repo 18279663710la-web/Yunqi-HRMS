@@ -6,10 +6,10 @@ import { fetchEmployee } from '../../employees/api';
 import { cancelHrTransition, getHrTransitions, submitHrTransition, type HrTransition } from '../api';
 import type { AdminEmployee } from '../../../types';
 
-type TransitionValues = { type: 'promotion' | 'transfer'; effectiveDate: Dayjs; position?: string; level?: string; jobCategory?: string; deptId?: string; note?: string };
+type TransitionValues = { type: 'promotion' | 'transfer'; effectiveDate: Dayjs; position?: string; deptId?: string; note?: string };
 const labels: Record<string, string> = { position: '职务', level: '职级', jobCategory: '职务', deptId: '组织' };
 
-export function HrTransitions({ employeeId }: { employeeId: string }) {
+export function HrTransitions({ employeeId, onEmployeeChanged }: { employeeId: string; onEmployeeChanged: () => Promise<void> }) {
   const { message } = App.useApp(); const [form] = Form.useForm<TransitionValues>();
   const [rows, setRows] = useState<HrTransition[]>([]); const [employee, setEmployee] = useState<AdminEmployee>();
   const [departments, setDepartments] = useState<Array<{ value: string; label: string }>>([]);
@@ -23,20 +23,20 @@ export function HrTransitions({ employeeId }: { employeeId: string }) {
   };
   useEffect(() => { void load(); }, [employeeId]);
   const submit = async (values: TransitionValues) => {
-    const changes = Object.fromEntries(Object.entries({ position: values.position?.trim(), level: values.level?.trim(), jobCategory: values.jobCategory, deptId: values.deptId }).filter(([, value]) => value));
+    const changes = Object.fromEntries(Object.entries({ position: values.position?.trim(), deptId: values.deptId }).filter(([, value]) => value));
     if (!Object.keys(changes).length) { message.warning('请至少填写一项变更'); return; }
     setLoading(true);
-    try { await submitHrTransition({ employeeId, type: values.type, effectiveDate: values.effectiveDate.format('YYYY-MM-DD'), changes, note: values.note || '' }); setOpen(false); form.resetFields(); await load(); message.success('人事异动已生效'); }
+    try { await submitHrTransition({ employeeId, type: values.type, effectiveDate: values.effectiveDate.format('YYYY-MM-DD'), changes, note: values.note || '' }); setOpen(false); form.resetFields(); message.success('人事异动已生效'); await load(); await onEmployeeChanged(); }
     catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
   };
   const cancel = async (id: number) => {
     setLoading(true);
-    try { await cancelHrTransition(id); await load(); message.success('异动已撤销'); }
+    try { await cancelHrTransition(id); message.success('异动已撤销'); await load(); await onEmployeeChanged(); }
     catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
   };
   const describe = (snapshot: Record<string, string | null>, legacy: Record<string, string> = {}) => Object.entries(snapshot).map(([key, value]) => `${labels[key] || key}：${key === 'deptId' ? departments.find((item) => item.value === value)?.label || (value && legacy[value]) || value : value ?? '未设置'}`).join('；');
   return <Card title="调岗与晋升" bordered={false} extra={<Button type="primary" disabled={failed || loading} onClick={() => { form.resetFields(); setOpen(true); }}>新增异动</Button>}>
-    {employee && <Typography.Paragraph>当前：{employee.deptName || '未分配'} · {employee.position} · {employee.level}</Typography.Paragraph>}
+    {employee && <Typography.Paragraph>当前：{employee.deptName || '未分配'} · {employee.position}</Typography.Paragraph>}
     {failed && <Alert type="error" message="异动资料加载失败" action={<Button onClick={() => void load()}>重试</Button>} />}
     <Table rowKey="id" loading={loading} dataSource={rows} pagination={{ pageSize: 5 }} scroll={{ x: 750 }} columns={[
       { title: '类型', render: (_: unknown, row: HrTransition) => row.type === 'promotion' ? '晋升' : '调岗' },
@@ -53,7 +53,6 @@ export function HrTransitions({ employeeId }: { employeeId: string }) {
         <Typography.Paragraph type="secondary">只填写需要变更的项目；未填写的项目保持原值。</Typography.Paragraph>
         <Form.Item name="deptId" label="新组织"><Select allowClear showSearch optionFilterProp="label" options={departments} /></Form.Item>
         <Form.Item name="position" label="新职务"><Select allowClear showSearch optionFilterProp="label" options={jobTitles.map(title => ({ value: title.name, label: title.name }))} /></Form.Item>
-        <Form.Item name="level" label="新职级"><Input maxLength={20} /></Form.Item>
         <Form.Item name="note" label="说明"><Input.TextArea maxLength={500} /></Form.Item>
       </Form>
     </Modal>

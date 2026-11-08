@@ -159,6 +159,7 @@ export function EmployeesPage() {
         form.setFieldsValue({
           name: editing.name,
           deptId: editing.deptId,
+          jobCategory: editing.position,
           gender: editing.gender || '男',
           employeeNo: editing.employeeNo,
           phone: editing.phone,
@@ -241,14 +242,14 @@ export function EmployeesPage() {
         pinyin: editing ? editing.pinyin : generatedPinyin,
         gender: values.gender,
         deptId: values.deptId || 'D00',
-        position: editing ? editing.position : (values.jobCategory || '员工'),
+        position: values.jobCategory || '员工',
         level: editing ? editing.level : '—',
         employeeNo: values.employeeNo.trim(),
         phone: values.phone.trim(),
         email: values.email?.trim() || '',
         joinDate: values.joinDate.format('YYYY-MM-DD'),
         isLeader: !!values.isLeader,
-        jobCategory: editing ? editing.jobCategory : (values.jobCategory || '员工'),
+        jobCategory: values.jobCategory || '员工',
         seat: editing ? editing.seat : '',
         leaderId: editing ? editing.leaderId : '',
       };
@@ -563,7 +564,6 @@ export function EmployeesPage() {
               </Form.Item>
             </Col>
 
-            {!editing ? (
               <Col span={8}>
                 <Form.Item
                   name="jobCategory"
@@ -576,7 +576,6 @@ export function EmployeesPage() {
                   />
                 </Form.Item>
               </Col>
-            ) : null}
 
             <Col span={8}>
               <Form.Item name="deptId" label="组织">

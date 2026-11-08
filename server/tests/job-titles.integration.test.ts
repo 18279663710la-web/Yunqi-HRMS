@@ -42,6 +42,13 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     const createdTitle = await call('/admin/job-titles', admin, 'POST', { name: '测试职务' }); assert.equal(createdTitle.status, 200);
     assert.equal((await call('/admin/job-titles', admin, 'POST', { name: '测试职务' })).status, 409);
     const titleId = createdTitle.body.data.id;
+    const originalSalary = (await call('/admin/hr/employees/U001/salary', admin)).body.data;
+    assert.equal((await call('/admin/employees/U001', admin, 'PUT', { ...originalEmployee, position: '测试职务', jobCategory: '测试职务' })).status, 200);
+    const { jobTitle: _oldTitle, ...salaryWithoutTitle } = originalSalary;
+    assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', salaryWithoutTitle)).status, 200);
+    assert.equal((await call('/admin/hr/employees/U001/salary', admin)).body.data.jobTitle, '测试职务');
+    assert.equal((await call('/employees/U001', employee)).body.data.position, '测试职务');
+    assert.equal((await call('/admin/employees/U001', admin, 'PUT', originalEmployee)).status, 200);
     const salary = (await call('/admin/hr/employees/U001/salary', admin)).body.data;
     assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', { ...salary, jobTitle: '测试职务' })).status, 200);
     assert.equal((await call('/admin/hr/employees/U001/salary', admin)).body.data.jobTitle, '测试职务');
