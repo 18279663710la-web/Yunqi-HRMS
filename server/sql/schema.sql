@@ -397,6 +397,13 @@ CREATE TABLE IF NOT EXISTS `custom_approval_workflows` (
   `updated_at` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `custom_approval_credentials` (
+  `approval_type` VARCHAR(20) NOT NULL,
+  `node_id` VARCHAR(100) NOT NULL,
+  `encrypted_key` TEXT NOT NULL,
+  PRIMARY KEY (`approval_type`, `node_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `expense_ai_jobs` (
   `approval_id` VARCHAR(30) PRIMARY KEY,
   `approver_id` VARCHAR(10) NOT NULL,

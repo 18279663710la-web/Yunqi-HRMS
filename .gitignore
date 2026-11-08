@@ -4,6 +4,7 @@ miniprogram/node_modules/
 web/dist/
 web/node_modules/
 server/dist/
+server/.runtime/
 server/uploads/*
 !server/uploads/.gitkeep
 .env

@@ -6,6 +6,7 @@ import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
 test('审批流程设计稿独立按类型保存，验证权限、节点和版本，不改变现有审批配置', async () => {
+  process.env.WORKFLOW_CREDENTIAL_KEY = 'ab'.repeat(32);
   const database = `yunqi_workflow_${randomBytes(8).toString('hex')}`;
   const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
   let created = false; let closePool: (() => Promise<void>) | undefined; let closeServer: (() => Promise<void>) | undefined;
@@ -71,6 +72,37 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     assert.equal((await request('expense', 'PUT', { ...configured, version: 3, formFields: [] })).status, 400, '不能删除条件所引用的字段');
     assert.equal((await request('expense', 'PUT', { ...configured, version: 3, nodes: configured.nodes.map(node => node.id === 'review' ? { ...node, config: { approverIds: ['U005', 'U005'] } } : node) })).status, 400, '一个节点中审批人不能重复');
     assert.equal((await request('expense')).body.data.version, 3);
+    const secret = 'test-only-credential-do-not-use';
+    const aiGraph = { version: 3, formFields: [], nodes: [{ id: 'ai-node', kind: 'ai', position: { x: 1, y: 2 }, config: { provider: 'deepseek', model: 'example-model', baseUrl: 'https://api.example.test', rules: '规则示例' } }], edges: [], credentialUpdates: [{ nodeId: 'ai-node', apiKey: secret }] };
+    const aiSaved = await request('expense', 'PUT', aiGraph);
+    assert.equal(aiSaved.status, 200);
+    assert.equal(aiSaved.body.data.nodes[0].config.hasApiKey, true);
+    assert.ok(!JSON.stringify(aiSaved.body).includes(secret));
+    const aiRead = await request('expense');
+    assert.equal(aiRead.body.data.nodes[0].config.hasApiKey, true);
+    assert.equal(aiRead.body.data.nodes[0].config.rules, '规则示例');
+    assert.ok(!JSON.stringify(aiRead.body).includes(secret));
+    const [credentials] = await conn.query<any[]>(`SELECT encrypted_key FROM \`${database}\`.custom_approval_credentials WHERE approval_type = 'expense'`);
+    assert.equal(credentials.length, 1);
+    assert.ok(!String(credentials[0].encrypted_key).includes(secret));
+    const [storedGraph] = await conn.query<any[]>(`SELECT graph_json FROM \`${database}\`.custom_approval_workflows WHERE approval_type = 'expense'`);
+    const [logs] = await conn.query<any[]>(`SELECT detail_json FROM \`${database}\`.admin_operation_logs WHERE target_type = 'custom_approval_workflows'`);
+    assert.ok(!JSON.stringify(storedGraph).includes(secret));
+    assert.ok(!JSON.stringify(logs).includes(secret));
+    const { decryptWorkflowCredential } = await import('../src/domains/approvals/workflowCredentials');
+    assert.equal(decryptWorkflowCredential(credentials[0].encrypted_key, 'ai-node'), secret);
+    assert.throws(() => decryptWorkflowCredential(credentials[0].encrypted_key, 'other-node'));
+    assert.equal((await request('leave', 'PUT', { ...aiGraph, version: 0 })).status, 400, '其他类型不能添加 AI 节点');
+    assert.equal((await request('expense', 'PUT', aiGraph)).status, 409, '版本冲突不能覆盖凭据');
+    const [afterConflict] = await conn.query<any[]>(`SELECT encrypted_key FROM \`${database}\`.custom_approval_credentials WHERE approval_type = 'expense'`);
+    assert.equal(afterConflict[0].encrypted_key, credentials[0].encrypted_key);
+    const aiUpdated = { version: 4, formFields: [], nodes: [{ ...aiRead.body.data.nodes[0], config: { ...aiRead.body.data.nodes[0].config, provider: 'openai-compatible', baseUrl: 'https://compatible.example.test/v1', model: 'another-model' } }], edges: [] };
+    const compatible = await request('expense', 'PUT', aiUpdated);
+    assert.equal(compatible.body.data.nodes[0].config.hasApiKey, true, '不更改密钥时保留原凭据');
+    assert.equal(compatible.body.data.nodes[0].config.provider, 'openai-compatible');
+    assert.equal((await request('expense', 'PUT', { version: 5, formFields: [], nodes: [], edges: [] })).status, 200);
+    const [removedCredentials] = await conn.query<any[]>(`SELECT encrypted_key FROM \`${database}\`.custom_approval_credentials WHERE approval_type = 'expense'`);
+    assert.equal(removedCredentials.length, 0, '删除节点时删除对应凭据');
     for (const [type, field, first, second] of [
       ['leave', 'leaveType', { operator: 'eq', value: '病假' }, { operator: 'eq', value: '事假' }],
       ['overtime', 'project', { operator: 'eq', value: '客户' }, { operator: 'eq', value: '内部' }],

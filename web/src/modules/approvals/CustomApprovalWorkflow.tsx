@@ -9,12 +9,12 @@ import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serial
 import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
 import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
 
-interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; saved: string }
+interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; saved: string; pendingApiKeys: Record<string, string> }
 function fromDocument(document: WorkflowDocument): Draft {
   const formFields = document.formFields ?? [];
   const nodes: ApprovalNode[] = document.nodes.map(node => ({ id: node.id, type: 'approval', position: node.position, data: { kind: node.kind, ...(node.config ? { config: node.config } : {}) } }));
   const edges: ApprovalEdge[] = document.edges.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, type: 'default', ...(edge.conditions ? { data: { conditions: edge.conditions } } : {}) }));
-  return { version: document.version, nodes, edges, formFields, saved: JSON.stringify(serializeApprovalWorkflow(document.version, nodes, edges, formFields)) };
+  return { version: document.version, nodes, edges, formFields, saved: JSON.stringify(serializeApprovalWorkflow(document.version, nodes, edges, formFields)), pendingApiKeys: {} };
 }
 
 export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approvalType: CustomApprovalType; toolbarExtra?: ReactNode }) {
@@ -65,7 +65,7 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
       return previous ? { ...current, [approvalType]: update(previous) } : current;
     });
   };
-  const dirty = !!draft && JSON.stringify(serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields)) !== draft.saved;
+  const dirty = !!draft && (JSON.stringify(serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields)) !== draft.saved || Object.keys(draft.pendingApiKeys).length > 0);
   const configNode = draft?.nodes.find(node => node.id === configNodeId);
   const addNode = (kind: CustomApprovalNodeKind, position: { x: number; y: number }) => {
     if (!isNodeAvailable(approvalType, kind)) return;
@@ -90,7 +90,7 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   };
   const onNodesDelete = (removed: ApprovalNode[]) => {
     const ids = new Set(removed.map(node => node.id));
-    updateDraft(current => ({ ...current, edges: current.edges.filter(edge => !ids.has(edge.source) && !ids.has(edge.target)) }));
+    updateDraft(current => ({ ...current, edges: current.edges.filter(edge => !ids.has(edge.source) && !ids.has(edge.target)), pendingApiKeys: Object.fromEntries(Object.entries(current.pendingApiKeys).filter(([id]) => !ids.has(id))) }));
   };
   const configureNode = (id: string) => {
     const node = draft?.nodes.find(item => item.id === id);
@@ -108,13 +108,14 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
     updateDraft(current => ({ ...current, formFields: fields }));
     return true;
   };
-  const clear = () => modal.confirm({ title: '清空画布？', content: '清空后保存，才会更新设计稿。', okText: '清空', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => updateDraft(current => ({ ...current, nodes: [], edges: [] })) });
+  const clear = () => modal.confirm({ title: '清空画布？', content: '清空后保存，才会更新设计稿。', okText: '清空', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => updateDraft(current => ({ ...current, nodes: [], edges: [], pendingApiKeys: {} })) });
   const save = async () => {
     if (!draft || !dirty || saving) return;
     const type = approvalType;
     setSaving(true);
     try {
-      const saved = await saveCustomApprovalWorkflow(type, serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields));
+      const credentials = Object.entries(draft.pendingApiKeys).map(([nodeId, apiKey]) => ({ nodeId, apiKey }));
+      const saved = await saveCustomApprovalWorkflow(type, serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields), credentials);
       setDrafts(current => ({ ...current, [type]: fromDocument(saved) }));
       message.success('流程设计稿已保存');
     } catch (error) { message.error((error as Error).message || '保存失败，请重试'); }
@@ -148,11 +149,12 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
       </div>
     </div>
     {formOpen && draft && approvalType && <ExpenseFormDesigner approvalType={approvalType} fields={draft.formFields} onCancel={() => setFormOpen(false)} onSave={saveFields} />}
-    {configNode && draft && approvalType && <CustomApprovalNodeEditor key={configNode.id} approvalType={approvalType} node={configNode} nodes={draft.nodes} edges={draft.edges} fields={draft.formFields} onCancel={() => setConfigNodeId(null)} onSave={(config, routes) => {
+    {configNode && draft && approvalType && <CustomApprovalNodeEditor key={configNode.id} approvalType={approvalType} node={configNode} nodes={draft.nodes} edges={draft.edges} fields={draft.formFields} hasPendingApiKey={!!draft.pendingApiKeys[configNode.id]} onCancel={() => setConfigNodeId(null)} onSave={(config, routes, apiKey) => {
       const nodeId = configNode.id;
       updateDraft(current => ({ ...current,
         nodes: current.nodes.map(node => node.id === nodeId ? { ...node, data: { ...node.data, ...(config ? { config } : {}) } } : node),
         edges: routes ? current.edges.map(edge => edge.source === nodeId ? { ...edge, data: { ...edge.data, conditions: routes[edge.id] ?? [] } } : edge) : current.edges,
+        pendingApiKeys: apiKey ? { ...current.pendingApiKeys, [nodeId]: apiKey } : current.pendingApiKeys,
       }));
       setConfigNodeId(null);
     }} />}

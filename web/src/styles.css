@@ -992,6 +992,7 @@ code {
 .workflow-node-icon.approval-node-branch { color: #d97706; background: #fff4e6; }
 .workflow-node-icon.approval-node-start, .workflow-node-icon.approval-node-end { color: #3d6ef7; background: #eaf0ff; }
 .workflow-node-icon.approval-node-verify { color: #0891b2; background: #e6f7ff; }
+.workflow-node-icon.approval-node-ai { color: #7555c7; background: #f1edfb; }
 .approval-node-config { position: absolute; top: 5px; right: 31px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: #fff; color: #77839a; cursor: pointer; opacity: 0; }
 .approval-node-config:hover { color: #3d6ef7; background: #f0f4fb; }
 .approval-node-config:focus-visible { opacity: 1; outline: 3px solid #a8c0ff; }
@@ -1011,6 +1012,10 @@ code {
 @media (max-width: 640px) { .approval-form-field-row, .approval-condition-row { flex-wrap: wrap; } .approval-form-field-row > .ant-input { flex-basis: 100%; } .approval-condition-row > .ant-select, .approval-condition-row > .ant-input { min-width: 100px; } }
 .approval-node-modal-wrap, .approval-node-modal .ant-modal-body { overscroll-behavior: contain; }
 .approval-node-modal .ant-modal-body { max-height: 65vh; overflow-y: auto; }
+.approval-ai-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.approval-ai-field { display: flex; flex-direction: column; gap: 6px; color: #475569; font-size: 13px; }
+.approval-ai-field-wide { grid-column: 1 / -1; }
+@media (max-width: 560px) { .approval-ai-form { grid-template-columns: minmax(0, 1fr); } }
 .approval-approver-select-anchor { position: relative; }
 .approval-approver-dropdown-space { height: 208px; }
 .approval-approver-dropdown .rc-virtual-list-holder { overscroll-behavior: contain; }

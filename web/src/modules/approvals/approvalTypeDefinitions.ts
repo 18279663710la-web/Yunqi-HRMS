@@ -17,5 +17,5 @@ export const APPROVAL_TYPE_DEFINITIONS: Record<CustomApprovalType, ApprovalTypeD
 };
 
 export function isNodeAvailable(type: CustomApprovalType | undefined, kind: CustomApprovalNodeKind): boolean {
-  return kind !== 'form' && (kind !== 'verify' || !type || type === 'expense');
+  return kind !== 'form' && (!['verify', 'ai'].includes(kind) || type === 'expense');
 }

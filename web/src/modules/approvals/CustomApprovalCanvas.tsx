@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type DragEvent } from 'react';
-import { CheckCircleOutlined, DeleteOutlined, FileProtectOutlined, FileTextOutlined, ForkOutlined, PlayCircleOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DeleteOutlined, FileProtectOutlined, FileTextOutlined, ForkOutlined, PlayCircleOutlined, RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { Background, BackgroundVariant, Controls, Handle, Position, ReactFlow, useReactFlow, type NodeProps, type NodeTypes, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
 import type { CustomApprovalField, CustomApprovalNodeKind, CustomApprovalType } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
@@ -8,6 +8,7 @@ import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefini
 export const APPROVAL_NODE_PRESETS = [
   { kind: 'start', title: '发起人', icon: PlayCircleOutlined },
   { kind: 'verify', title: '系统查验', icon: FileProtectOutlined },
+  { kind: 'ai', title: 'AI 审批', icon: RobotOutlined },
   { kind: 'approver', title: '审批人', icon: UserOutlined },
   { kind: 'branch', title: '条件分支', icon: ForkOutlined },
   { kind: 'end', title: '结束', icon: CheckCircleOutlined },
@@ -66,6 +67,7 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
         : node.data.kind === 'branch' ? (outgoing.length ? `已配置 ${outgoing.filter(edge => edge.data?.conditions?.length).length}/${outgoing.length} 条分支` : '未连接分支')
         : node.data.kind === 'start' ? '所有在职员工'
         : node.data.kind === 'verify' ? '发票查重与验真'
+        : node.data.kind === 'ai' ? (node.data.config?.model || '未配置模型')
         : node.data.kind === 'end' ? (node.data.config?.outcome === 'rejected' ? '审批驳回' : '审批通过')
         : '表单设计';
       return { ...node, data: { ...node.data, summary, displayTitle } };

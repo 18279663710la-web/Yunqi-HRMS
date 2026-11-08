@@ -4,10 +4,11 @@ import { getCustomWorkflowApproverCandidates, type CustomApprovalCondition, type
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
 import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
 
-export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fields, onCancel, onSave }: {
+export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fields, hasPendingApiKey, onCancel, onSave }: {
   approvalType: CustomApprovalType;
   node: ApprovalNode; nodes: ApprovalNode[]; edges: ApprovalEdge[]; fields: CustomApprovalField[];
-  onCancel: () => void; onSave: (config: CustomApprovalNodeConfig | undefined, routes?: Record<string, CustomApprovalCondition[]>) => void;
+  hasPendingApiKey?: boolean;
+  onCancel: () => void; onSave: (config: CustomApprovalNodeConfig | undefined, routes?: Record<string, CustomApprovalCondition[]>, apiKey?: string) => void;
 }) {
   const { message } = App.useApp();
   const [candidates, setCandidates] = useState<ExpenseApproverEmployee[]>([]);
@@ -16,6 +17,11 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const [approvers, setApprovers] = useState<string[]>(node.data.config?.approverIds ?? []);
   const [approverListOpen, setApproverListOpen] = useState(false);
   const [outcome, setOutcome] = useState<'approved' | 'rejected'>(node.data.config?.outcome ?? 'approved');
+  const [provider, setProvider] = useState<'deepseek' | 'openai-compatible'>(node.data.config?.provider ?? 'deepseek');
+  const [model, setModel] = useState(node.data.config?.model ?? '');
+  const [baseUrl, setBaseUrl] = useState(node.data.config?.baseUrl ?? 'https://api.deepseek.com');
+  const [rules, setRules] = useState(node.data.config?.rules ?? '');
+  const [apiKey, setApiKey] = useState('');
   const outgoing = edges.filter(edge => edge.source === node.id);
   const [routes, setRoutes] = useState<Record<string, CustomApprovalCondition[]>>(() => Object.fromEntries(outgoing.map(edge => [edge.id, edge.data?.conditions?.map(item => ({ ...item })) ?? []])));
   const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
@@ -33,6 +39,13 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   useEffect(() => { if (node.data.kind === 'approver') load(); }, []);
   const names = new Map(candidates.map(item => [item.id, item.name]));
   const save = () => {
+    if (node.data.kind === 'ai') {
+      if (!model.trim() || !rules.trim()) { message.error('请填写模型名称和审批规则'); return; }
+      try { const url = new URL(baseUrl.trim()); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error(); }
+      catch { message.error('请输入有效的模型接口地址'); return; }
+      if (!apiKey.trim() && !hasPendingApiKey && !node.data.config?.hasApiKey) { message.error('请填写 API Key'); return; }
+      onSave({ provider, model: model.trim(), baseUrl: baseUrl.trim(), rules, hasApiKey: node.data.config?.hasApiKey ?? false }, undefined, apiKey.trim() || undefined); return;
+    }
     if (node.data.kind === 'approver') {
       if (loading || loadError) return;
       if (!approvers.length || new Set(approvers).size !== approvers.length) { message.error('请选择审批人'); return; }
@@ -52,11 +65,18 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
     }
     onSave(node.data.kind === 'end' ? { outcome } : undefined);
   };
-  const title: Record<string, string> = { start: '发起人', verify: '系统查验', approver: '审批人', branch: '条件分支', end: '结束' };
+  const title: Record<string, string> = { start: '发起人', verify: '系统查验', ai: 'AI 审批', approver: '审批人', branch: '条件分支', end: '结束' };
   return <Modal title={title[node.data.kind] || '节点配置'} open centered onCancel={onCancel} onOk={save} okText="确定" cancelText="取消" width={760} destroyOnHidden
     className="approval-node-modal" wrapClassName="approval-node-modal-wrap" okButtonProps={{ disabled: loading || !!loadError }}>
     {node.data.kind === 'start' && <div className="approval-config-group"><div className="approval-config-heading">发起范围</div><Input aria-label="发起范围" value="所有在职员工" disabled /></div>}
     {node.data.kind === 'verify' && <div className="approval-config-group"><div className="approval-config-heading">查验项目</div><Input aria-label="查验项目" value="发票查重与真伪查验" disabled /></div>}
+    {node.data.kind === 'ai' && <div className="approval-ai-form">
+      <label className="approval-ai-field"><span>模型服务</span><Select aria-label="模型服务" value={provider} onChange={value => { setProvider(value); setBaseUrl(value === 'deepseek' ? 'https://api.deepseek.com' : ''); }} options={[{ value: 'deepseek', label: 'DeepSeek' }, { value: 'openai-compatible', label: 'OpenAI 兼容接口' }]} /></label>
+      <label className="approval-ai-field"><span>模型名称</span><Input aria-label="模型名称" value={model} maxLength={150} placeholder="输入模型名称" onChange={event => setModel(event.target.value)} /></label>
+      <label className="approval-ai-field approval-ai-field-wide"><span>接口地址</span><Input aria-label="接口地址" value={baseUrl} maxLength={500} placeholder="输入接口地址" onChange={event => setBaseUrl(event.target.value)} /></label>
+      <label className="approval-ai-field approval-ai-field-wide"><span>API Key</span><Input.Password aria-label="API Key" autoComplete="new-password" value={apiKey} maxLength={2048} placeholder={hasPendingApiKey ? '已填写，保存流程后生效' : node.data.config?.hasApiKey ? '已配置，留空保留原密钥' : '输入 API Key'} onChange={event => setApiKey(event.target.value)} /></label>
+      <label className="approval-ai-field approval-ai-field-wide"><span>审批规则</span><Input.TextArea aria-label="审批规则" value={rules} maxLength={10000} autoSize={{ minRows: 5, maxRows: 10 }} placeholder="输入审批规则" onChange={event => setRules(event.target.value)} /></label>
+    </div>}
     {node.data.kind === 'end' && <div className="approval-config-group"><div className="approval-config-heading">结束结果</div><Select aria-label="结束结果" value={outcome} onChange={setOutcome} options={[{ value: 'approved', label: '审批通过' }, { value: 'rejected', label: '审批驳回' }]} style={{ width: '100%' }} /></div>}
     {node.data.kind === 'approver' && <div className="approval-config-group">
       <div className="approval-config-heading">审批人（按顺序审批）</div>
@@ -73,7 +93,7 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
       {!outgoing.length && <Empty description="请先连接分支目标节点" />}
       {outgoing.map((edge, routeIndex) => {
         const target = nodes.find(item => item.id === edge.target);
-        const targetName = target?.data.kind === 'approver' ? '审批人' : target?.data.kind === 'end' ? '结束' : target?.data.kind === 'branch' ? '条件分支' : target?.data.kind === 'verify' ? '系统查验' : target?.data.kind === 'start' ? '发起人' : '申请表单';
+        const targetName = target?.data.kind === 'approver' ? '审批人' : target?.data.kind === 'end' ? '结束' : target?.data.kind === 'branch' ? '条件分支' : target?.data.kind === 'verify' ? '系统查验' : target?.data.kind === 'ai' ? 'AI 审批' : target?.data.kind === 'start' ? '发起人' : '申请表单';
         const peers = nodes.filter(item => item.data.kind === target?.data.kind);
         const targetLabel = target && peers.length > 1 ? `${targetName} ${peers.findIndex(item => item.id === target.id) + 1}` : targetName;
         return <div className="approval-branch-route" key={edge.id}>

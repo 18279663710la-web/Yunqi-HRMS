@@ -17,6 +17,7 @@
 - 新加班申请固定保存一项“补偿方式：加班费”，兼容旧客户端传入的选项；不改历史申请及工资计算规则。
 - 自定义流程分支校验位于 `domains/approvals/expenseWorkflowPolicy.ts`，`customWorkflowService.ts` 按审批类型提供固定字段和条件：请假时长及假别、报销金额及类型、出差预算、采购预估金额，以及各类型自定义单选；加班通过自定义单选分支。保存设计稿时校验字段、条件有效性及同一分支节点下条件不重叠，尚未用于实际审批流转。前端字段定义变动时须同步服务端校验和测试。
 - 自定义审批流程独立设计稿按审批类型存于 `custom_approval_workflows`；超级管理员通过 `/api/admin/approval-workflows/:type` 读取与保存，保存校验结构、字段、条件及版本并记录操作日志。设计稿包含自定义表单字段、节点配置和分支连线条件；兼容旧画布，拒绝旧页面覆盖已有新配置。允许保存未完成设计稿，不参与现有审批流转。
+- 报销设计稿支持 AI 节点，模型服务、地址、名称和规则保存在流程中；API Key 以 AES-256-GCM 加密存于 `custom_approval_credentials`，与流程同事务保存并随节点删除，读取只返回是否已配置。加密密钥可由 `WORKFLOW_CREDENTIAL_KEY` 提供，未提供时首次保存生成本地运行时密钥；迁移或备份数据库时必须安全保存相同密钥。`WORKFLOW_CREDENTIAL_KEY_FILE` 可指定本地密钥文件位置；密钥文件不纳入 Git。现有 AI 预审不使用设计稿节点配置。
 - 超级管理员通过 `/api/admin/approval-workflows/:type/approver-candidates` 获取独立设计稿的候选人，包含启用的董事长和员工；这不改变现有报销审批人的候选范围或小程序权限。
 
 ## 目录结构

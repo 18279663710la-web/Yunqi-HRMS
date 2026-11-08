@@ -6,11 +6,12 @@
 新加班申请固定保存加班费，历史调休申请保持原值。
 `expenseWorkflowPolicy.ts` 校验自定义字段及分支条件；设计稿按审批类型提供固定字段与分支规则，并校验分支重叠，未接入实际审批。字段定义需与 Web 设计器保持一致。
 `customWorkflowService.ts` 按审批类型保存独立设计稿及表单、节点和条件配置，执行结构与版本校验并保护旧数据；不参与现有审批。
+`workflowCredentials.ts` 为报销 AI 节点的 API Key 加密；密文与流程同事务保存，明文不写入流程或日志。加密密钥由环境提供或首次保存时生成在运行时目录，备份数据库时须安全保留该密钥。
 设计稿审批人候选包含启用的董事长和员工；实际报销审批继续使用原有员工候选及权限规则。
 
 ## 主要内容
 
-- 主要文件：`approvalService.ts`、`customWorkflowService.ts`、`expenseAiPolicy.ts`、`expenseAiService.ts`、`expenseAiStream.ts`、`expenseApproverService.ts`、`expenseRulesService.ts`、`expenseWorkflowPolicy.ts`、`leaveRouting.ts`。
+- 主要文件：`approvalService.ts`、`customWorkflowService.ts`、`workflowCredentials.ts`、`expenseAiPolicy.ts`、`expenseAiService.ts`、`expenseAiStream.ts`、`expenseApproverService.ts`、`expenseRulesService.ts`、`expenseWorkflowPolicy.ts`、`leaveRouting.ts`。
 
 ## 维护约束
 

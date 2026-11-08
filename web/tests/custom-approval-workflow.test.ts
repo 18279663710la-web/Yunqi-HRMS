@@ -40,8 +40,10 @@ test('各审批显示各自固定字段，发票查验节点仅供报销添加',
   assert.equal(APPROVAL_TYPE_DEFINITIONS.travel.numericCondition?.value, 'budget');
   assert.equal(APPROVAL_TYPE_DEFINITIONS.purchase.numericCondition?.value, 'amount');
   assert.equal(isNodeAvailable('expense', 'verify'), true);
+  assert.equal(isNodeAvailable('expense', 'ai'), true);
   for (const type of ['leave', 'overtime', 'travel', 'purchase'] as const) {
     assert.equal(isNodeAvailable(type, 'verify'), false);
+    assert.equal(isNodeAvailable(type, 'ai'), false);
     assert.equal(isNodeAvailable(type, 'approver'), true);
     assert.equal(isNodeAvailable(type, 'branch'), true);
   }
