@@ -1,0 +1,10 @@
+{"time":"2026-11-08T12:34:07.685Z","eventLoopUtilization":0.002,"eventLoopP95Ms":10.2,"eventLoopMaxMs":10.2,"rssMiB":87.7}
+{"time":"2026-11-08T12:34:08.685Z","eventLoopUtilization":0.002,"eventLoopP95Ms":10.2,"eventLoopMaxMs":10.3,"rssMiB":87.7}
+{"time":"2026-11-08T12:34:09.685Z","eventLoopUtilization":0.004,"eventLoopP95Ms":10.2,"eventLoopMaxMs":11.1,"rssMiB":87.8}
+{"time":"2026-11-08T12:34:10.685Z","eventLoopUtilization":0.002,"eventLoopP95Ms":10.2,"eventLoopMaxMs":10.3,"rssMiB":87.8}
+{"time":"2026-11-08T12:34:11.802Z","eventLoopUtilization":0.614,"eventLoopP95Ms":52,"eventLoopMaxMs":215.9,"rssMiB":97.8}
+{"time":"2026-11-08T12:34:12.881Z","eventLoopUtilization":1,"eventLoopP95Ms":91.1,"eventLoopMaxMs":91.8,"rssMiB":102.9}
+{"time":"2026-11-08T12:34:13.891Z","eventLoopUtilization":1,"eventLoopP95Ms":87.9,"eventLoopMaxMs":89.5,"rssMiB":105.1}
+{"time":"2026-11-08T12:34:14.897Z","eventLoopUtilization":1,"eventLoopP95Ms":85.5,"eventLoopMaxMs":89.1,"rssMiB":107.5}
+{"time":"2026-11-08T12:34:15.897Z","eventLoopUtilization":0.757,"eventLoopP95Ms":85.9,"eventLoopMaxMs":127.9,"rssMiB":109.2}
+{"time":"2026-11-08T12:34:16.898Z","eventLoopUtilization":0.003,"eventLoopP95Ms":10.2,"eventLoopMaxMs":10.5,"rssMiB":109.2}

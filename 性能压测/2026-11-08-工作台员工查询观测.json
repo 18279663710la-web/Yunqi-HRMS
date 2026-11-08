@@ -1,0 +1,10 @@
+{
+  "scenario": "单次模拟工作台加载",
+  "endpointRequests": 10,
+  "digest": "读取员工及离职状态并按拼音排序",
+  "before": { "executions": 103316, "rowsSent": 10951496, "rowsExamined": 21902992 },
+  "after": { "executions": 103343, "rowsSent": 10954358, "rowsExamined": 21908716 },
+  "delta": { "executions": 27, "rowsSent": 2862, "rowsExamined": 5724 },
+  "employeeRows": 106,
+  "limitations": "测试期间无其他前台请求，后台任务和观测器仍运行；结果不代表完整真机工作台。"
+}
