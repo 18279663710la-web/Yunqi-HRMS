@@ -31,3 +31,12 @@ test('缺少必填值、无效选项、错误金额或未知字段不能生成�
   assert.throws(() => resolveExpenseWorkflow(valid, '1.001', { project: '客户' }));
   assert.throws(() => validateExpenseWorkflow({ ...config, branches: [{ ...config.branches[0], conditions: [{ field: 'unknown', operator: 'eq', value: '客户' }] }] }));
 });
+
+test('固定报销类型可用于条件判断，不同选项的分支不会重叠', () => {
+  const valid = validateExpenseWorkflow({ ...config, branches: [
+    { conditions: [{ field: 'expenseType', operator: 'eq', value: '差旅费' }], approvers: ['U001'] },
+    { conditions: [{ field: 'expenseType', operator: 'eq', value: '交通费' }], approvers: ['U005'] },
+  ] });
+  assert.deepEqual(resolveExpenseWorkflow(valid, '100', { project: '内部', expenseType: '交通费' }), ['U005']);
+  assert.throws(() => validateExpenseWorkflow({ ...config, branches: [{ conditions: [{ field: 'expenseType', operator: 'eq', value: '不存在' }], approvers: ['U001'] }] }));
+});

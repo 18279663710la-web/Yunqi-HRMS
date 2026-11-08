@@ -20,3 +20,14 @@ test('审批设计稿禁止连接自身、重复连线或未知节点', () => {
   assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'c'), false);
   assert.equal(canConnectApprovalNodes(nodes, edges, 'b', 'a'), true);
 });
+
+test('表单、审批人和分支条件随设计稿一起序列化', () => {
+  const reviewer = { ...createApprovalNode('approver', { x: 0, y: 0 }), data: { kind: 'approver' as const, config: { approverIds: ['U005', 'U011'] } } };
+  const branch = createApprovalNode('branch', { x: 300, y: 0 });
+  const conditions = [{ field: 'amount', operator: 'gte' as const, value: '1000' }];
+  const fields = [{ key: 'project', label: '项目类型', type: 'picker' as const, required: true, options: ['内部', '客户'] }];
+  const result = serializeApprovalWorkflow(4, [branch, reviewer], [{ id: 'route', source: branch.id, target: reviewer.id, data: { conditions } }], fields);
+  assert.deepEqual(result.formFields, fields);
+  assert.deepEqual(result.nodes[1].config, { approverIds: ['U005', 'U011'] });
+  assert.deepEqual(result.edges[0].conditions, conditions);
+});

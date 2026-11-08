@@ -43,6 +43,34 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     const race = await Promise.all([request('expense', 'PUT', raceGraph), request('expense', 'PUT', raceGraph)]);
     assert.deepEqual(race.map(result => result.status).sort(), [200, 409]);
     assert.equal((await request('expense')).body.data.version, 2);
+    const configured = {
+      version: 2,
+      formFields: [{ key: 'project', label: '项目类型', type: 'picker', required: true, options: ['内部', '客户'] }],
+      nodes: [
+        { id: 'start', kind: 'start', position: { x: 0, y: 0 } },
+        { id: 'verify', kind: 'verify', position: { x: 200, y: 0 } },
+        { id: 'branch', kind: 'branch', position: { x: 400, y: 0 } },
+        { id: 'review', kind: 'approver', position: { x: 600, y: 0 }, config: { approverIds: ['U005', 'U011'] } },
+        { id: 'end', kind: 'end', position: { x: 800, y: 0 }, config: { outcome: 'approved' } },
+      ],
+      edges: [
+        { id: 'one', source: 'start', target: 'verify' }, { id: 'two', source: 'verify', target: 'branch' },
+        { id: 'three', source: 'branch', target: 'review', conditions: [{ field: 'project', operator: 'eq', value: '客户' }] },
+        { id: 'four', source: 'review', target: 'end' },
+      ],
+    };
+    const withConfig = await request('expense', 'PUT', configured);
+    assert.equal(withConfig.status, 200);
+    const loaded = (await request('expense')).body.data;
+    assert.deepEqual(loaded.formFields, configured.formFields);
+    assert.deepEqual(loaded.nodes.find((node: any) => node.id === 'review').config, { approverIds: ['U005', 'U011'] });
+    assert.deepEqual(loaded.edges.find((edge: any) => edge.id === 'three').conditions, configured.edges[2].conditions);
+    assert.equal((await request('expense', 'PUT', { ...graph, version: 3 })).status, 409, '旧客户端不能覆盖已保存的节点配置');
+    const overlap = { ...configured, version: 3, edges: [...configured.edges, { id: 'overlap', source: 'branch', target: 'end', conditions: [{ field: 'project', operator: 'eq', value: '客户' }] }] };
+    assert.equal((await request('expense', 'PUT', overlap)).status, 400, '同一条件节点下不能保存重叠分支');
+    assert.equal((await request('expense', 'PUT', { ...configured, version: 3, formFields: [] })).status, 400, '不能删除条件所引用的字段');
+    assert.equal((await request('expense', 'PUT', { ...configured, version: 3, nodes: configured.nodes.map(node => node.id === 'review' ? { ...node, config: { approverIds: ['U005', 'U005'] } } : node) })).status, 400, '一个节点中审批人不能重复');
+    assert.equal((await request('expense')).body.data.version, 3);
     assert.equal((await request('unknown')).status, 400);
     const [after] = await conn.query(`SELECT * FROM \`${database}\`.approval_approvers ORDER BY type`);
     assert.deepEqual(after, before);

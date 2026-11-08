@@ -2,20 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { DragOutlined, PlusOutlined, SelectOutlined } from '@ant-design/icons';
 import { Alert, App, Button, Select } from 'antd';
 import { ReactFlowProvider, applyEdgeChanges, applyNodeChanges, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
-import { APPROVAL_NODE_PRESETS, CustomApprovalCanvas } from '../../approvals/CustomApprovalCanvas';
-import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serializeApprovalWorkflow, type ApprovalEdge, type ApprovalNode } from '../../approvals/customApprovalWorkflowGraph';
-import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from '../../approvals/api';
+import { APPROVAL_NODE_PRESETS, CustomApprovalCanvas } from './CustomApprovalCanvas';
+import { ExpenseFormDesigner } from './ExpenseFormDesigner';
+import { CustomApprovalNodeEditor } from './CustomApprovalNodeEditor';
+import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serializeApprovalWorkflow, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
+import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
 
 const APPROVAL_TYPES: Array<{ value: CustomApprovalType; label: string }> = [
   { value: 'leave', label: '请假审批' }, { value: 'expense', label: '报销审批' }, { value: 'overtime', label: '加班审批' },
   { value: 'travel', label: '出差审批' }, { value: 'purchase', label: '采购审批' },
 ];
 
-interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; saved: string }
+interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; saved: string }
 function fromDocument(document: WorkflowDocument): Draft {
-  const nodes: ApprovalNode[] = document.nodes.map(node => ({ id: node.id, type: 'approval', position: node.position, data: { kind: node.kind } }));
-  const edges: ApprovalEdge[] = document.edges.map(edge => ({ ...edge, type: 'default' }));
-  return { version: document.version, nodes, edges, saved: JSON.stringify(serializeApprovalWorkflow(document.version, nodes, edges)) };
+  const formFields = document.formFields ?? [];
+  const nodes: ApprovalNode[] = document.nodes.map(node => ({ id: node.id, type: 'approval', position: node.position, data: { kind: node.kind, ...(node.config ? { config: node.config } : {}) } }));
+  const edges: ApprovalEdge[] = document.edges.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, type: 'default', ...(edge.conditions ? { data: { conditions: edge.conditions } } : {}) }));
+  return { version: document.version, nodes, edges, formFields, saved: JSON.stringify(serializeApprovalWorkflow(document.version, nodes, edges, formFields)) };
 }
 
 export function CustomApprovalWorkflow() {
@@ -30,6 +33,8 @@ export function CustomApprovalWorkflow() {
   const [retry, setRetry] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const [addRequest, setAddRequest] = useState<{ kind: CustomApprovalNodeKind; id: number } | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [configNodeId, setConfigNodeId] = useState<string | null>(null);
   const nextAdd = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
@@ -66,7 +71,8 @@ export function CustomApprovalWorkflow() {
       return previous ? { ...current, [approvalType]: update(previous) } : current;
     });
   };
-  const dirty = !!draft && JSON.stringify(serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges)) !== draft.saved;
+  const dirty = !!draft && JSON.stringify(serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields)) !== draft.saved;
+  const configNode = draft?.nodes.find(node => node.id === configNodeId);
   const addNode = (kind: CustomApprovalNodeKind, position: { x: number; y: number }) => {
     if (!approvalType) { message.info('请先选择审批类型'); return; }
     if (!draft || loading || saving) { message.info('请等待流程加载完成'); return; }
@@ -92,13 +98,29 @@ export function CustomApprovalWorkflow() {
     const ids = new Set(removed.map(node => node.id));
     updateDraft(current => ({ ...current, edges: current.edges.filter(edge => !ids.has(edge.source) && !ids.has(edge.target)) }));
   };
+  const configureNode = (id: string) => {
+    if (approvalType !== 'expense') { message.info('目前先配置报销审批'); return; }
+    const node = draft?.nodes.find(item => item.id === id);
+    if (!node) return;
+    if (node.data.kind === 'form') setFormOpen(true);
+    else setConfigNodeId(id);
+  };
+  const saveFields = (fields: CustomApprovalField[]): boolean => {
+    for (const edge of draft?.edges ?? []) for (const condition of edge.data?.conditions ?? []) {
+      if (condition.field === 'amount' || condition.field === 'expenseType') continue;
+      const field = fields.find(item => item.key === condition.field);
+      if (!field || field.type !== 'picker' || !field.options?.includes(condition.value)) { message.error('该字段或选项已用于分支条件，请先修改分支条件'); return false; }
+    }
+    updateDraft(current => ({ ...current, formFields: fields }));
+    return true;
+  };
   const clear = () => modal.confirm({ title: '清空画布？', content: '清空后保存，才会更新设计稿。', okText: '清空', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => updateDraft(current => ({ ...current, nodes: [], edges: [] })) });
   const save = async () => {
     if (!approvalType || !draft || !dirty || saving) return;
     const type = approvalType;
     setSaving(true);
     try {
-      const saved = await saveCustomApprovalWorkflow(type, serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges));
+      const saved = await saveCustomApprovalWorkflow(type, serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields));
       setDrafts(current => ({ ...current, [type]: fromDocument(saved) }));
       message.success('流程设计稿已保存');
     } catch (error) { message.error((error as Error).message || '保存失败，请重试'); }
@@ -107,7 +129,8 @@ export function CustomApprovalWorkflow() {
 
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
-      <Select className="approval-type-select" aria-label="选择审批类型" showSearch optionFilterProp="label" placeholder="选择审批类型" value={approvalType} disabled={saving} onChange={value => { setApprovalType(value); setPanelOpen(false); setAddRequest(null); }} options={APPROVAL_TYPES} />
+      <Select className="approval-type-select" aria-label="选择审批类型" showSearch optionFilterProp="label" placeholder="选择审批类型" value={approvalType} disabled={saving} onChange={value => { setApprovalType(value); setPanelOpen(false); setAddRequest(null); setConfigNodeId(null); setFormOpen(false); }} options={APPROVAL_TYPES} />
+      <button className="salary-model-entry" type="button" disabled={approvalType !== 'expense' || !draft || loading || saving} onClick={() => setFormOpen(true)}>表单设计</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || !dirty} onClick={() => void save()}>保存</button>
     </div>
@@ -121,7 +144,7 @@ export function CustomApprovalWorkflow() {
         </div>
         {mounted ? <ReactFlowProvider><CustomApprovalCanvas
           nodes={draft?.nodes ?? []} edges={draft?.edges ?? []} tool={tool} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-          onConnect={onConnect} onNodesDelete={onNodesDelete} onAdd={addNode} addRequest={addRequest} readOnly={!draft || loading || saving}
+          onConnect={onConnect} onNodesDelete={onNodesDelete} onAdd={addNode} addRequest={addRequest} readOnly={!draft || loading || saving} onConfigure={configureNode} fields={draft?.formFields ?? []}
         /></ReactFlowProvider> : <div className="workflow-canvas-placeholder" />}
         {panelOpen && <div ref={panelRef} className="workflow-node-panel" role="dialog" aria-label="添加节点">
           {APPROVAL_NODE_PRESETS.map(preset => <button key={preset.kind} type="button" className="workflow-node-option" draggable onDragStart={event => { event.dataTransfer.setData('application/approval-workflow-node', preset.kind); event.dataTransfer.effectAllowed = 'move'; }} onClick={() => requestNode(preset.kind)}>
@@ -130,5 +153,14 @@ export function CustomApprovalWorkflow() {
         </div>}
       </div>
     </div>
+    {formOpen && draft && <ExpenseFormDesigner fields={draft.formFields} onCancel={() => setFormOpen(false)} onSave={saveFields} />}
+    {configNode && draft && <CustomApprovalNodeEditor key={configNode.id} node={configNode} nodes={draft.nodes} edges={draft.edges} fields={draft.formFields} onCancel={() => setConfigNodeId(null)} onSave={(config, routes) => {
+      const nodeId = configNode.id;
+      updateDraft(current => ({ ...current,
+        nodes: current.nodes.map(node => node.id === nodeId ? { ...node, data: { ...node.data, ...(config ? { config } : {}) } } : node),
+        edges: routes ? current.edges.map(edge => edge.source === nodeId ? { ...edge, data: { ...edge.data, conditions: routes[edge.id] ?? [] } } : edge) : current.edges,
+      }));
+      setConfigNodeId(null);
+    }} />}
   </section>;
 }

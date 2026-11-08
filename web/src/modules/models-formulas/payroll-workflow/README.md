@@ -2,11 +2,11 @@
 
 ## 职责
 
-自定义审批流程页面沿用原画布布局，可选择五种审批类型，编辑并保存独立设计稿；节点配置和审批执行尚未接入。原薪资流程编辑代码保留但不再作为页面入口。
+原薪资流程画布、节点图标及流程工具；编辑代码保留但不再作为页面入口，未接入实际发放。自定义审批设计器位于审批管理目录。
 
 ## 主要内容
 
-- 主要文件：`CustomApprovalWorkflow.tsx`、`PayrollWorkflow.tsx`、`PayrollWorkflowCanvas.tsx`、`PayrollWorkflowIcons.tsx`、`workflowUtils.ts`。
+- 主要文件：`PayrollWorkflow.tsx`、`PayrollWorkflowCanvas.tsx`、`PayrollWorkflowIcons.tsx`、`workflowUtils.ts`。
 
 ## 维护约束
 

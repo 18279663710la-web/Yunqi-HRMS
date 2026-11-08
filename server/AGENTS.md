@@ -15,8 +15,8 @@
 - `POST /api/invoices/image` 只保存发票图片，不运行 OCR；报销上传使用此接口。
 - 董事长小程序账号独立保存，仅超级管理员可创建；其接口权限限于本人参与的请假、加班、出差及采购审批。
 - 新加班申请固定保存一项“补偿方式：加班费”，兼容旧客户端传入的选项；不改历史申请及工资计算规则。
-- 报销自定义流程分支校验基础位于 `domains/approvals/expenseWorkflowPolicy.ts`；当前尚未接入配置、报销表单或实际审批流转。
-- 自定义审批流程的独立设计稿按审批类型存于 `custom_approval_workflows`；超级管理员通过 `/api/admin/approval-workflows/:type` 读取与保存，保存校验图结构和版本并记录操作日志。设计稿只包含节点类型、位置与连线，不参与现有审批流转。
+- 报销自定义流程分支校验位于 `domains/approvals/expenseWorkflowPolicy.ts`；用于校验设计稿字段、金额和单选条件的有效性及同一分支节点下条件不重叠，尚未用于实际审批流转。
+- 自定义审批流程独立设计稿按审批类型存于 `custom_approval_workflows`；超级管理员通过 `/api/admin/approval-workflows/:type` 读取与保存，保存校验结构、字段、条件及版本并记录操作日志。设计稿包含自定义表单字段、节点配置和分支连线条件；兼容旧画布，拒绝旧页面覆盖已有新配置。允许保存未完成设计稿，不参与现有审批流转。
 
 ## 目录结构
 - `src/config.ts`：环境配置；`src/admin/`、`src/miniprogram/`：管理端和员工端接口；`src/domains/`：共享业务。
