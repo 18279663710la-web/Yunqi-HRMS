@@ -638,13 +638,6 @@ code {
 .dot-gray { background: #c4c9d2; }
 .dot-purple { background: #7a5af8; }
 
-.today-note {
-  padding-top: 12px;
-  border-top: 1px dashed #e8edf5;
-  color: #9aa1ac;
-  font-size: 12px;
-}
-
 .dashboard-footer {
   display: flex;
   justify-content: space-between;

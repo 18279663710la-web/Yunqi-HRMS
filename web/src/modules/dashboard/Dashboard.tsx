@@ -18,8 +18,6 @@ import {
 } from 'antd';
 import {
   AuditOutlined,
-  ClockCircleOutlined,
-  PlusOutlined,
   SafetyOutlined,
   TagsOutlined,
   TeamOutlined,
@@ -28,7 +26,6 @@ import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 
 import { fetchDashboard } from './api';
-import { PageTitle } from '../../components/PageTitle';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type { DashboardData } from '../../types';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
@@ -88,21 +85,6 @@ export function DashboardPage() {
 
   return (
     <div className="page-stack">
-      <PageTitle
-        title="仪表盘"
-        subtitle="员工、账号与今日考勤的整体概览"
-        extra={
-          <Space>
-            <Button icon={<ClockCircleOutlined />} onClick={() => navigate('/attendance')}>
-              考勤补卡
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/employees?create=1')}>
-              新增员工
-            </Button>
-          </Space>
-        }
-      />
-
       {loading && !data ? (
         <Card><Skeleton active /></Card>
       ) : (
@@ -131,7 +113,6 @@ export function DashboardPage() {
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
                 <Statistic title="待审批单据" value={data?.pendingApprovalCount || 0} prefix={<AuditOutlined style={{ color: '#F79009' }} />} />
-                <div className="stat-card-foot">与小程序审批中心共享</div>
               </Card>
             </Col>
           </Row>
@@ -158,9 +139,6 @@ export function DashboardPage() {
                     <div className="today-stat"><span className="dot dot-gray" />休息<strong>{today?.rest || 0}</strong></div>
                     <div className="today-stat"><span className="dot dot-purple" />请假<strong>{today?.onLeave || 0}</strong></div>
                   </div>
-                </div>
-                <div className="today-note">
-                  今日数据来自 `attendance_punches` 表，与小程序考勤页实时一致。
                 </div>
               </Card>
             </Col>
