@@ -66,8 +66,9 @@ test('自定义审批流程保留画布和功能区，不提供未定义的节�
   assert.ok(!html.includes('薪资发放流程'));
   assert.ok(!html.includes('sub-module-header'));
   assert.ok(html.includes('salary-model-entries'));
-  assert.match(html, /<select[^>]*aria-label="选择审批类型"/);
-  for (const label of ['请假审批', '报销审批', '加班审批', '出差审批', '采购审批']) assert.ok(html.includes(label));
+  assert.match(html, /<input[^>]*aria-label="选择审批类型"/);
+  assert.ok(html.includes('ant-select-selector'));
+  assert.ok(html.includes('选择审批类型'));
   assert.match(html, /<button[^>]*disabled[^>]*>清空<\/button>/);
   assert.match(html, /<button[^>]*disabled[^>]*>保存<\/button>/);
   assert.ok(html.includes('添加节点'));
