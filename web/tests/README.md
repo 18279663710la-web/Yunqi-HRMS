@@ -10,6 +10,7 @@ Web 组件、模型、工具及工作区页签测试；当前 `package.json` 未
 - `onboarding-attachments-view.test.tsx` 覆盖普通字段和表格子字段的附件展示。
 - `employee-salary-payload.test.ts` 验证定薪提交不会携带旧职务。
 - `employee-records-toolbar.test.tsx` 验证未选员工时档案按钮禁用及保存的可用范围。
+- `employee-record-fields.test.tsx` 验证合同和定薪表格字段及其输入与只读状态。
 
 ## 维护约束
 

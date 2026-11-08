@@ -20,3 +20,77 @@
 .employee-records-save {
   margin-left: auto;
 }
+
+.employee-record-fields-form {
+  margin-bottom: 24px;
+}
+
+.employee-record-fields-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.employee-record-fields-scroll:focus-visible {
+  outline: 2px solid #3d6ef7;
+  outline-offset: -2px;
+}
+
+.employee-record-fields-table {
+  width: max-content;
+  min-width: 100%;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.employee-record-fields-table th,
+.employee-record-fields-table td {
+  box-sizing: border-box;
+  width: 200px;
+  min-width: 200px;
+  padding: 16px;
+  vertical-align: middle;
+}
+
+.employee-record-fields-table td {
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.employee-record-fields-table th {
+  position: relative;
+  color: #526078;
+  background: #f7f8fa;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.employee-record-fields-table th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.employee-record-fields-table th:last-child {
+  border-top-right-radius: 8px;
+}
+
+.employee-record-fields-table th:not(:last-child)::after {
+  position: absolute;
+  top: 25%;
+  right: 0;
+  width: 1px;
+  height: 50%;
+  background: #f0f0f0;
+  content: '';
+}
+
+.employee-record-fields-table .ant-form-item {
+  margin-bottom: 0;
+}
+
+.employee-record-required {
+  margin-right: 4px;
+  color: #ff4d4f;
+}
