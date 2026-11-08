@@ -13,7 +13,6 @@ import {
 import {
   ClockCircleOutlined,
   DashboardOutlined,
-  AuditOutlined,
   LockOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
@@ -27,7 +26,7 @@ import { useLocation, useNavigate, type Location } from 'react-router-dom';
 
 import { changePassword } from '../modules/auth/api';
 import { useAuth } from '../auth/AuthContext';
-import { SUB_MODULES, matchSubModule, resolvePageKey, subModuleMetrics, type SubModule } from './subModules';
+import { accessibleSubModules, SUB_MODULES, matchSubModule, resolvePageKey, subModuleMetrics, type SubModule } from './subModules';
 import { AdminPageRoutes } from './AdminPageRoutes';
 import { WorkspaceActiveContext } from './WorkspaceContext';
 import { closeWorkspaceTab, createWorkspaceTabs, openWorkspaceTab, workspaceTabForLocation, type WorkspaceTab } from './workspaceTabs';
@@ -95,8 +94,8 @@ export function AdminLayout() {
   }, [openModuleKey, admin?.role]);
 
   useEffect(() => {
-    if (!openModuleKey || admin?.role !== 'super_admin') return;
-    const module = SUB_MODULES.find(item => item.key === openModuleKey);
+    if (!openModuleKey) return;
+    const module = accessibleSubModules(admin?.role).find(item => item.key === openModuleKey);
     if (!module) return;
     const onPointerDown = (event: PointerEvent) => {
       const path = event.composedPath();
@@ -144,6 +143,7 @@ export function AdminLayout() {
   });
   const hrModule = SUB_MODULES.find(module => module.key === '/hr');
   const modelsModule = SUB_MODULES.find(module => module.key === '/models-formulas');
+  const approvalsModule = SUB_MODULES.find(module => module.key === '/approvals');
 
   const menuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
@@ -151,7 +151,7 @@ export function AdminLayout() {
     ...(admin?.role === 'super_admin' && hrModule ? [moduleItem(hrModule)] : []),
     { key: '/attendance', icon: <ClockCircleOutlined />, label: '考勤管理' },
     ...(admin?.role === 'super_admin' && modelsModule ? [moduleItem(modelsModule)] : []),
-    { key: '/approvals', icon: <AuditOutlined />, label: '审批管理' },
+    ...(approvalsModule ? [moduleItem(approvalsModule)] : []),
     { key: '/departments', icon: <TagsOutlined />, label: '组织架构' },
     ...(admin?.role === 'super_admin'
       ? [{ key: '/admins', icon: <SafetyCertificateOutlined />, label: '管理员账号' }]
@@ -223,7 +223,7 @@ export function AdminLayout() {
         </div>
       </Sider>
 
-      {admin?.role === 'super_admin' && SUB_MODULES.map(module => {
+      {accessibleSubModules(admin?.role).map(module => {
         const metrics = subModuleMetrics(module);
         return <aside
           key={module.key}

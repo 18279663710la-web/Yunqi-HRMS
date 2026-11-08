@@ -4,6 +4,14 @@ import { createWorkspaceTabs, openWorkspaceTab, closeWorkspaceTab, workspaceTabF
 
 const loc = (pathname: string, search = '') => ({ pathname, search, hash: '', state: null, key: 'test' });
 
+test('五类审批各自打开独立页签，旧入口仍指向请假审批', () => {
+  let tabs = createWorkspaceTabs(loc('/dashboard'));
+  const types = [['leave', '请假审批'], ['expense', '报销审批'], ['overtime', '加班审批'], ['travel', '出差审批'], ['purchase', '采购审批']];
+  for (const [type] of types) tabs = openWorkspaceTab(tabs, loc(`/approvals/${type}`));
+  assert.deepEqual(tabs.slice(1).map(tab => [tab.key, tab.label]), types.map(([type, label]) => [`/approvals/${type}`, label]));
+  assert.equal(workspaceTabForLocation(loc('/approvals')).key, '/approvals/leave');
+});
+
 test('首页固定，直接访问子模块时一并打开对应页签', () => {
   const tabs = createWorkspaceTabs(loc('/models-formulas/salary'));
   assert.deepEqual(tabs.map(tab => [tab.key, tab.label]), [['/dashboard', '首页'], ['/models-formulas/salary', '薪资构成模型']]);

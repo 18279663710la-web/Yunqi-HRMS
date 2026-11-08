@@ -498,14 +498,6 @@ code {
   font-size: 15px;
 }
 
-.approval-management-card .ant-tabs-nav {
-  margin-bottom: 0;
-}
-
-.approval-management-card > .ant-card-body {
-  padding: 0 24px;
-}
-
 .expense-approver-settings {
   max-width: 640px;
 }

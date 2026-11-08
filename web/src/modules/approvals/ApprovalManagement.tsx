@@ -1,7 +1,7 @@
-import { Card, Tabs } from 'antd';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Card } from 'antd';
+import { Navigate, useParams } from 'react-router-dom';
 
-import { PageTitle } from '../../components/PageTitle';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 import { ExpenseApproverSettings } from './ExpenseApproverSettings';
 import { ExpenseRulesSettings } from './ExpenseRulesSettings';
 
@@ -15,21 +15,13 @@ const APPROVAL_TYPES = [
 
 export function ApprovalManagementPage() {
   const { type } = useParams();
-  const navigate = useNavigate();
   const selected = APPROVAL_TYPES.find((item) => item.key === type);
 
   if (!selected) return <Navigate to="/approvals/leave" replace />;
 
   return (
     <div className="page-stack">
-      <PageTitle title="审批管理" />
-      <Card className="panel-card approval-management-card" bordered={false}>
-        <Tabs
-          activeKey={selected.key}
-          onChange={(key) => navigate(`/approvals/${key}`)}
-          items={APPROVAL_TYPES.map((item) => ({ key: item.key, label: item.label }))}
-        />
-      </Card>
+      <SubModuleHeader title={selected.label} />
       {selected.key === 'expense' ? (
         <div className="expense-function-stack">
           <Card title="发票审批人" className="panel-card expense-function-card" bordered={false}>

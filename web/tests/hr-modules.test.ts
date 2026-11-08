@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PAGE_TITLES, SUB_MODULES, matchSubModule, resolvePageKey, subModuleLabel, subModuleMetrics } from '../src/layout/subModules';
+import { PAGE_TITLES, SUB_MODULES, accessibleSubModules, matchSubModule, resolvePageKey, subModuleLabel, subModuleMetrics } from '../src/layout/subModules';
+
+test('审批管理为五类审批提供独立侧栏入口，普通管理员也可打开', () => {
+  const approvals = SUB_MODULES.find(module => module.key === '/approvals');
+  assert.ok(approvals);
+  assert.deepEqual(approvals.items.map(item => [item.key, item.label]), [
+    ['/approvals/leave', '请假审批'], ['/approvals/expense', '报销审批'],
+    ['/approvals/overtime', '加班审批'], ['/approvals/travel', '出差审批'], ['/approvals/purchase', '采购审批'],
+  ]);
+  assert.equal(matchSubModule('/approvals/travel')?.key, '/approvals');
+  assert.equal(resolvePageKey('/approvals/travel'), '/approvals/travel');
+  assert.ok(accessibleSubModules('hr_admin').some(module => module.key === '/approvals'));
+  assert.ok(!accessibleSubModules('hr_admin').some(module => module.key === '/hr'));
+  assert.ok(accessibleSubModules('super_admin').some(module => module.key === '/hr'));
+});
 
 test('人事管理将工资批次、发放和发放记录分为独立子模块', () => {
   const hr = SUB_MODULES.find(module => module.key === '/hr');

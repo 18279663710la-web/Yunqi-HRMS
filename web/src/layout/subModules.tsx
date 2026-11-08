@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { CalculatorOutlined, IdcardOutlined } from '@ant-design/icons';
+import { AuditOutlined, CalculatorOutlined, IdcardOutlined } from '@ant-design/icons';
 
 export interface SubModuleItem {
   key: string;
@@ -11,6 +11,7 @@ export interface SubModule {
   title: string;
   icon: ReactNode;
   sidebarId: string;
+  superAdminOnly?: boolean;
   items: SubModuleItem[];
 }
 
@@ -20,6 +21,7 @@ export const SUB_MODULES: SubModule[] = [
     title: '人事管理',
     icon: <IdcardOutlined />,
     sidebarId: 'hr-sidebar',
+    superAdminOnly: true,
     items: [
       { key: '/hr/onboarding', label: '入职管理' },
       { key: '/hr/employees', label: '员工档案' },
@@ -34,6 +36,7 @@ export const SUB_MODULES: SubModule[] = [
     title: '模型与公式',
     icon: <CalculatorOutlined />,
     sidebarId: 'models-formulas-sidebar',
+    superAdminOnly: true,
     items: [
       { key: '/models-formulas/attendance', label: '出勤率绩效规则' },
       { key: '/models-formulas/overtime', label: '加班绩效规则' },
@@ -42,7 +45,24 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/models-formulas/payroll-workflow', label: '薪资发放流程' },
     ],
   },
+  {
+    key: '/approvals',
+    title: '审批管理',
+    icon: <AuditOutlined />,
+    sidebarId: 'approvals-sidebar',
+    items: [
+      { key: '/approvals/leave', label: '请假审批' },
+      { key: '/approvals/expense', label: '报销审批' },
+      { key: '/approvals/overtime', label: '加班审批' },
+      { key: '/approvals/travel', label: '出差审批' },
+      { key: '/approvals/purchase', label: '采购审批' },
+    ],
+  },
 ];
+
+export function accessibleSubModules(role: string | undefined): SubModule[] {
+  return SUB_MODULES.filter(module => !module.superAdminOnly || role === 'super_admin');
+}
 
 const STATIC_TITLES: Record<string, string> = {
   '/dashboard': '仪表盘',
