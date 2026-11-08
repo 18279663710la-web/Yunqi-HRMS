@@ -4,6 +4,7 @@ import { AuditOutlined, CalculatorOutlined, IdcardOutlined } from '@ant-design/i
 export interface SubModuleItem {
   key: string;
   label: string;
+  superAdminOnly?: boolean;
 }
 
 export interface SubModule {
@@ -42,7 +43,6 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/models-formulas/overtime', label: '加班绩效规则' },
       { key: '/models-formulas/salary', label: '薪资构成模型' },
       { key: '/models-formulas/onboarding-template', label: '入职申请表设置' },
-      { key: '/models-formulas/payroll-workflow', label: '自定义审批流程' },
     ],
   },
   {
@@ -56,12 +56,14 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/approvals/overtime', label: '加班审批' },
       { key: '/approvals/travel', label: '出差审批' },
       { key: '/approvals/purchase', label: '采购审批' },
+      { key: '/approvals/custom-workflow', label: '自定义审批流程', superAdminOnly: true },
     ],
   },
 ];
 
 export function accessibleSubModules(role: string | undefined): SubModule[] {
-  return SUB_MODULES.filter(module => !module.superAdminOnly || role === 'super_admin');
+  return SUB_MODULES.filter(module => !module.superAdminOnly || role === 'super_admin')
+    .map(module => ({ ...module, items: module.items.filter(item => !item.superAdminOnly || role === 'super_admin') }));
 }
 
 const STATIC_TITLES: Record<string, string> = {

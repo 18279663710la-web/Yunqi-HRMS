@@ -19,6 +19,14 @@ test('首页固定，直接访问子模块时一并打开对应页签', () => {
   assert.equal(workspaceTabForLocation(loc('/approvals/expense')).label, '报销审批');
 });
 
+test('旧薪资流程页面地址复用审批管理的新页签', () => {
+  const oldTab = workspaceTabForLocation(loc('/models-formulas/payroll-workflow'));
+  assert.equal(oldTab.key, '/approvals/custom-workflow');
+  assert.equal(oldTab.label, '自定义审批流程');
+  const tabs = openWorkspaceTab(createWorkspaceTabs(loc('/models-formulas/payroll-workflow')), loc('/approvals/custom-workflow'));
+  assert.equal(tabs.filter(tab => tab.key === '/approvals/custom-workflow').length, 1);
+});
+
 test('重复打开复用已有页签并更新地址参数', () => {
   let tabs = createWorkspaceTabs(loc('/dashboard'));
   tabs = openWorkspaceTab(tabs, loc('/employees'));

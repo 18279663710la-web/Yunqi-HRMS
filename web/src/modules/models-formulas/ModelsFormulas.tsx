@@ -4,11 +4,10 @@ import type { AdminRole } from '../../types';
 import { OnboardingTemplateSettings } from './onboarding-template/OnboardingTemplateSettings';
 import { PayrollAttendanceRules } from './attendance/PayrollAttendanceRules';
 import { PayrollOvertimeRules } from './overtime/PayrollOvertimeRules';
-import { CustomApprovalWorkflow } from './payroll-workflow/CustomApprovalWorkflow';
 import { SalaryModels } from './salary/SalaryModels';
 
 const ruleSaved = () => {};
-export type FormulaSection = 'attendance' | 'overtime' | 'salary' | 'onboarding-template' | 'payroll-workflow';
+export type FormulaSection = 'attendance' | 'overtime' | 'salary' | 'onboarding-template';
 
 export function ModelsFormulasView({ role, section }: { role: AdminRole | undefined; section: FormulaSection }) {
   if (role !== 'super_admin') return <Alert type="warning" message="仅超级管理员可访问模型与公式" />;
@@ -17,9 +16,8 @@ export function ModelsFormulasView({ role, section }: { role: AdminRole | undefi
     overtime: <PayrollOvertimeRules onSaved={ruleSaved} />,
     salary: <SalaryModels />,
     'onboarding-template': <OnboardingTemplateSettings />,
-    'payroll-workflow': <CustomApprovalWorkflow />,
   }[section];
-  if (section === 'attendance' || section === 'overtime' || section === 'payroll-workflow' || section === 'salary') return content;
+  if (section === 'attendance' || section === 'overtime' || section === 'salary') return content;
   return <div className="page-stack">
     <Card className="panel-card" bordered={false}>
       <div className="page-stack">{content}</div>

@@ -4,6 +4,7 @@ import React from 'react';
 import { App } from 'antd';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ModelsFormulasView } from '../src/modules/models-formulas/ModelsFormulas';
+import { CustomApprovalWorkflowView } from '../src/modules/approvals/CustomApprovalWorkflowPage';
 
 test('超级管理员查看出勤率绩效时只展示对应规则', () => {
   const html = renderToStaticMarkup(<App><ModelsFormulasView role="super_admin" section="attendance" /></App>);
@@ -60,7 +61,7 @@ test('入职申请表设置是独立子页面且限制超级管理员', () => {
 });
 
 test('自定义审批流程保留画布和功能区，不提供未定义的节点及保存', () => {
-  const html = renderToStaticMarkup(<App><ModelsFormulasView role="super_admin" section="payroll-workflow" /></App>);
+  const html = renderToStaticMarkup(<App><CustomApprovalWorkflowView role="super_admin" /></App>);
   assert.ok(html.includes('自定义审批流程'));
   assert.ok(!html.includes('薪资发放流程'));
   assert.ok(!html.includes('sub-module-header'));
@@ -70,7 +71,7 @@ test('自定义审批流程保留画布和功能区，不提供未定义的节�
   assert.ok(html.includes('添加节点'));
   assert.ok(html.includes('选择模式'));
   assert.ok(html.includes('平移模式'));
-  const denied = renderToStaticMarkup(<App><ModelsFormulasView role="hr_admin" section="payroll-workflow" /></App>);
-  assert.ok(denied.includes('仅超级管理员可访问模型与公式'));
+  const denied = renderToStaticMarkup(<App><CustomApprovalWorkflowView role="hr_admin" /></App>);
+  assert.ok(denied.includes('仅超级管理员可访问自定义审批流程'));
   assert.ok(!denied.includes('添加节点'));
 });
