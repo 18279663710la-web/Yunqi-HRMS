@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Empty, Input, Modal, Select, Space, Spin } from 'antd';
-import { fetchApprovalApproverSettings, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type CustomApprovalType, type ExpenseApproverEmployee } from './api';
+import { getCustomWorkflowApproverCandidates, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type CustomApprovalType, type ExpenseApproverEmployee } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
 import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
 
@@ -14,6 +14,7 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const [loading, setLoading] = useState(node.data.kind === 'approver');
   const [loadError, setLoadError] = useState('');
   const [approvers, setApprovers] = useState<string[]>(node.data.config?.approverIds ?? []);
+  const [approverListOpen, setApproverListOpen] = useState(false);
   const [outcome, setOutcome] = useState<'approved' | 'rejected'>(node.data.config?.outcome ?? 'approved');
   const outgoing = edges.filter(edge => edge.source === node.id);
   const [routes, setRoutes] = useState<Record<string, CustomApprovalCondition[]>>(() => Object.fromEntries(outgoing.map(edge => [edge.id, edge.data?.conditions?.map(item => ({ ...item })) ?? []])));
@@ -27,7 +28,7 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const updateCondition = (edgeId: string, index: number, update: Partial<CustomApprovalCondition>) => setRoutes(current => ({ ...current, [edgeId]: current[edgeId].map((item, i) => i === index ? { ...item, ...update } : item) }));
   const load = () => {
     setLoading(true); setLoadError('');
-    void fetchApprovalApproverSettings(approvalType).then(result => setCandidates(result.candidates)).catch((error: Error) => setLoadError(error.message || '审批人加载失败')).finally(() => setLoading(false));
+    void getCustomWorkflowApproverCandidates(approvalType).then(result => setCandidates(result.candidates)).catch((error: Error) => setLoadError(error.message || '审批人加载失败')).finally(() => setLoading(false));
   };
   useEffect(() => { if (node.data.kind === 'approver') load(); }, []);
   const names = new Map(candidates.map(item => [item.id, item.name]));
@@ -53,16 +54,16 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   };
   const title: Record<string, string> = { start: '发起人', verify: '系统查验', approver: '审批人', branch: '条件分支', end: '结束' };
   return <Modal title={title[node.data.kind] || '节点配置'} open centered onCancel={onCancel} onOk={save} okText="确定" cancelText="取消" width={760} destroyOnHidden
-    className="approval-node-modal" okButtonProps={{ disabled: loading || !!loadError }}>
+    className="approval-node-modal" wrapClassName="approval-node-modal-wrap" okButtonProps={{ disabled: loading || !!loadError }}>
     {node.data.kind === 'start' && <div className="approval-config-group"><div className="approval-config-heading">发起范围</div><Input aria-label="发起范围" value="所有在职员工" disabled /></div>}
     {node.data.kind === 'verify' && <div className="approval-config-group"><div className="approval-config-heading">查验项目</div><Input aria-label="查验项目" value="发票查重与真伪查验" disabled /></div>}
     {node.data.kind === 'end' && <div className="approval-config-group"><div className="approval-config-heading">结束结果</div><Select aria-label="结束结果" value={outcome} onChange={setOutcome} options={[{ value: 'approved', label: '审批通过' }, { value: 'rejected', label: '审批驳回' }]} style={{ width: '100%' }} /></div>}
     {node.data.kind === 'approver' && <div className="approval-config-group">
       <div className="approval-config-heading">审批人（按顺序审批）</div>
-      {loadError ? <Space><span>{loadError}</span><Button onClick={load}>重试</Button></Space> : <Spin spinning={loading}><Select aria-label="选择审批人" mode="multiple" showSearch optionFilterProp="label" placeholder="选择审批人" value={approvers} onChange={setApprovers} style={{ width: '100%' }} maxCount={20} options={[
-        ...candidates.map(person => ({ value: person.id, label: `${person.name} · ${person.employeeNo} · ${person.jobCategory}` })),
+      {loadError ? <Space><span>{loadError}</span><Button onClick={load}>重试</Button></Space> : <div className="approval-approver-select-anchor"><Spin spinning={loading}><Select aria-label="选择审批人" mode="multiple" showSearch optionFilterProp="label" placeholder="选择审批人" value={approvers} onChange={setApprovers} onOpenChange={setApproverListOpen} getPopupContainer={trigger => trigger.closest('.approval-approver-select-anchor') as HTMLElement} popupClassName="approval-approver-dropdown" listHeight={192} style={{ width: '100%' }} maxCount={20} options={[
+        ...candidates.map(person => ({ value: person.id, label: [person.name, person.employeeNo || '小程序账号', person.jobCategory === person.name ? '' : person.jobCategory].filter(Boolean).join(' · ') })),
         ...approvers.filter(id => !names.has(id)).map(id => ({ value: id, label: `${id} · 账号不可用`, disabled: true })),
-      ]} /></Spin>}
+      ]} /></Spin>{approverListOpen && <div className="approval-approver-dropdown-space" aria-hidden="true" />}</div>}
       {approvers.map((id, index) => <div className="approval-approver-order" key={id}><span>{index + 1}. {names.get(id) || `${id} · 账号不可用`}</span><Space>
         <Button size="small" disabled={index === 0} onClick={() => setApprovers(current => { const next = [...current]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return next; })}>上移</Button>
         <Button size="small" disabled={index === approvers.length - 1} onClick={() => setApprovers(current => { const next = [...current]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; return next; })}>下移</Button>

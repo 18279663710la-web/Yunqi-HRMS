@@ -1046,7 +1046,11 @@ code {
 .approval-approver-order { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .approval-condition-row > .ant-select, .approval-condition-row > .ant-input { flex: 1 1 0; min-width: 0; }
 @media (max-width: 640px) { .approval-form-field-row, .approval-condition-row { flex-wrap: wrap; } .approval-form-field-row > .ant-input { flex-basis: 100%; } .approval-condition-row > .ant-select, .approval-condition-row > .ant-input { min-width: 100px; } }
+.approval-node-modal-wrap, .approval-node-modal .ant-modal-body { overscroll-behavior: contain; }
 .approval-node-modal .ant-modal-body { max-height: 65vh; overflow-y: auto; }
+.approval-approver-select-anchor { position: relative; }
+.approval-approver-dropdown-space { height: 208px; }
+.approval-approver-dropdown .rc-virtual-list-holder { overscroll-behavior: contain; }
 .approval-node-modal .approval-branch-route { padding: 14px; background: #f3f6fc; border-color: #cbd6e6; border-left: 3px solid #688be0; }
 .approval-node-modal .onboarding-subfields-heading { margin-bottom: 0; }
 .approval-node-modal .approval-condition-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.25fr) auto; align-items: end; gap: 12px; }

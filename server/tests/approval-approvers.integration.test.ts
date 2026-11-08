@@ -80,6 +80,15 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
     const login = await loginRes.json() as { data: { accessToken: string; user: { id: string } } };
     const chairToken = login.data.accessToken;
     const chairId = login.data.user.id;
+    for (const type of [...types, 'expense']) {
+      const path = `/admin/approval-workflows/${type}/approver-candidates`;
+      assert.equal((await request(path, hr)).status, 403);
+      assert.ok((await request(path, admin)).body.data.candidates.some((c: { id: string }) => c.id === chairId), `${type} 独立设计稿可选择董事长`);
+    }
+    assert.equal((await request('/admin/approval-workflows/unknown/approver-candidates', admin)).status, 400);
+    const expenseDraft = { version: 0, formFields: [], nodes: [{ id: 'review', kind: 'approver', position: { x: 0, y: 0 }, config: { approverIds: [chairId] } }], edges: [] };
+    assert.equal((await request('/admin/approval-workflows/expense', admin, 'PUT', expenseDraft)).status, 200);
+    assert.deepEqual((await request('/admin/approval-workflows/expense', admin)).body.data.nodes[0].config.approverIds, [chairId]);
     for (const type of types) {
       assert.ok((await request(`/admin/approval-approvers/${type}`, admin)).body.data.candidates.some((c: { id: string }) => c.id === chairId));
     }
@@ -116,6 +125,7 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
     assert.equal((await request('/admin/approval-approvers/purchase', admin, 'PUT', { employeeId: 'U005' })).status, 200);
     assert.equal((await request('/admin/approval-approvers/overtime', admin, 'PUT', { employeeId: chairId })).status, 200);
     await conn.query(`UPDATE \`${database}\`.chairperson_account SET status = 'disabled' WHERE id = 1`);
+    assert.ok((await request('/admin/approval-workflows/expense/approver-candidates', admin)).body.data.candidates.every((c: { id: string }) => c.id !== chairId));
     assert.equal((await request('/approvals/approvers/overtime', applicant)).status, 400, '董事长停用后不可继续提交新单');
     assert.equal((await request('/admin/approval-approvers/travel', admin, 'PUT', { employeeId: chairId })).status, 400);
     assert.ok((await request('/admin/approval-approvers/overtime', admin)).body.data.candidates.every((c: { id: string }) => c.id !== chairId));

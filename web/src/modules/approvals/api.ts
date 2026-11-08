@@ -13,6 +13,7 @@ export interface CustomApprovalWorkflow {
 }
 export const getCustomApprovalWorkflow = (type: CustomApprovalType) => request<CustomApprovalWorkflow>(`/admin/approval-workflows/${type}`);
 export const saveCustomApprovalWorkflow = (type: CustomApprovalType, workflow: CustomApprovalWorkflow) => request<CustomApprovalWorkflow>(`/admin/approval-workflows/${type}`, { method: 'PUT', body: workflow });
+export const getCustomWorkflowApproverCandidates = (type: CustomApprovalType) => request<{ candidates: ExpenseApproverEmployee[] }>(`/admin/approval-workflows/${type}/approver-candidates`);
 
 export interface ExpenseApproverEmployee {
   id: string;

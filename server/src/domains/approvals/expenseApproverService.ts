@@ -47,16 +47,27 @@ async function getCandidate(id: string, type: ApprovalApproverType): Promise<Can
   return row ? mapEmployee(row) : null;
 }
 
-export async function getApprovalApproverSettings(type: ApprovalApproverType) {
-  const [configured, candidates, chairperson] = await Promise.all([
-    queryOne<{ employee_id: string }>('SELECT employee_id FROM approval_approvers WHERE type = ?', [type]),
+async function listCandidates(includeChairperson: boolean): Promise<Candidate[]> {
+  const [candidates, chairperson] = await Promise.all([
     queryRows<EmployeeRow>(`SELECT e.id, e.name, e.employee_no, e.position AS job_category, a.status AS account_status
       FROM employees e JOIN employee_accounts a ON a.employee_id = e.id
       WHERE a.status = 'active' ORDER BY e.pinyin, e.id`),
-    chairpersonCanApprove(type) ? getChairpersonAccount() : Promise.resolve(null),
+    includeChairperson ? getChairpersonAccount() : Promise.resolve(null),
   ]);
   const list = candidates.map(mapEmployee);
   if (chairperson?.status === 'active') list.unshift(mapChairperson(true));
+  return list;
+}
+
+export async function getCustomWorkflowApproverCandidates() {
+  return { candidates: await listCandidates(true) };
+}
+
+export async function getApprovalApproverSettings(type: ApprovalApproverType) {
+  const [configured, list] = await Promise.all([
+    queryOne<{ employee_id: string }>('SELECT employee_id FROM approval_approvers WHERE type = ?', [type]),
+    listCandidates(chairpersonCanApprove(type)),
+  ]);
   return { approver: configured ? await getCandidate(configured.employee_id, type) : null, candidates: list };
 }
 

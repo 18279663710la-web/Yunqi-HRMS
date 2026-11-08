@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { getApprovalApproverSettings,getExpenseApproverSettings,parseApproverType,setApprovalApprover,setExpenseApprover } from '../../domains/approvals/expenseApproverService';
+import { getApprovalApproverSettings,getCustomWorkflowApproverCandidates,getExpenseApproverSettings,parseApproverType,setApprovalApprover,setExpenseApprover } from '../../domains/approvals/expenseApproverService';
 import { getExpenseRules,saveExpenseRules } from '../../domains/approvals/expenseRulesService';
 import { customWorkflowSchema, readCustomWorkflow, saveCustomWorkflow } from '../../domains/approvals/customWorkflowService';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
@@ -12,6 +12,11 @@ import { success } from '../../shared/utils/response';
 import { adminOf } from '../adminContext';
 
 const router = Router();
+
+router.get('/approval-workflows/:type/approver-candidates', requireSuperAdmin, asyncHandler(async (req, res) => {
+  parseApproverType(req.params.type);
+  success(res, await getCustomWorkflowApproverCandidates());
+}));
 
 router.get('/approval-workflows/:type', requireSuperAdmin, asyncHandler(async (req, res) => {
   success(res, await readCustomWorkflow(parseApproverType(req.params.type)));
