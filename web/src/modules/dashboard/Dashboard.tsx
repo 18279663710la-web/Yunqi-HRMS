@@ -194,10 +194,6 @@ export function DashboardPage() {
           </Card>
 
           <div className="dashboard-footer">
-            <Space size={8}>
-              <span className="live-dot" />
-              <span>管理后台与小程序共用 MySQL 数据库</span>
-            </Space>
             <Text type="secondary">数据更新于刚刚</Text>
           </div>
         </>
