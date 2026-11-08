@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App, Alert, Button, Card, Empty, Form, Input, InputNumber, Select, Space, Spin, Tabs, Typography } from 'antd';
+import { App, Alert, Card, Empty, Form, Input, InputNumber, Spin, Typography } from 'antd';
 import { Outlet, useLocation, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
@@ -15,19 +15,13 @@ import { PayrollRecordDetail } from './payroll/PayrollRecordDetail';
 import { HrOffboarding } from './offboarding/HrOffboarding';
 import { HrTransitions } from './employee-records/HrTransitions';
 import { HrContractFiles } from './employee-records/HrContractFiles';
-import { getHrEmployees, getHrRecord, getSalaryComponentModel, saveHrRecord, type HrEmployee, type HrSection, type SalaryComponentModel } from './api';
+import { getHrEmployees, getHrRecord, getSalaryComponentModel, saveHrRecord, type HrEmployee, type SalaryComponentModel } from './api';
 import { salaryAmountFields } from '../models-formulas/salary/salaryModel';
 import { salaryRecordPayload } from './employee-records/salaryRecordPayload';
+import { EmployeeRecordsToolbar, type EmployeeTab } from './employee-records/EmployeeRecordsToolbar';
+import './employee-records/employeeRecords.css';
 
 const { Text } = Typography;
-const employeeOptions = (items: HrEmployee[]) => items.map((e) => ({ value: e.id, label: `${e.name} · ${e.employeeNo} · ${e.position}${e.employmentStatus === 'departed' ? ' · 已离职' : ''}` }));
-
-type EmployeeTab = HrSection | 'transitions' | 'events';
-const sections: { key: EmployeeTab; label: string }[] = [
-  { key: 'profile', label: '个人信息' }, { key: 'contract', label: '劳动合同' },
-  { key: 'salary', label: '定薪与薪资构成' }, { key: 'transitions', label: '调岗与晋升' },
-  { key: 'events', label: '人事事件' },
-];
 function EmployeeRecords({ employees, archiveRevision, refreshEmployees }: { employees: HrEmployee[]; archiveRevision: number; refreshEmployees: () => Promise<void> }) {
   const { message } = App.useApp();
   const [employeeId, setEmployeeId] = useState<string>();
@@ -72,14 +66,9 @@ function EmployeeRecords({ employees, archiveRevision, refreshEmployees }: { emp
     catch (error) { message.error((error as Error).message); }
     finally { setSaving(false); }
   };
-  return <Card className="panel-card" bordered={false}>
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 300px' }}><Text strong>选择员工</Text><div style={{ marginTop: 8 }}><Select aria-label="选择员工" showSearch optionFilterProp="label" placeholder="选择已有员工" value={employeeId} onChange={setEmployeeId} options={employeeOptions(employees)} style={{ width: 'min(100%, 420px)' }} /></div></div>
-        {employeeId && (section === 'contract' || section === 'salary') && <Button type="primary" onClick={() => form.submit()} loading={saving} disabled={loading || loadFailed || (section === 'salary' && (!salaryModel || salaryModelFailed))}>保存</Button>}
-      </div>
+  return <div className="employee-records-page">
+    <EmployeeRecordsToolbar employees={employees} employeeId={employeeId} section={section} onEmployeeChange={setEmployeeId} onSectionChange={setSection} onSave={() => form.submit()} saving={saving} saveDisabled={loading || loadFailed || (section === 'salary' && (!salaryModel || salaryModelFailed))} />
       {employeeId ? <>
-        <Tabs activeKey={section} onChange={key => setSection(key as EmployeeTab)} items={sections} />
         {section === 'profile' && <Spin spinning={loading}>{!loading && (loadFailed ? <Alert type="error" message="个人信息加载失败" /> : archived ? <OnboardingSubmission record={archived} /> : <Empty description="该员工暂无已封存的入职申请表" />)}</Spin>}
         {(section === 'contract' || section === 'salary') && <><Spin spinning={loading}><Form form={form} layout="vertical" onFinish={save} style={{ maxWidth: 600 }}>
           {section === 'contract' && <><Form.Item name="number" label="合同编号" rules={[{ required: true, whitespace: true, message: '请填写合同编号' }]}><Input maxLength={200} /></Form.Item><Form.Item name="startDate" label="合同开始日期" rules={[{ required: true, message: '请选择合同开始日期' }]}><Input type="date" /></Form.Item><Form.Item name="endDate" label="合同结束日期" dependencies={['startDate']} rules={[{ required: true, message: '请选择合同结束日期' }, ({ getFieldValue }) => ({ validator(_, value: string) { return !value || !getFieldValue('startDate') || value >= getFieldValue('startDate') ? Promise.resolve() : Promise.reject(new Error('合同结束日期不能早于开始日期')); } })]}><Input type="date" /></Form.Item><Form.Item name="note" label="备注"><Input.TextArea maxLength={200} /></Form.Item></>}
@@ -88,8 +77,7 @@ function EmployeeRecords({ employees, archiveRevision, refreshEmployees }: { emp
         {section === 'transitions' && <HrTransitions key={`transitions-${employeeId}`} employeeId={employeeId} onEmployeeChanged={refreshEmployees} />}
         {section === 'events' && <HrEvents key={`events-${employeeId}`} employeeId={employeeId} />}
       </> : <Empty description="请选择员工查看人事资料" />}
-    </Space>
-  </Card>;
+  </div>;
 }
 
 interface HrLayoutContext {
@@ -120,10 +108,10 @@ export function HrLayout() {
     refreshEmployees: async () => setEmployees(await getHrEmployees()),
   };
   const fullWidthPayrollPage = ['/hr/payroll-batches', '/hr/payroll-disbursement'].includes(location.pathname) || /^\/hr\/payroll-records\/\d+\/\d{4}-\d{2}$/.test(location.pathname);
-  const onboardingPage = location.pathname === '/hr/onboarding';
-  return <div className={fullWidthPayrollPage ? 'payroll-batches-page' : onboardingPage ? undefined : 'page-stack'}>
-    {!fullWidthPayrollPage && !onboardingPage && location.pathname !== '/hr/payroll-records' && <PageTitle title={subModuleLabel(location.pathname) ?? '人事管理'} />}
-    {fullWidthPayrollPage || onboardingPage ? <Outlet context={context} /> : <Card className="panel-card" bordered={false}><Outlet context={context} /></Card>}
+  const noOuterCardPage = ['/hr/onboarding', '/hr/employees'].includes(location.pathname);
+  return <div className={fullWidthPayrollPage ? 'payroll-batches-page' : noOuterCardPage ? undefined : 'page-stack'}>
+    {!fullWidthPayrollPage && !noOuterCardPage && location.pathname !== '/hr/payroll-records' && <PageTitle title={subModuleLabel(location.pathname) ?? '人事管理'} />}
+    {fullWidthPayrollPage || noOuterCardPage ? <Outlet context={context} /> : <Card className="panel-card" bordered={false}><Outlet context={context} /></Card>}
   </div>;
 }
 

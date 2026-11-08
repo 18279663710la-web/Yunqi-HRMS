@@ -1,0 +1,22 @@
+.employee-records-toolbar .employee-records-select {
+  flex: 0 0 240px;
+  width: 240px;
+}
+
+.employee-records-sections {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex: 0 0 auto;
+}
+
+.employee-records-section[aria-pressed='true'] {
+  color: #245bb8;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.employee-records-save {
+  margin-left: auto;
+}
