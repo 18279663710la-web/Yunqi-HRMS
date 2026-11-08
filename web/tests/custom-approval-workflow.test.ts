@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { canConnectApprovalNodes, createApprovalNode, serializeApprovalWorkflow } from '../src/modules/approvals/customApprovalWorkflowGraph';
+
+test('审批节点和连线只保存独立设计稿需要的结构', () => {
+  const form = createApprovalNode('form', { x: 120, y: 50 });
+  const approver = createApprovalNode('approver', { x: 480, y: 50 });
+  const result = serializeApprovalWorkflow(3, [{ ...form, selected: true }, approver], [{ id: 'edge', source: form.id, target: approver.id, selected: true }]);
+  assert.deepEqual(result, { version: 3, nodes: [
+    { id: form.id, kind: 'form', position: { x: 120, y: 50 } },
+    { id: approver.id, kind: 'approver', position: { x: 480, y: 50 } },
+  ], edges: [{ id: 'edge', source: form.id, target: approver.id }] });
+});
+
+test('审批设计稿禁止连接自身、重复连线或未知节点', () => {
+  const nodes = new Set(['a', 'b']);
+  const edges = [{ source: 'a', target: 'b' }];
+  assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'b'), false);
+  assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'a'), false);
+  assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'c'), false);
+  assert.equal(canConnectApprovalNodes(nodes, edges, 'b', 'a'), true);
+});

@@ -1,5 +1,15 @@
 import { request } from '../../api/client';
 
+export type CustomApprovalType = 'leave' | 'expense' | 'overtime' | 'travel' | 'purchase';
+export type CustomApprovalNodeKind = 'form' | 'approver' | 'branch';
+export interface CustomApprovalWorkflow {
+  version: number;
+  nodes: Array<{ id: string; kind: CustomApprovalNodeKind; position: { x: number; y: number } }>;
+  edges: Array<{ id: string; source: string; target: string }>;
+}
+export const getCustomApprovalWorkflow = (type: CustomApprovalType) => request<CustomApprovalWorkflow>(`/admin/approval-workflows/${type}`);
+export const saveCustomApprovalWorkflow = (type: CustomApprovalType, workflow: CustomApprovalWorkflow) => request<CustomApprovalWorkflow>(`/admin/approval-workflows/${type}`, { method: 'PUT', body: workflow });
+
 export interface ExpenseApproverEmployee {
   id: string;
   name: string;

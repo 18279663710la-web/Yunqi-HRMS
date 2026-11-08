@@ -2,11 +2,11 @@
 
 ## 职责
 
-五类审批通过覆盖式子侧栏进入独立页面和全局页签，提供审批人及报销规则配置组件与 API；自定义审批流程为独立入口。
+五类审批通过覆盖式子侧栏进入独立页面和全局页签，提供审批人及报销规则配置组件与 API；自定义审批流程独立编辑并保存画布设计稿，不驱动现有审批。
 
 ## 主要内容
 
-- 主要文件：`api.ts`、`ApprovalManagement.tsx`、`CustomApprovalWorkflowPage.tsx`、`ExpenseApproverSettings.tsx`、`ExpenseRulesSettings.tsx`。
+- 主要文件：`api.ts`、`ApprovalManagement.tsx`、`CustomApprovalWorkflowPage.tsx`、`CustomApprovalCanvas.tsx`、`customApprovalWorkflowGraph.ts`、`ExpenseApproverSettings.tsx`、`ExpenseRulesSettings.tsx`。
 
 ## 维护约束
 

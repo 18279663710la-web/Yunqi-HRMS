@@ -1024,6 +1024,9 @@ code {
 .workflow-node-icon.is-payslip { color: #d97706; background: #fff4e6; }
 .workflow-node-icon.is-send-miniprogram { color: #0891b2; background: #e6f7ff; }
 .workflow-node-icon.is-import-fields { color: #5b6475; background: #f2f4f7; }
+.workflow-node-icon.approval-node-form { color: #3d6ef7; background: #eaf0ff; }
+.workflow-node-icon.approval-node-approver { color: #12a15e; background: #e9f8f1; }
+.workflow-node-icon.approval-node-branch { color: #d97706; background: #fff4e6; }
 .workflow-placement-layer { position: absolute; inset: 0; z-index: 6; cursor: crosshair; }
 .workflow-node-ghost { position: absolute; transform: translate(-50%, -50%); pointer-events: none; opacity: .82; border-style: dashed; box-shadow: 0 8px 24px rgba(61, 110, 247, .18); }
 .workflow-node { position: relative; display: flex; align-items: center; gap: 10px; width: 240px; height: 64px; padding: 10px 30px 10px 12px; text-align: left; background: #fff; border: 1px solid #dce3ee; border-radius: 12px; box-shadow: 0 2px 8px rgba(27, 42, 67, .07); cursor: grab; transition: border-color .15s, box-shadow .15s; }

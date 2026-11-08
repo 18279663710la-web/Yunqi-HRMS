@@ -6,6 +6,8 @@
 
 职务目录在 `job_titles`，旧工资明细没有职务快照时，迁移前的显示值保存在 `hr_payroll_legacy_job_titles`。
 
+`custom_approval_workflows` 按审批类型保存独立流程设计稿及版本，不参与现有审批流转；表由 `schema.sql` 的幂等建表语句创建。
+
 ## 主要内容
 
 - 主要文件：`schema.sql`。

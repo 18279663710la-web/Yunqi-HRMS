@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { getApprovalApproverSettings,getExpenseApproverSettings,parseApproverType,setApprovalApprover,setExpenseApprover } from '../../domains/approvals/expenseApproverService';
 import { getExpenseRules,saveExpenseRules } from '../../domains/approvals/expenseRulesService';
+import { customWorkflowSchema, readCustomWorkflow, saveCustomWorkflow } from '../../domains/approvals/customWorkflowService';
+import { recordAdminLog } from '../../domains/audit/adminLogService';
 import { requireSuperAdmin } from '../admin-accounts/authMiddleware';
 import { parse } from '../../shared/middleware/validate';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
@@ -10,6 +12,18 @@ import { success } from '../../shared/utils/response';
 import { adminOf } from '../adminContext';
 
 const router = Router();
+
+router.get('/approval-workflows/:type', requireSuperAdmin, asyncHandler(async (req, res) => {
+  success(res, await readCustomWorkflow(parseApproverType(req.params.type)));
+}));
+
+router.put('/approval-workflows/:type', requireSuperAdmin, asyncHandler(async (req, res) => {
+  const type = parseApproverType(req.params.type);
+  const input = parse(customWorkflowSchema, req.body);
+  const saved = await saveCustomWorkflow(type, input, adminOf(req).id);
+  await recordAdminLog(adminOf(req), '保存自定义审批流程设计稿', 'custom_approval_workflows', type, { nodeCount: saved.nodes.length, edgeCount: saved.edges.length });
+  success(res, saved);
+}));
 
 router.get('/expense-approver', requireSuperAdmin, asyncHandler(async (_req, res) => {
   success(res, await getExpenseApproverSettings());

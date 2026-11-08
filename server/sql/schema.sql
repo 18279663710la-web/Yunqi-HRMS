@@ -389,6 +389,14 @@ CREATE TABLE IF NOT EXISTS `approval_rules` (
   `updated_at` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `custom_approval_workflows` (
+  `approval_type` VARCHAR(20) PRIMARY KEY,
+  `version` INT NOT NULL DEFAULT 0,
+  `graph_json` JSON NOT NULL,
+  `updated_by` INT NOT NULL,
+  `updated_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `expense_ai_jobs` (
   `approval_id` VARCHAR(30) PRIMARY KEY,
   `approver_id` VARCHAR(10) NOT NULL,

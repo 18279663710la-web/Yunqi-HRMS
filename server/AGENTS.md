@@ -16,6 +16,7 @@
 - 董事长小程序账号独立保存，仅超级管理员可创建；其接口权限限于本人参与的请假、加班、出差及采购审批。
 - 新加班申请固定保存一项“补偿方式：加班费”，兼容旧客户端传入的选项；不改历史申请及工资计算规则。
 - 报销自定义流程分支校验基础位于 `domains/approvals/expenseWorkflowPolicy.ts`；当前尚未接入配置、报销表单或实际审批流转。
+- 自定义审批流程的独立设计稿按审批类型存于 `custom_approval_workflows`；超级管理员通过 `/api/admin/approval-workflows/:type` 读取与保存，保存校验图结构和版本并记录操作日志。设计稿只包含节点类型、位置与连线，不参与现有审批流转。
 
 ## 目录结构
 - `src/config.ts`：环境配置；`src/admin/`、`src/miniprogram/`：管理端和员工端接口；`src/domains/`：共享业务。
