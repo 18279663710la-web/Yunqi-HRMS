@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App, Button, Drawer, Empty, Input, Select, Space, Spin } from 'antd';
+import { App, Button, Empty, Input, Modal, Select, Space, Spin } from 'antd';
 import { fetchExpenseApproverSettings, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type ExpenseApproverEmployee } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
 
@@ -51,8 +51,8 @@ export function CustomApprovalNodeEditor({ node, nodes, edges, fields, onCancel,
     onSave(node.data.kind === 'end' ? { outcome } : undefined);
   };
   const title: Record<string, string> = { start: '发起人', verify: '系统查验', approver: '审批人', branch: '条件分支', end: '结束' };
-  return <Drawer title={title[node.data.kind] || '节点配置'} open onClose={onCancel} width={480} destroyOnHidden
-    extra={<Space><Button onClick={onCancel}>取消</Button><Button type="primary" onClick={save} disabled={loading || !!loadError}>确定</Button></Space>}>
+  return <Modal title={title[node.data.kind] || '节点配置'} open centered onCancel={onCancel} onOk={save} okText="确定" cancelText="取消" width={760} destroyOnHidden
+    className="approval-node-modal" okButtonProps={{ disabled: loading || !!loadError }}>
     {node.data.kind === 'start' && <div className="approval-config-group"><div className="approval-config-heading">发起范围</div><Input aria-label="发起范围" value="所有在职员工" disabled /></div>}
     {node.data.kind === 'verify' && <div className="approval-config-group"><div className="approval-config-heading">查验项目</div><Input aria-label="查验项目" value="发票查重与真伪查验" disabled /></div>}
     {node.data.kind === 'end' && <div className="approval-config-group"><div className="approval-config-heading">结束结果</div><Select aria-label="结束结果" value={outcome} onChange={setOutcome} options={[{ value: 'approved', label: '审批通过' }, { value: 'rejected', label: '审批驳回' }]} style={{ width: '100%' }} /></div>}
@@ -75,16 +75,16 @@ export function CustomApprovalNodeEditor({ node, nodes, edges, fields, onCancel,
         const peers = nodes.filter(item => item.data.kind === target?.data.kind);
         const targetLabel = target && peers.length > 1 ? `${targetName} ${peers.findIndex(item => item.id === target.id) + 1}` : targetName;
         return <div className="approval-branch-route" key={edge.id}>
-          <div className="approval-config-heading">分支 {routeIndex + 1} → {targetLabel}</div>
+          <div className="onboarding-subfields-heading"><span className="onboarding-subfields-marker" />分支 {routeIndex + 1} → {targetLabel}</div>
           {(routes[edge.id] || []).map((condition, index) => <div className="approval-condition-row" key={index}>
-            <Select aria-label={`分支${routeIndex + 1}条件${index + 1}字段`} value={condition.field} options={fieldOptions} onChange={field => updateCondition(edge.id, index, { field, operator: field === 'amount' ? 'gte' : 'eq', value: '' })} />
-            <Select aria-label={`分支${routeIndex + 1}条件${index + 1}比较`} value={condition.operator} options={condition.field === 'amount' ? [{ value: 'gte', label: '大于等于' }, { value: 'lt', label: '小于' }] : [{ value: 'eq', label: '等于' }]} onChange={operator => updateCondition(edge.id, index, { operator })} />
-            {condition.field === 'amount' ? <Input aria-label={`分支${routeIndex + 1}条件${index + 1}金额`} value={condition.value} onChange={event => updateCondition(edge.id, index, { value: event.target.value })} /> : <Select aria-label={`分支${routeIndex + 1}条件${index + 1}选项`} placeholder="选择选项" value={condition.value || undefined} options={valuesFor(condition.field).map(value => ({ value, label: value }))} onChange={value => updateCondition(edge.id, index, { value })} />}
+            <div className="approval-node-field"><div className="approval-node-field-label">字段</div><Select aria-label={`分支${routeIndex + 1}条件${index + 1}字段`} value={condition.field} options={fieldOptions} onChange={field => updateCondition(edge.id, index, { field, operator: field === 'amount' ? 'gte' : 'eq', value: '' })} /></div>
+            <div className="approval-node-field"><div className="approval-node-field-label">比较方式</div><Select aria-label={`分支${routeIndex + 1}条件${index + 1}比较`} value={condition.operator} options={condition.field === 'amount' ? [{ value: 'gte', label: '大于等于' }, { value: 'lt', label: '小于' }] : [{ value: 'eq', label: '等于' }]} onChange={operator => updateCondition(edge.id, index, { operator })} /></div>
+            <div className="approval-node-field"><div className="approval-node-field-label">条件值</div>{condition.field === 'amount' ? <Input aria-label={`分支${routeIndex + 1}条件${index + 1}金额`} value={condition.value} onChange={event => updateCondition(edge.id, index, { value: event.target.value })} /> : <Select aria-label={`分支${routeIndex + 1}条件${index + 1}选项`} placeholder="选择选项" value={condition.value || undefined} options={valuesFor(condition.field).map(value => ({ value, label: value }))} onChange={value => updateCondition(edge.id, index, { value })} />}</div>
             <Button type="link" danger onClick={() => setRoutes(current => ({ ...current, [edge.id]: current[edge.id].filter((_, i) => i !== index) }))}>删除</Button>
           </div>)}
-          <Button size="small" onClick={() => setRoutes(current => ({ ...current, [edge.id]: [...(current[edge.id] || []), { ...EMPTY_CONDITION }] }))} disabled={(routes[edge.id] || []).length >= 20}>添加条件</Button>
+          <Button onClick={() => setRoutes(current => ({ ...current, [edge.id]: [...(current[edge.id] || []), { ...EMPTY_CONDITION }] }))} disabled={(routes[edge.id] || []).length >= 20}>添加条件</Button>
         </div>;
       })}
     </div>}
-  </Drawer>;
+  </Modal>;
 }
