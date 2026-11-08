@@ -4,7 +4,6 @@ import {
   App as AntApp,
   Avatar,
   Button,
-  Card,
   Col,
   DatePicker,
   Divider,
@@ -25,8 +24,6 @@ import type { MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   DownOutlined,
-  PlusOutlined,
-  ReloadOutlined,
   SearchOutlined,
   TeamOutlined,
   UserDeleteOutlined,
@@ -36,7 +33,6 @@ import { pinyin } from 'pinyin-pro';
 import { useSearchParams } from 'react-router-dom';
 
 import { createEmployee, fetchEmployees, resetEmployeeAccountPassword, setEmployeeAccountStatus, updateEmployee, upsertEmployeeAccount } from './api';
-import { PageTitle } from '../../components/PageTitle';
 import type {
   AccountStatus,
   AdminEmployee,
@@ -456,84 +452,74 @@ export function EmployeesPage() {
   ];
 
   return (
-    <div className="page-stack">
-      <PageTitle
-        title="员工与账号"
-        subtitle="维护员工档案，创建小程序登录账号，控制账号启停"
-        extra={
-          <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => { void load(); }}>
-              刷新
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              新增员工账号
-            </Button>
-          </Space>
-        }
-      />
+    <div className="employees-page">
+      <div className="salary-model-entries" role="toolbar" aria-label="员工与账号操作">
+        <button type="button" className="salary-model-entry" onClick={() => { void load(); }}>刷新</button>
+        <button type="button" className="salary-model-entry" onClick={openCreate}>新增员工账号</button>
+      </div>
 
-      <Card className="panel-card" bordered={false}>
-        <div className="filter-bar">
-          <Input.Search
-            allowClear
-            enterButton={<SearchOutlined />}
-            placeholder="搜索姓名 / 拼音 / 工号 / 手机号 / 登录名"
-            style={{ width: 330 }}
-            onSearch={(value) => {
-              setPage(1);
-              setKeyword(value.trim());
-            }}
-          />
-          <Select
-            style={{ width: 180 }}
-            aria-label="筛选职务"
-            value={jobFilter}
-            allowClear
-            placeholder="全部职务"
-            options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
-            onChange={(value) => {
-              setPage(1);
-              setJobFilter(value);
-            }}
-          />
-          <Select
-            style={{ width: 160 }}
-            value={accountStatus}
-            onChange={(value) => {
-              setPage(1);
-              setAccountStatus(value);
-            }}
-            options={[
-              { value: 'all', label: '全部账号状态' },
-              { value: 'active', label: '已启用' },
-              { value: 'disabled', label: '已停用' },
-              { value: 'none', label: '未开通' },
-            ]}
-          />
-          <div className="filter-count">
-            <TeamOutlined /> 共 {total} 人
-          </div>
-        </div>
-
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={list}
-          scroll={{ x: 1040 }}
-          pagination={{
-            current: page,
-            pageSize,
-            total,
-            showSizeChanger: true,
-            showTotal: (value) => `共 ${value} 条`,
-            onChange: (nextPage, nextPageSize) => {
-              setPage(nextPage);
-              setPageSize(nextPageSize);
-            },
+      <div className="filter-bar">
+        <Input.Search
+          allowClear
+          aria-label="搜索员工"
+          enterButton={<SearchOutlined />}
+          placeholder="搜索姓名 / 拼音 / 工号 / 手机号 / 登录名"
+          style={{ width: 'min(100%, 330px)' }}
+          onSearch={(value) => {
+            setPage(1);
+            setKeyword(value.trim());
           }}
         />
-      </Card>
+        <Select
+          style={{ width: 180, maxWidth: '100%' }}
+          aria-label="筛选职务"
+          value={jobFilter}
+          allowClear
+          placeholder="全部职务"
+          options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
+          onChange={(value) => {
+            setPage(1);
+            setJobFilter(value);
+          }}
+        />
+        <Select
+          style={{ width: 160, maxWidth: '100%' }}
+          aria-label="筛选账号状态"
+          value={accountStatus}
+          onChange={(value) => {
+            setPage(1);
+            setAccountStatus(value);
+          }}
+          options={[
+            { value: 'all', label: '全部账号状态' },
+            { value: 'active', label: '已启用' },
+            { value: 'disabled', label: '已停用' },
+            { value: 'none', label: '未开通' },
+          ]}
+        />
+        <div className="filter-count">
+          <TeamOutlined /> 共 {total} 人
+        </div>
+      </div>
+
+      <Table
+        rowKey="id"
+        loading={loading}
+        columns={columns}
+        dataSource={list}
+        scroll={{ x: 1040 }}
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          showTotal: (value) => `共 ${value} 条`,
+          onChange: (nextPage, nextPageSize) => {
+            setPage(nextPage);
+            setPageSize(nextPageSize);
+          },
+        }}
+      />
 
       <Modal
         title={editing ? `编辑员工 · ${editing.name}` : '新增员工账号'}
