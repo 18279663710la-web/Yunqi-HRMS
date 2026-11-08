@@ -2,11 +2,11 @@
 
 ## 职责
 
-考勤查询、人工更正和考勤设置页面、组件与 API；职务筛选使用组织架构目录。
+考勤查询、人工更正和考勤设置页面、组件与 API；职务筛选使用组织架构目录。打卡设置使用腾讯地图，展示已保存的打卡中心及半径，支持点击地图选点；加载失败时可重试或手动输入坐标。
 
 ## 主要内容
 
-- 主要文件：`api.ts`、`Attendance.tsx`、`AttendanceSettingsCard.tsx`。
+- 主要文件：`api.ts`、`Attendance.tsx`、`AttendanceSettingsCard.tsx`、`attendanceMap.ts`。
 
 ## 维护约束
 

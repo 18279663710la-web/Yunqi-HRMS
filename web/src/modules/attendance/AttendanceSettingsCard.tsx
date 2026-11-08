@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Row, TimePicker, Typography } from 'antd';
+import { Alert, App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Spin, TimePicker, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { fetchAttendanceSettings, saveAttendanceSettings } from './api';
 import type { AttendanceSettings } from '../../types';
+import { createAttendanceMap, type MapPoint, type MapSdk } from './attendanceMap';
 
 interface SettingsForm {
   startTime: Dayjs;
@@ -17,68 +18,57 @@ interface SettingsForm {
   radius: number;
 }
 
-// The SDK is loaded only when the settings dialog is opened.
-type TencentMapSdk = {
-  LatLng: new (lat: number, lng: number) => unknown;
-  Map: new (element: HTMLElement, options: object) => { on: (event: string, fn: (event: { latLng: { getLat(): number; getLng(): number } }) => void) => void; destroy: () => void };
-  MultiMarker: new (options: object) => { setGeometries: (items: object[]) => void; setMap: (map: null) => void };
-  MultiCircle: new (options: object) => { setGeometries: (items: object[]) => void; setMap: (map: null) => void };
-  CircleStyle: new (options: object) => unknown;
-};
-
 function MapPicker({ latitude, longitude, radius, onSelect }: {
   latitude?: number; longitude?: number; radius?: number; onSelect: (lat: number, lng: number) => void;
 }) {
   const element = useRef<HTMLDivElement>(null);
-  const layers = useRef<{ sdk: TencentMapSdk; marker: InstanceType<TencentMapSdk['MultiMarker']>; circle: InstanceType<TencentMapSdk['MultiCircle']> }>();
+  const controller = useRef<ReturnType<typeof createAttendanceMap>>();
+  const point = useRef<MapPoint>({ latitude, longitude, radius });
+  point.current = { latitude, longitude, radius };
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
   const key = (import.meta.env.VITE_TENCENT_MAP_KEY as string | undefined)?.trim();
 
   useEffect(() => {
     if (!key || !element.current) return;
     let disposed = false;
-    let map: InstanceType<TencentMapSdk['Map']> | undefined;
-    const global = window as unknown as { TMap?: TencentMapSdk };
+    setStatus('loading');
+    const timeout = window.setTimeout(() => { if (!disposed) setStatus('error'); }, 15000);
+    const global = window as unknown as { TMap?: MapSdk };
     const script = document.createElement('script');
     const init = () => {
       if (disposed || !element.current) return;
       const sdk = global.TMap;
-      if (!sdk) { setError('地图加载失败，请检查腾讯位置服务 Key 和域名配置。'); return; }
+      if (!sdk) { setStatus('error'); return; }
       try {
-        map = new sdk.Map(element.current, { center: new sdk.LatLng(latitude ?? 23.1291, longitude ?? 113.2644), zoom: 16 });
-        const marker = new sdk.MultiMarker({ map, geometries: [] });
-        const circle = new sdk.MultiCircle({ map, styles: { range: new sdk.CircleStyle({ color: 'rgba(61,110,247,0.18)', borderColor: '#3d6ef7', borderWidth: 2 }) }, geometries: [] });
-        layers.current = { sdk, marker, circle };
-        if (latitude !== undefined && longitude !== undefined) {
-          const center = new sdk.LatLng(latitude, longitude);
-          marker.setGeometries([{ id: 'site', position: center }]);
-          circle.setGeometries([{ id: 'range', styleId: 'range', center, radius: radius || 100 }]);
-        }
-        map.on('click', (event) => onSelectRef.current(Number(event.latLng.getLat().toFixed(7)), Number(event.latLng.getLng().toFixed(7))));
-      } catch { setError('地图初始化失败，请检查网络和 Key 配置。'); }
+        controller.current = createAttendanceMap(sdk, element.current, point.current, (lat, lng) => onSelectRef.current(lat, lng), () => {
+          if (!disposed) { window.clearTimeout(timeout); setStatus('ready'); }
+        });
+      } catch { setStatus('error'); }
     };
     if (global.TMap) init();
     else {
       script.src = `https://map.qq.com/api/gljs?v=1.exp&key=${encodeURIComponent(key)}`;
       script.onload = init;
-      script.onerror = () => { if (!disposed) setError('地图加载失败，请检查网络和 Key 配置。'); };
+      script.onerror = () => { if (!disposed) setStatus('error'); };
       document.head.appendChild(script);
     }
-    return () => { disposed = true; layers.current?.marker.setMap(null); layers.current?.circle.setMap(null); layers.current = undefined; map?.destroy(); };
-  }, [key]);
+    return () => { disposed = true; window.clearTimeout(timeout); script.remove(); controller.current?.destroy(); controller.current = undefined; };
+  }, [key, attempt]);
 
   useEffect(() => {
-    const layer = layers.current;
-    if (!layer || latitude === undefined || longitude === undefined) return;
-    const center = new layer.sdk.LatLng(latitude, longitude);
-    layer.marker.setGeometries([{ id: 'site', position: center }]);
-    layer.circle.setGeometries([{ id: 'range', styleId: 'range', center, radius: radius || 100 }]);
+    controller.current?.update({ latitude, longitude, radius });
   }, [latitude, longitude, radius]);
 
   if (!key) return <Alert type="warning" showIcon message="尚未配置腾讯地图 Key" description="请在 Web 环境中配置 VITE_TENCENT_MAP_KEY，重启后可在地图上选点；也可以手动填写 GCJ-02 坐标。" />;
-  return <>{error && <Alert type="error" showIcon message={error} />}<div ref={element} style={{ width: '100%', height: 300, borderRadius: 8, marginBottom: 12 }} /></>;
+  return <>
+    {status === 'error' && <Alert type="error" showIcon message="地图加载失败，请检查网络和腾讯地图配置。" action={<Button size="small" onClick={() => setAttempt(value => value + 1)}>重试</Button>} />}
+    <Spin spinning={status === 'loading'} tip="地图加载中">
+      <div ref={element} style={{ width: '100%', height: 300, borderRadius: 8, marginBottom: 12 }} />
+    </Spin>
+  </>;
 }
 
 export function AttendanceSettingsCard() {
@@ -162,7 +152,7 @@ export function AttendanceSettingsCard() {
         </Form.Item>
         <Alert type="info" showIcon message="时间段包含开始和结束分钟，不支持跨午夜；楼层仅作地点说明。" style={{ marginBottom: 16 }} />
         <Typography.Text strong>在地图上点击选择打卡中心</Typography.Text>
-        <div style={{ marginTop: 8 }}><MapPicker latitude={latitude} longitude={longitude} radius={radius} onSelect={(lat, lng) => form.setFieldsValue({ latitude: lat, longitude: lng })} /></div>
+        <div style={{ marginTop: 8 }}><MapPicker latitude={latitude ?? form.getFieldValue('latitude')} longitude={longitude ?? form.getFieldValue('longitude')} radius={radius ?? form.getFieldValue('radius')} onSelect={(lat, lng) => form.setFieldsValue({ latitude: lat, longitude: lng })} /></div>
         <Row gutter={16}>
           <Col xs={12}><Form.Item name="latitude" label="纬度（GCJ-02）" rules={[{ required: true, type: 'number', min: -90, max: 90, message: '请在地图选点或输入有效纬度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
           <Col xs={12}><Form.Item name="longitude" label="经度（GCJ-02）" rules={[{ required: true, type: 'number', min: -180, max: 180, message: '请在地图选点或输入有效经度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
