@@ -4,14 +4,26 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { PayrollWorkflowCanvas, type PayrollWorkflowTool } from './PayrollWorkflowCanvas';
 
 const noop = () => {};
+const APPROVAL_TYPES = [
+  { value: 'leave', label: '请假审批' },
+  { value: 'expense', label: '报销审批' },
+  { value: 'overtime', label: '加班审批' },
+  { value: 'travel', label: '出差审批' },
+  { value: 'purchase', label: '采购审批' },
+];
 
 export function CustomApprovalWorkflow() {
   const [mounted, setMounted] = useState(false);
   const [tool, setTool] = useState<PayrollWorkflowTool>('select');
+  const [approvalType, setApprovalType] = useState('');
   useEffect(() => { setMounted(true); }, []);
 
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
+      <select className="salary-model-entry approval-type-select" aria-label="选择审批类型" value={approvalType} onChange={event => setApprovalType(event.target.value)}>
+        <option value="" disabled>选择审批类型</option>
+        {APPROVAL_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+      </select>
       <button className="salary-model-entry" type="button" disabled>清空</button>
       <button className="salary-model-entry" type="button" disabled>保存</button>
     </div>

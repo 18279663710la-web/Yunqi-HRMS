@@ -804,6 +804,7 @@ code {
 .salary-model-entry:hover:not(:disabled) { color: #16448f; text-decoration: underline; }
 .salary-model-entry:focus-visible { outline: 2px solid #3d6ef7; outline-offset: 3px; border-radius: 2px; }
 .salary-model-entry:disabled { opacity: .45; cursor: not-allowed; }
+.approval-type-select { padding-right: 4px; }
 .salary-model-entry-danger:not(:disabled) { color: #c43838; }
 .salary-model-scroll { flex: 1; min-width: 0; min-height: 140px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: #9aa9bd #e7ebf0; }
 .salary-model-scroll:focus-visible { outline: 2px solid #3d6ef7; outline-offset: -2px; }
