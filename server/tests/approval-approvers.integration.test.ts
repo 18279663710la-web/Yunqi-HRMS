@@ -53,6 +53,19 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
       assert.equal(created.body.data.status, 'pending');
       assert.equal(created.body.data.timeline[1].approverId, 'U011');
       if (type === 'leave') assert.equal(created.body.data.form.find((item: { label: string }) => item.label === '请假时长（天）').value, '1');
+      if (type === 'overtime') {
+        assert.deepEqual(created.body.data.form.filter((item: { label: string }) => item.label === '补偿方式'), [{ label: '补偿方式', value: '加班费' }]);
+        await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('HISTORIC_OT','overtime','加班','历史加班','approved','U001','员工','','员工',?,NOW())`, [JSON.stringify([{ label: '补偿方式', value: '调休' }])]);
+        const [historyBefore] = await conn.query(`SELECT id, form_json FROM \`${database}\`.approvals WHERE id = 'HISTORIC_OT'`);
+        const legacy = await request('/approvals', applicant, 'POST', { type, summary: '2026-10-28 加班，补偿方式：调休', form: [
+          { label: '加班日期', value: '2026-10-28' }, { label: '补偿方式', value: '调休' }, { label: '补偿方式', value: '调休' },
+        ] });
+        assert.equal(legacy.status, 200);
+        assert.deepEqual(legacy.body.data.form.filter((item: { label: string }) => item.label === '补偿方式'), [{ label: '补偿方式', value: '加班费' }]);
+        assert.equal(legacy.body.data.summary, '2026-10-28 加班，补偿方式：加班费');
+        const [historyAfter] = await conn.query(`SELECT id, form_json FROM \`${database}\`.approvals WHERE id = 'HISTORIC_OT'`);
+        assert.deepEqual(historyAfter, historyBefore);
+      }
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U005' })).status, 200);
       assert.equal((await request(`/approvals/${created.body.data.id}`, reviewer)).body.data.timeline[1].approverId, 'U011');
       assert.equal((await request(`/approvals/${created.body.data.id}/action`, reviewer, 'POST', { action: 'approve' })).body.data.ok, true);

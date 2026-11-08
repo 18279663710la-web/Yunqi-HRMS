@@ -174,6 +174,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     const { types } = this.data;
     const type = types.find((t) => t.key === key) || types[0];
     if (!type) return;
+    const fields = type.key === 'overtime' ? type.fields.filter((field) => field.key !== 'compensation') : type.fields;
     this.approverGeneration += 1;
     this.precheckGeneration += 1;
     this.precheckTask?.abort();
@@ -181,7 +182,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     const today = formatTime(new Date(), 'YYYY-MM-DD');
 
     const values: Record<string, string> = {};
-    type.fields.forEach((f) => {
+    fields.forEach((f) => {
       if (f.type === 'date') values[f.key] = today;
       else if (f.type === 'time') values[f.key] = f.default || '';
       else values[f.key] = '';
@@ -198,10 +199,10 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     this.setData({
       typeKey: type.key,
       type,
-      fields: type.fields,
+      fields,
       values,
       urgent: false,
-      canSubmit: this.validate(values, type.fields, type.key),
+      canSubmit: this.validate(values, fields, type.key),
       isExpense: type.key === 'expense',
       recognized: [],
       invoiceSummary: null,
@@ -450,7 +451,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       case 'expense':
         return `${v.expenseType || ''} · 费用日期 ${v.date || ''}`;
       case 'overtime':
-        return `${v.date || ''} 加班，补偿方式：${v.compensation || ''}`;
+        return `${v.date || ''} 加班，补偿方式：加班费`;
       case 'travel':
         return `${v.startDate || ''} 至 ${v.endDate || ''}，目的地：${v.city || ''}`;
       case 'purchase':

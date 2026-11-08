@@ -465,6 +465,14 @@ export async function createApproval(
     : [];
 
   const formWithInvoices = form.slice();
+  if (typeKey === 'overtime') {
+    for (let i = formWithInvoices.length - 1; i >= 0; i -= 1) {
+      if (formWithInvoices[i].label === '补偿方式') formWithInvoices.splice(i, 1);
+    }
+    formWithInvoices.push({ label: '补偿方式', value: '加班费' });
+    const date = formWithInvoices.find((item) => item.label === '加班日期')?.value || '';
+    summary = `${date} 加班，补偿方式：加班费`;
+  }
   if (typeKey === 'leave') {
     const getField = (label: string): string => {
       const matches = form.filter((item) => item.label === label);
