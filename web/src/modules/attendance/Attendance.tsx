@@ -316,7 +316,6 @@ export function AttendancePage() {
     <div className="page-stack">
       <PageTitle
         title="考勤管理"
-        subtitle="查询全员打卡明细，支持补卡、请假/缺卡登记；与小程序共享考勤数据"
         extra={
           <Space>
             <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!data?.list.length}>
