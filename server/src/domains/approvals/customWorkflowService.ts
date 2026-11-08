@@ -3,7 +3,15 @@ import type { RowDataPacket } from 'mysql2';
 import { queryOne, transaction } from '../../shared/db/pool';
 import { badRequest, conflict } from '../../shared/utils/errors';
 import type { ApprovalApproverType } from './expenseApproverService';
-import { validateExpenseWorkflow } from './expenseWorkflowPolicy';
+import { validateWorkflowConditions, type WorkflowFieldPolicy } from './expenseWorkflowPolicy';
+
+const TYPE_FIELDS: Record<ApprovalApproverType, WorkflowFieldPolicy> = {
+  expense: { reserved: ['expenseType', 'amount', 'date', 'reason'], labels: ['报销类型', '报销金额（元）', '费用发生日期', '费用说明', '发票附件', '补充材料'], numericField: 'amount', choices: { expenseType: ['差旅费', '招待费', '办公用品', '交通费', '其他'] } },
+  leave: { reserved: ['leaveType', 'startDate', 'startClock', 'endDate', 'endClock', 'days', 'reason'], labels: ['请假类型', '开始日期', '开始时间', '结束日期', '结束时间', '请假时长（天）', '请假事由'], numericField: 'days', choices: { leaveType: ['事假', '病假', '年假', '调休', '婚假', '产假'] } },
+  overtime: { reserved: ['date', 'startTime', 'endTime', 'compensation', 'reason'], labels: ['加班日期', '开始时间', '结束时间', '补偿方式', '加班事由'], choices: {} },
+  travel: { reserved: ['city', 'startDate', 'endDate', 'budget', 'reason'], labels: ['出差城市', '开始日期', '结束日期', '预算（元）', '出差事由'], numericField: 'budget', choices: {} },
+  purchase: { reserved: ['item', 'amount', 'needDate', 'reason'], labels: ['采购物品', '预估金额（元）', '期望到货日期', '采购说明'], numericField: 'amount', choices: {} },
+};
 
 const identifier = z.string().min(1).max(100);
 const condition = z.object({ field: z.string().min(1).max(40), operator: z.enum(['eq', 'gte', 'lt']), value: z.string().trim().min(1).max(100) });
@@ -20,7 +28,7 @@ export const customWorkflowSchema = z.object({
 });
 export type CustomWorkflow = z.infer<typeof customWorkflowSchema>;
 
-function validateGraph(workflow: CustomWorkflow): void {
+export function validateCustomWorkflowGraph(type: ApprovalApproverType, workflow: CustomWorkflow): void {
   const nodeIds = new Set(workflow.nodes.map(node => node.id));
   const edgeIds = new Set<string>();
   const pairs = new Set<string>();
@@ -36,8 +44,8 @@ function validateGraph(workflow: CustomWorkflow): void {
     edgeIds.add(edge.id); pairs.add(pair);
   }
   const fields = workflow.formFields ?? [];
-  const check = (branches: Array<{ conditions: z.infer<typeof condition>[]; approvers: string[] }>) => validateExpenseWorkflow({ version: 1, enabled: false, fields, branches });
-  check([{ conditions: [{ field: 'amount', operator: 'gte', value: '0' }], approvers: ['draft'] }]);
+  const check = (branches: Array<{ conditions: z.infer<typeof condition>[]; approvers: string[] }>) => validateWorkflowConditions({ version: 1, enabled: false, fields, branches }, TYPE_FIELDS[type]);
+  check([]);
   for (const node of workflow.nodes.filter(item => item.kind === 'branch')) {
     const branches = workflow.edges.filter(edge => edge.source === node.id && edge.conditions?.length).map(edge => ({ conditions: edge.conditions!, approvers: ['draft'] }));
     if (branches.length) check(branches);
@@ -50,12 +58,12 @@ export async function readCustomWorkflow(type: ApprovalApproverType): Promise<Cu
   const graph = typeof row.graph_json === 'string' ? JSON.parse(row.graph_json) as object : row.graph_json;
   const parsed = customWorkflowSchema.safeParse({ ...graph, version: Number(row.version) });
   if (!parsed.success) throw new Error('已保存的流程设计稿格式无效');
-  validateGraph(parsed.data);
+  validateCustomWorkflowGraph(type, parsed.data);
   return parsed.data;
 }
 
 export async function saveCustomWorkflow(type: ApprovalApproverType, workflow: CustomWorkflow, adminId: number): Promise<CustomWorkflow> {
-  validateGraph(workflow);
+  validateCustomWorkflowGraph(type, workflow);
   return transaction(async conn => {
     await conn.execute('INSERT IGNORE INTO custom_approval_workflows (approval_type, version, graph_json, updated_by, updated_at) VALUES (?, 0, ?, ?, NOW())', [type, JSON.stringify({ nodes: [], edges: [] }), adminId]);
     const [rows] = await conn.query<RowDataPacket[]>('SELECT version, graph_json FROM custom_approval_workflows WHERE approval_type = ? FOR UPDATE', [type]);

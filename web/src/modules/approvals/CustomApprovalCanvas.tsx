@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type DragEvent } from 'react';
 import { CheckCircleOutlined, DeleteOutlined, FileProtectOutlined, FileTextOutlined, ForkOutlined, PlayCircleOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { Background, BackgroundVariant, Controls, Handle, Position, ReactFlow, useReactFlow, type NodeProps, type NodeTypes, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
-import type { CustomApprovalField, CustomApprovalNodeKind } from './api';
+import type { CustomApprovalField, CustomApprovalNodeKind, CustomApprovalType } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
+import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
 
 export const APPROVAL_NODE_PRESETS = [
   { kind: 'start', title: '发起人', icon: PlayCircleOutlined },
@@ -43,13 +44,14 @@ interface Props {
   readOnly: boolean;
   onConfigure: (id: string) => void;
   fields: CustomApprovalField[];
+  approvalType?: CustomApprovalType;
 }
 
-export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdgesChange, onConnect, onNodesDelete, onAdd, addRequest, readOnly, onConfigure, fields }: Props) {
+export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdgesChange, onConnect, onNodesDelete, onAdd, addRequest, readOnly, onConfigure, fields, approvalType }: Props) {
   const { screenToFlowPosition } = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
   const lastAdd = useRef(0);
-  const allowedKinds = useMemo<Set<CustomApprovalNodeKind>>(() => new Set(APPROVAL_NODE_PRESETS.map(item => item.kind)), []);
+  const allowedKinds = useMemo<Set<CustomApprovalNodeKind>>(() => new Set(APPROVAL_NODE_PRESETS.filter(item => isNodeAvailable(approvalType, item.kind)).map(item => item.kind)), [approvalType]);
   const displayNodes = useMemo(() => {
     const groups = new Map<CustomApprovalNodeKind, ApprovalNode[]>();
     const outgoingByNode = new Map<string, ApprovalEdge[]>();
@@ -71,11 +73,12 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
   }, [nodes, edges]);
   const displayEdges = useMemo(() => edges.map(edge => {
     const label = edge.data?.conditions?.map(condition => {
-      const name = condition.field === 'amount' ? '金额' : condition.field === 'expenseType' ? '报销类型' : fields.find(field => field.key === condition.field)?.label ?? condition.field;
+      const definition = approvalType ? APPROVAL_TYPE_DEFINITIONS[approvalType] : undefined;
+      const name = condition.field === definition?.numericCondition?.value ? definition.numericCondition.label : definition?.choices.find(choice => choice.value === condition.field)?.label ?? fields.find(field => field.key === condition.field)?.label ?? condition.field;
       return `${name} ${condition.operator === 'gte' ? '≥' : condition.operator === 'lt' ? '<' : '='} ${condition.value}`;
     }).join(' 且 ');
     return label ? { ...edge, label, labelStyle: { fill: '#52647f', fontSize: 11 }, labelBgStyle: { fill: '#fff' } } : edge;
-  }), [edges, fields]);
+  }), [edges, fields, approvalType]);
   useEffect(() => {
     if (!addRequest || addRequest.id === lastAdd.current || !canvasRef.current) return;
     lastAdd.current = addRequest.id;

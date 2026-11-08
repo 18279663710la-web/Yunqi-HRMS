@@ -7,6 +7,7 @@ import { ExpenseFormDesigner } from './ExpenseFormDesigner';
 import { CustomApprovalNodeEditor } from './CustomApprovalNodeEditor';
 import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serializeApprovalWorkflow, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
 import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
+import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
 
 const APPROVAL_TYPES: Array<{ value: CustomApprovalType; label: string }> = [
   { value: 'leave', label: '请假审批' }, { value: 'expense', label: '报销审批' }, { value: 'overtime', label: '加班审批' },
@@ -75,6 +76,7 @@ export function CustomApprovalWorkflow() {
   const configNode = draft?.nodes.find(node => node.id === configNodeId);
   const addNode = (kind: CustomApprovalNodeKind, position: { x: number; y: number }) => {
     if (!approvalType) { message.info('请先选择审批类型'); return; }
+    if (!isNodeAvailable(approvalType, kind)) return;
     if (!draft || loading || saving) { message.info('请等待流程加载完成'); return; }
     if (draft.nodes.length >= 200) { message.warning('最多添加 200 个节点'); return; }
     updateDraft(current => ({ ...current, nodes: [...current.nodes, createApprovalNode(kind, position)] }));
@@ -82,6 +84,7 @@ export function CustomApprovalWorkflow() {
   };
   const requestNode = (kind: CustomApprovalNodeKind) => {
     if (!approvalType) { message.info('请先选择审批类型'); return; }
+    if (!isNodeAvailable(approvalType, kind)) return;
     if (!draft || loading || saving) { message.info('请等待流程加载完成'); return; }
     setPanelOpen(false);
     setAddRequest({ kind, id: ++nextAdd.current });
@@ -99,7 +102,7 @@ export function CustomApprovalWorkflow() {
     updateDraft(current => ({ ...current, edges: current.edges.filter(edge => !ids.has(edge.source) && !ids.has(edge.target)) }));
   };
   const configureNode = (id: string) => {
-    if (approvalType !== 'expense') { message.info('目前先配置报销审批'); return; }
+    if (!approvalType) return;
     const node = draft?.nodes.find(item => item.id === id);
     if (!node) return;
     if (node.data.kind === 'form') setFormOpen(true);
@@ -107,7 +110,8 @@ export function CustomApprovalWorkflow() {
   };
   const saveFields = (fields: CustomApprovalField[]): boolean => {
     for (const edge of draft?.edges ?? []) for (const condition of edge.data?.conditions ?? []) {
-      if (condition.field === 'amount' || condition.field === 'expenseType') continue;
+      const definition = approvalType && APPROVAL_TYPE_DEFINITIONS[approvalType];
+      if (condition.field === definition?.numericCondition?.value || definition?.choices.some(choice => choice.value === condition.field)) continue;
       const field = fields.find(item => item.key === condition.field);
       if (!field || field.type !== 'picker' || !field.options?.includes(condition.value)) { message.error('该字段或选项已用于分支条件，请先修改分支条件'); return false; }
     }
@@ -130,7 +134,7 @@ export function CustomApprovalWorkflow() {
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
       <Select className="approval-type-select" aria-label="选择审批类型" showSearch optionFilterProp="label" placeholder="选择审批类型" value={approvalType} disabled={saving} onChange={value => { setApprovalType(value); setPanelOpen(false); setAddRequest(null); setConfigNodeId(null); setFormOpen(false); }} options={APPROVAL_TYPES} />
-      <button className="salary-model-entry" type="button" disabled={approvalType !== 'expense' || !draft || loading || saving} onClick={() => setFormOpen(true)}>表单设计</button>
+      <button className="salary-model-entry" type="button" disabled={!approvalType || !draft || loading || saving} onClick={() => setFormOpen(true)}>表单设计</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || !dirty} onClick={() => void save()}>保存</button>
     </div>
@@ -144,17 +148,17 @@ export function CustomApprovalWorkflow() {
         </div>
         {mounted ? <ReactFlowProvider><CustomApprovalCanvas
           nodes={draft?.nodes ?? []} edges={draft?.edges ?? []} tool={tool} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-          onConnect={onConnect} onNodesDelete={onNodesDelete} onAdd={addNode} addRequest={addRequest} readOnly={!draft || loading || saving} onConfigure={configureNode} fields={draft?.formFields ?? []}
+          onConnect={onConnect} onNodesDelete={onNodesDelete} onAdd={addNode} addRequest={addRequest} readOnly={!draft || loading || saving} onConfigure={configureNode} fields={draft?.formFields ?? []} approvalType={approvalType}
         /></ReactFlowProvider> : <div className="workflow-canvas-placeholder" />}
         {panelOpen && <div ref={panelRef} className="workflow-node-panel" role="dialog" aria-label="添加节点">
-          {APPROVAL_NODE_PRESETS.map(preset => <button key={preset.kind} type="button" className="workflow-node-option" draggable onDragStart={event => { event.dataTransfer.setData('application/approval-workflow-node', preset.kind); event.dataTransfer.effectAllowed = 'move'; }} onClick={() => requestNode(preset.kind)}>
+          {APPROVAL_NODE_PRESETS.filter(preset => isNodeAvailable(approvalType, preset.kind)).map(preset => <button key={preset.kind} type="button" className="workflow-node-option" draggable onDragStart={event => { event.dataTransfer.setData('application/approval-workflow-node', preset.kind); event.dataTransfer.effectAllowed = 'move'; }} onClick={() => requestNode(preset.kind)}>
             <span className={`workflow-node-icon approval-node-${preset.kind}`}><preset.icon /></span><span className="workflow-node-option-title">{preset.title}</span>
           </button>)}
         </div>}
       </div>
     </div>
-    {formOpen && draft && <ExpenseFormDesigner fields={draft.formFields} onCancel={() => setFormOpen(false)} onSave={saveFields} />}
-    {configNode && draft && <CustomApprovalNodeEditor key={configNode.id} node={configNode} nodes={draft.nodes} edges={draft.edges} fields={draft.formFields} onCancel={() => setConfigNodeId(null)} onSave={(config, routes) => {
+    {formOpen && draft && approvalType && <ExpenseFormDesigner approvalType={approvalType} fields={draft.formFields} onCancel={() => setFormOpen(false)} onSave={saveFields} />}
+    {configNode && draft && approvalType && <CustomApprovalNodeEditor key={configNode.id} approvalType={approvalType} node={configNode} nodes={draft.nodes} edges={draft.edges} fields={draft.formFields} onCancel={() => setConfigNodeId(null)} onSave={(config, routes) => {
       const nodeId = configNode.id;
       updateDraft(current => ({ ...current,
         nodes: current.nodes.map(node => node.id === nodeId ? { ...node, data: { ...node.data, ...(config ? { config } : {}) } } : node),

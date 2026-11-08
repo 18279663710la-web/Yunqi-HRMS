@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Empty, Input, Modal, Select, Space, Spin } from 'antd';
-import { fetchExpenseApproverSettings, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type ExpenseApproverEmployee } from './api';
+import { fetchApprovalApproverSettings, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type CustomApprovalType, type ExpenseApproverEmployee } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
+import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
 
-const FIXED_EXPENSE_OPTIONS = ['差旅费', '招待费', '办公用品', '交通费', '其他'];
-const EMPTY_CONDITION: CustomApprovalCondition = { field: 'amount', operator: 'gte', value: '' };
-
-export function CustomApprovalNodeEditor({ node, nodes, edges, fields, onCancel, onSave }: {
+export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fields, onCancel, onSave }: {
+  approvalType: CustomApprovalType;
   node: ApprovalNode; nodes: ApprovalNode[]; edges: ApprovalEdge[]; fields: CustomApprovalField[];
   onCancel: () => void; onSave: (config: CustomApprovalNodeConfig | undefined, routes?: Record<string, CustomApprovalCondition[]>) => void;
 }) {
@@ -18,15 +17,17 @@ export function CustomApprovalNodeEditor({ node, nodes, edges, fields, onCancel,
   const [outcome, setOutcome] = useState<'approved' | 'rejected'>(node.data.config?.outcome ?? 'approved');
   const outgoing = edges.filter(edge => edge.source === node.id);
   const [routes, setRoutes] = useState<Record<string, CustomApprovalCondition[]>>(() => Object.fromEntries(outgoing.map(edge => [edge.id, edge.data?.conditions?.map(item => ({ ...item })) ?? []])));
+  const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
+  const numericField = definition.numericCondition?.value;
   const fieldOptions = [
-    { value: 'amount', label: '报销金额（元）' }, { value: 'expenseType', label: '报销类型' },
+    ...(definition.numericCondition ? [definition.numericCondition] : []), ...definition.choices.map(({ value, label }) => ({ value, label })),
     ...fields.filter(field => field.type === 'picker').map(field => ({ value: field.key, label: field.label })),
   ];
-  const valuesFor = (field: string) => field === 'expenseType' ? FIXED_EXPENSE_OPTIONS : fields.find(item => item.key === field && item.type === 'picker')?.options ?? [];
+  const valuesFor = (field: string) => definition.choices.find(item => item.value === field)?.options ?? fields.find(item => item.key === field && item.type === 'picker')?.options ?? [];
   const updateCondition = (edgeId: string, index: number, update: Partial<CustomApprovalCondition>) => setRoutes(current => ({ ...current, [edgeId]: current[edgeId].map((item, i) => i === index ? { ...item, ...update } : item) }));
   const load = () => {
     setLoading(true); setLoadError('');
-    void fetchExpenseApproverSettings().then(result => setCandidates(result.candidates)).catch((error: Error) => setLoadError(error.message || '审批人加载失败')).finally(() => setLoading(false));
+    void fetchApprovalApproverSettings(approvalType).then(result => setCandidates(result.candidates)).catch((error: Error) => setLoadError(error.message || '审批人加载失败')).finally(() => setLoading(false));
   };
   useEffect(() => { if (node.data.kind === 'approver') load(); }, []);
   const names = new Map(candidates.map(item => [item.id, item.name]));
@@ -41,8 +42,8 @@ export function CustomApprovalNodeEditor({ node, nodes, edges, fields, onCancel,
         const conditions = routes[edge.id] || [];
         if (!conditions.length) { message.error('请为每条分支设置条件'); return; }
         for (const condition of conditions) {
-          if (condition.field === 'amount') {
-            if (!['gte', 'lt'].includes(condition.operator) || !/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(condition.value)) { message.error('请输入有效的分支金额'); return; }
+          if (condition.field === numericField) {
+            if (!['gte', 'lt'].includes(condition.operator) || !/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(condition.value)) { message.error('请输入有效的分支数值'); return; }
           } else if (condition.operator !== 'eq' || !valuesFor(condition.field).includes(condition.value)) { message.error('请选择有效的分支选项'); return; }
         }
       }
@@ -76,13 +77,14 @@ export function CustomApprovalNodeEditor({ node, nodes, edges, fields, onCancel,
         const targetLabel = target && peers.length > 1 ? `${targetName} ${peers.findIndex(item => item.id === target.id) + 1}` : targetName;
         return <div className="approval-branch-route" key={edge.id}>
           <div className="onboarding-subfields-heading"><span className="onboarding-subfields-marker" />分支 {routeIndex + 1} → {targetLabel}</div>
+          {!fieldOptions.length && <span>请先在表单设计中添加单选字段</span>}
           {(routes[edge.id] || []).map((condition, index) => <div className="approval-condition-row" key={index}>
-            <div className="approval-node-field"><div className="approval-node-field-label">字段</div><Select aria-label={`分支${routeIndex + 1}条件${index + 1}字段`} value={condition.field} options={fieldOptions} onChange={field => updateCondition(edge.id, index, { field, operator: field === 'amount' ? 'gte' : 'eq', value: '' })} /></div>
-            <div className="approval-node-field"><div className="approval-node-field-label">比较方式</div><Select aria-label={`分支${routeIndex + 1}条件${index + 1}比较`} value={condition.operator} options={condition.field === 'amount' ? [{ value: 'gte', label: '大于等于' }, { value: 'lt', label: '小于' }] : [{ value: 'eq', label: '等于' }]} onChange={operator => updateCondition(edge.id, index, { operator })} /></div>
-            <div className="approval-node-field"><div className="approval-node-field-label">条件值</div>{condition.field === 'amount' ? <Input aria-label={`分支${routeIndex + 1}条件${index + 1}金额`} value={condition.value} onChange={event => updateCondition(edge.id, index, { value: event.target.value })} /> : <Select aria-label={`分支${routeIndex + 1}条件${index + 1}选项`} placeholder="选择选项" value={condition.value || undefined} options={valuesFor(condition.field).map(value => ({ value, label: value }))} onChange={value => updateCondition(edge.id, index, { value })} />}</div>
+            <div className="approval-node-field"><div className="approval-node-field-label">字段</div><Select aria-label={`分支${routeIndex + 1}条件${index + 1}字段`} value={condition.field} options={fieldOptions} onChange={field => updateCondition(edge.id, index, { field, operator: field === numericField ? 'gte' : 'eq', value: '' })} /></div>
+            <div className="approval-node-field"><div className="approval-node-field-label">比较方式</div><Select aria-label={`分支${routeIndex + 1}条件${index + 1}比较`} value={condition.operator} options={condition.field === numericField ? [{ value: 'gte', label: '大于等于' }, { value: 'lt', label: '小于' }] : [{ value: 'eq', label: '等于' }]} onChange={operator => updateCondition(edge.id, index, { operator })} /></div>
+            <div className="approval-node-field"><div className="approval-node-field-label">条件值</div>{condition.field === numericField ? <Input aria-label={`分支${routeIndex + 1}条件${index + 1}数值`} value={condition.value} onChange={event => updateCondition(edge.id, index, { value: event.target.value })} /> : <Select aria-label={`分支${routeIndex + 1}条件${index + 1}选项`} placeholder="选择选项" value={condition.value || undefined} options={valuesFor(condition.field).map(value => ({ value, label: value }))} onChange={value => updateCondition(edge.id, index, { value })} />}</div>
             <Button type="link" danger onClick={() => setRoutes(current => ({ ...current, [edge.id]: current[edge.id].filter((_, i) => i !== index) }))}>删除</Button>
           </div>)}
-          <Button onClick={() => setRoutes(current => ({ ...current, [edge.id]: [...(current[edge.id] || []), { ...EMPTY_CONDITION }] }))} disabled={(routes[edge.id] || []).length >= 20}>添加条件</Button>
+          <Button onClick={() => setRoutes(current => ({ ...current, [edge.id]: [...(current[edge.id] || []), { field: fieldOptions[0].value, operator: fieldOptions[0].value === numericField ? 'gte' : 'eq', value: '' }] }))} disabled={!fieldOptions.length || (routes[edge.id] || []).length >= 20}>添加条件</Button>
         </div>;
       })}
     </div>}

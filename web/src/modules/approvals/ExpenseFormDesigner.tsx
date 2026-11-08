@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { App, Button, Input, Modal, Select, Switch, Tag } from 'antd';
-import type { CustomApprovalField } from './api';
+import type { CustomApprovalField, CustomApprovalType } from './api';
 import { normalizeExpenseOptions } from './expenseFormOptions';
+import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
 
 type EditingField = Omit<CustomApprovalField, 'options'> & { options: string[] };
-const FIXED_FIELDS = ['报销类型', '报销金额（元）', '费用发生日期', '费用说明', '发票附件', '补充材料'];
 const FIELD_TYPES = [
   { value: 'text', label: '单行文字' }, { value: 'textarea', label: '多行文字' }, { value: 'number', label: '数字' },
   { value: 'date', label: '日期' }, { value: 'picker', label: '单选' },
 ];
 
-export function ExpenseFormDesigner({ fields, onCancel, onSave }: { fields: CustomApprovalField[]; onCancel: () => void; onSave: (fields: CustomApprovalField[]) => boolean }) {
+export function ExpenseFormDesigner({ approvalType, fields, onCancel, onSave }: { approvalType: CustomApprovalType; fields: CustomApprovalField[]; onCancel: () => void; onSave: (fields: CustomApprovalField[]) => boolean }) {
   const { message } = App.useApp();
+  const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
   const [items, setItems] = useState<EditingField[]>(() => fields.map(field => ({ ...field, options: field.options?.length ? [...field.options] : field.type === 'picker' ? [''] : [] })));
   const update = (index: number, change: Partial<EditingField>) => setItems(current => current.map((item, i) => i === index ? { ...item, ...change } : item));
   const add = () => {
@@ -19,7 +20,7 @@ export function ExpenseFormDesigner({ fields, onCancel, onSave }: { fields: Cust
     setItems(current => [...current, { key: `f${suffix.slice(0, 30)}`, label: '', type: 'text', required: false, options: [] }]);
   };
   const save = () => {
-    const names = new Set(FIXED_FIELDS);
+    const names = new Set([...definition.fixedFields, ...(definition.reservedLabels ?? [])]);
     const next: CustomApprovalField[] = [];
     for (const item of items) {
       const label = item.label.trim();
@@ -31,10 +32,10 @@ export function ExpenseFormDesigner({ fields, onCancel, onSave }: { fields: Cust
     }
     if (onSave(next)) onCancel();
   };
-  return <Modal title="报销表单设计" open onCancel={onCancel} onOk={save} okText="确定" cancelText="取消" width={760} destroyOnHidden>
+  return <Modal title={`${definition.name}表单设计`} open onCancel={onCancel} onOk={save} okText="确定" cancelText="取消" width={760} destroyOnHidden>
     <div className="approval-form-designer">
       <div className="approval-config-heading">固定字段</div>
-      <div className="approval-fixed-fields">{FIXED_FIELDS.map(field => <Tag key={field}>{field}</Tag>)}</div>
+      <div className="approval-fixed-fields">{definition.fixedFields.map(field => <Tag key={field}>{field}</Tag>)}</div>
       <div className="approval-config-heading">自定义字段</div>
       {items.map((item, index) => <div className="approval-form-field" key={item.key}>
         <div className="approval-form-field-row">

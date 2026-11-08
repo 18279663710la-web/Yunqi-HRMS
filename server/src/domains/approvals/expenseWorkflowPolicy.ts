@@ -19,22 +19,33 @@ const workflowSchema = z.object({
   version: z.number().int().min(1),
   enabled: z.boolean(),
   fields: z.array(fieldSchema).max(30),
-  branches: z.array(z.object({ conditions: z.array(conditionSchema).min(1).max(20), approvers: approversSchema })).min(1).max(30),
+  branches: z.array(z.object({ conditions: z.array(conditionSchema).min(1).max(20), approvers: approversSchema })).max(30),
 });
 export type ExpenseWorkflow = z.infer<typeof workflowSchema>;
+export interface WorkflowFieldPolicy { reserved: string[]; labels: string[]; numericField?: string; choices: Record<string, string[]> }
+const EXPENSE_POLICY: WorkflowFieldPolicy = {
+  reserved: ['expenseType', 'amount', 'date', 'reason'], labels: ['报销类型', '报销金额（元）', '费用发生日期', '费用说明', '发票附件', '补充材料'],
+  numericField: 'amount', choices: { expenseType: EXPENSE_TYPES },
+};
 
-function cents(value: string): number {
-  if (!/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(value)) throw badRequest('请输入有效报销金额');
+function cents(value: string, error = '请输入有效报销金额'): number {
+  if (!/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(value)) throw badRequest(error);
   const [whole, fraction = ''] = value.split('.');
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
 }
 
 export function validateExpenseWorkflow(input: unknown): ExpenseWorkflow {
+  const workflow = validateWorkflowConditions(input, EXPENSE_POLICY);
+  if (!workflow.branches.length) throw badRequest('报销流程配置无效');
+  return workflow;
+}
+
+export function validateWorkflowConditions(input: unknown, policy: WorkflowFieldPolicy): ExpenseWorkflow {
   const result = workflowSchema.safeParse(input);
-  if (!result.success) throw badRequest('报销流程配置无效');
+  if (!result.success) throw badRequest('审批流程配置无效');
   const workflow = result.data;
-  const reserved = new Set(['expenseType', 'amount', 'date', 'reason']);
-  const labels = new Set(['报销类型', '报销金额（元）', '费用发生日期', '费用说明', '发票附件', '补充材料']);
+  const reserved = new Set(policy.reserved);
+  const labels = new Set(policy.labels);
   const keys = new Set<string>();
   for (const field of workflow.fields) {
     if (keys.has(field.key) || reserved.has(field.key) || labels.has(field.label)) throw badRequest('字段名称或标识重复');
@@ -48,13 +59,13 @@ export function validateExpenseWorkflow(input: unknown): ExpenseWorkflow {
     uniqueApprovers(branch.approvers);
     const range = { min: 0, max: Infinity, selections: new Map<string, string>() };
     for (const condition of branch.conditions) {
-      if (condition.field === 'amount') {
-        if (condition.operator === 'eq') throw badRequest('金额条件只能使用大于等于或小于');
-        const value = cents(condition.value);
+      if (condition.field === policy.numericField) {
+        if (condition.operator === 'eq') throw badRequest('数值条件只能使用大于等于或小于');
+        const value = cents(condition.value, '请输入有效的分支数值');
         if (condition.operator === 'gte') range.min = Math.max(range.min, value);
         else range.max = Math.min(range.max, value);
       } else {
-        const field = condition.field === 'expenseType' ? { type: 'picker', options: EXPENSE_TYPES } : workflow.fields.find(item => item.key === condition.field);
+        const field = Object.prototype.hasOwnProperty.call(policy.choices, condition.field) ? { type: 'picker', options: policy.choices[condition.field] } : workflow.fields.find(item => item.key === condition.field);
         if (!field || field.type !== 'picker' || condition.operator !== 'eq' || !field.options?.includes(condition.value)) throw badRequest('分支条件无效');
         const previous = range.selections.get(condition.field);
         if (previous && previous !== condition.value) throw badRequest('分支条件互相矛盾');

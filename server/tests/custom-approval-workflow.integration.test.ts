@@ -71,6 +71,24 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     assert.equal((await request('expense', 'PUT', { ...configured, version: 3, formFields: [] })).status, 400, '不能删除条件所引用的字段');
     assert.equal((await request('expense', 'PUT', { ...configured, version: 3, nodes: configured.nodes.map(node => node.id === 'review' ? { ...node, config: { approverIds: ['U005', 'U005'] } } : node) })).status, 400, '一个节点中审批人不能重复');
     assert.equal((await request('expense')).body.data.version, 3);
+    for (const [type, field, first, second] of [
+      ['leave', 'leaveType', { operator: 'eq', value: '病假' }, { operator: 'eq', value: '事假' }],
+      ['overtime', 'project', { operator: 'eq', value: '客户' }, { operator: 'eq', value: '内部' }],
+      ['travel', 'budget', { operator: 'gte', value: '1000' }, { operator: 'lt', value: '1000' }],
+      ['purchase', 'amount', { operator: 'gte', value: '1000' }, { operator: 'lt', value: '1000' }],
+    ] as const) {
+      const draft = { version: 0, formFields: configured.formFields, nodes: [configured.nodes[2], configured.nodes[3], configured.nodes[4]], edges: [
+        { id: 'first', source: 'branch', target: 'review', conditions: [{ field, ...first }] },
+        { id: 'second', source: 'branch', target: 'end', conditions: [{ field, ...second }] },
+      ] };
+      const savedType = await request(type, 'PUT', draft);
+      assert.equal(savedType.status, 200, `${type} 可保存独立配置`);
+      const restored = (await request(type)).body.data;
+      assert.deepEqual(restored.formFields, draft.formFields);
+      assert.deepEqual(restored.nodes, draft.nodes);
+      assert.deepEqual(restored.edges, draft.edges);
+      assert.equal((await request(type, 'PUT', draft)).status, 409, `${type} 版本冲突不可覆盖`);
+    }
     assert.equal((await request('unknown')).status, 400);
     const [after] = await conn.query(`SELECT * FROM \`${database}\`.approval_approvers ORDER BY type`);
     assert.deepEqual(after, before);
