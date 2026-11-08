@@ -56,7 +56,6 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/approvals/overtime', label: '加班审批' },
       { key: '/approvals/travel', label: '出差审批' },
       { key: '/approvals/purchase', label: '采购审批' },
-      { key: '/approvals/custom-workflow', label: '自定义审批流程', superAdminOnly: true },
     ],
   },
 ];

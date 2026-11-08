@@ -6,7 +6,7 @@ const HOME_KEY = '/dashboard';
 const aliases: Record<string, string> = {
   '/': HOME_KEY, '/hr': '/hr/onboarding', '/hr/payroll': '/hr/payroll-batches',
   '/models-formulas': '/models-formulas/attendance', '/approvals': '/approvals/leave',
-  '/models-formulas/payroll-workflow': '/approvals/custom-workflow',
+  '/models-formulas/payroll-workflow': '/approvals/leave', '/approvals/custom-workflow': '/approvals/leave',
 };
 const homeLocation: Location = { pathname: HOME_KEY, search: '', hash: '', state: null, key: 'workspace-home' };
 

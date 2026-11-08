@@ -23,24 +23,6 @@ export interface ExpenseApproverEmployee {
   active: boolean;
 }
 
-export type ApprovalApproverType = 'leave' | 'expense' | 'overtime' | 'travel' | 'purchase';
-
-export function fetchApprovalApproverSettings(type: ApprovalApproverType): Promise<{ approver: ExpenseApproverEmployee | null; candidates: ExpenseApproverEmployee[] }> {
-  return request(`/admin/approval-approvers/${encodeURIComponent(type)}`);
-}
-
-export function saveApprovalApprover(type: ApprovalApproverType, employeeId: string): Promise<ExpenseApproverEmployee> {
-  return request(`/admin/approval-approvers/${encodeURIComponent(type)}`, { method: 'PUT', body: { employeeId } });
-}
-
-export function fetchExpenseApproverSettings(): Promise<{ approver: ExpenseApproverEmployee | null; candidates: ExpenseApproverEmployee[] }> {
-  return request('/admin/expense-approver');
-}
-
-export function saveExpenseApprover(employeeId: string): Promise<ExpenseApproverEmployee> {
-  return request('/admin/expense-approver', { method: 'PUT', body: { employeeId } });
-}
-
 export interface ExpenseRules {
   content: string;
   updatedAt: string | null;

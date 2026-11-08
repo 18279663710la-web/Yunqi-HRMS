@@ -4,7 +4,7 @@ import React from 'react';
 import { App } from 'antd';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ModelsFormulasView } from '../src/modules/models-formulas/ModelsFormulas';
-import { CustomApprovalWorkflowView } from '../src/modules/approvals/CustomApprovalWorkflowPage';
+import { ApprovalManagementView } from '../src/modules/approvals/ApprovalManagement';
 
 test('超级管理员查看出勤率绩效时只展示对应规则', () => {
   const html = renderToStaticMarkup(<App><ModelsFormulasView role="super_admin" section="attendance" /></App>);
@@ -60,21 +60,18 @@ test('入职申请表设置是独立子页面且限制超级管理员', () => {
   assert.ok(!denied.includes('新建模板'));
 });
 
-test('自定义审批流程提供节点入口，未选择类型或修改时禁止保存', () => {
-  const html = renderToStaticMarkup(<App><CustomApprovalWorkflowView role="super_admin" /></App>);
-  assert.ok(html.includes('自定义审批流程'));
-  assert.ok(!html.includes('薪资发放流程'));
-  assert.ok(!html.includes('sub-module-header'));
-  assert.ok(html.includes('salary-model-entries'));
-  assert.match(html, /<input[^>]*aria-label="选择审批类型"/);
-  assert.ok(html.includes('ant-select-selector'));
-  assert.ok(html.includes('选择审批类型'));
-  assert.match(html, /<button[^>]*disabled[^>]*>清空<\/button>/);
-  assert.match(html, /<button[^>]*disabled[^>]*>保存<\/button>/);
-  assert.match(html, /<button(?=[^>]*aria-label="添加节点")(?![^>]*disabled)[^>]*>/);
-  assert.ok(html.includes('选择模式'));
-  assert.ok(html.includes('平移模式'));
-  const denied = renderToStaticMarkup(<App><CustomApprovalWorkflowView role="hr_admin" /></App>);
-  assert.ok(denied.includes('仅超级管理员可访问自定义审批流程'));
+test('五类审批各显示自己的流程画布，不显示类型选择，报销保留规则入口', () => {
+  for (const type of ['leave', 'expense', 'overtime', 'travel', 'purchase'] as const) {
+    const html = renderToStaticMarkup(<App><ApprovalManagementView role="super_admin" type={type} /></App>);
+    assert.ok(html.includes('salary-model-entries'));
+    assert.ok(!html.includes('选择审批类型'));
+    assert.ok(!html.includes('submodule-header'));
+    assert.match(html, /<button[^>]*disabled[^>]*>清空<\/button>/);
+    assert.match(html, /<button[^>]*disabled[^>]*>保存<\/button>/);
+    assert.match(html, /<button(?=[^>]*aria-label="添加节点")(?![^>]*disabled)[^>]*>/);
+    assert.equal(html.includes('AI 审批规则'), type === 'expense');
+  }
+  const denied = renderToStaticMarkup(<App><ApprovalManagementView role="hr_admin" type="leave" /></App>);
+  assert.ok(denied.includes('仅超级管理员可访问'));
   assert.ok(!denied.includes('添加节点'));
 });

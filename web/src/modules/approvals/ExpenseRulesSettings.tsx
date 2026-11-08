@@ -47,7 +47,7 @@ export function ExpenseRulesSettings() {
 
   return (
     <div className="expense-rules-settings">
-      <label className="expense-approver-label" htmlFor="expense-rules-content">规则内容</label>
+      <label className="expense-rules-label" htmlFor="expense-rules-content">规则内容</label>
       <Input.TextArea
         id="expense-rules-content"
         placeholder="请输入发票审批规则"

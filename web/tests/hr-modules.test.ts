@@ -2,20 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PAGE_TITLES, SUB_MODULES, accessibleSubModules, matchSubModule, resolvePageKey, subModuleLabel, subModuleMetrics } from '../src/layout/subModules';
 
-test('审批管理包含五类审批及自定义流程，配置入口仅超级管理员可见', () => {
+test('审批管理包含五类独立审批子模块', () => {
   const approvals = SUB_MODULES.find(module => module.key === '/approvals');
   assert.ok(approvals);
   assert.deepEqual(approvals.items.map(item => [item.key, item.label]), [
     ['/approvals/leave', '请假审批'], ['/approvals/expense', '报销审批'],
     ['/approvals/overtime', '加班审批'], ['/approvals/travel', '出差审批'], ['/approvals/purchase', '采购审批'],
-    ['/approvals/custom-workflow', '自定义审批流程'],
   ]);
   assert.equal(matchSubModule('/approvals/travel')?.key, '/approvals');
   assert.equal(resolvePageKey('/approvals/travel'), '/approvals/travel');
-  assert.equal(resolvePageKey('/approvals/custom-workflow'), '/approvals/custom-workflow');
   assert.ok(accessibleSubModules('hr_admin').some(module => module.key === '/approvals'));
-  assert.ok(!accessibleSubModules('hr_admin').find(module => module.key === '/approvals')?.items.some(item => item.key === '/approvals/custom-workflow'));
-  assert.ok(accessibleSubModules('super_admin').find(module => module.key === '/approvals')?.items.some(item => item.key === '/approvals/custom-workflow'));
+  assert.ok(!accessibleSubModules('super_admin').find(module => module.key === '/approvals')?.items.some(item => item.key === '/approvals/custom-workflow'));
   assert.ok(!accessibleSubModules('hr_admin').some(module => module.key === '/hr'));
   assert.ok(accessibleSubModules('super_admin').some(module => module.key === '/hr'));
 });
@@ -36,7 +33,7 @@ test('模块路径按边界匹配，避免误匹配相似前缀', () => {
   assert.equal(matchSubModule('/models-formulas/salary')?.key, '/models-formulas');
 });
 
-test('模型与公式保留入职申请表设置，自定义流程移至审批管理', () => {
+test('模型与公式保留入职申请表设置，不包含审批流程', () => {
   const models = SUB_MODULES.find(module => module.key === '/models-formulas');
   assert.ok(models);
   assert.ok(models.items.some(item => item.key === '/models-formulas/onboarding-template' && item.label === '入职申请表设置'));

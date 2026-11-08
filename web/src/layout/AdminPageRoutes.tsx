@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes, type Location } from 'react-router-dom';
 import { AdminsPage } from '../modules/admin-accounts/Admins';
 import { ApprovalManagementPage } from '../modules/approvals/ApprovalManagement';
-import { CustomApprovalWorkflowPage } from '../modules/approvals/CustomApprovalWorkflowPage';
 import { AttendancePage } from '../modules/attendance/Attendance';
 import { DashboardPage } from '../modules/dashboard/Dashboard';
 import { DepartmentsPage } from '../modules/organization/Departments';
@@ -32,9 +31,9 @@ export function AdminPageRoutes({ location }: { location: Location }) {
     <Route path="/models-formulas/overtime" element={<ModelsFormulasPage section="overtime" />} />
     <Route path="/models-formulas/salary" element={<ModelsFormulasPage section="salary" />} />
     <Route path="/models-formulas/onboarding-template" element={<ModelsFormulasPage section="onboarding-template" />} />
-    <Route path="/models-formulas/payroll-workflow" element={<Navigate to="/approvals/custom-workflow" replace />} />
+    <Route path="/models-formulas/payroll-workflow" element={<Navigate to="/approvals/leave" replace />} />
     <Route path="/approvals" element={<Navigate to="/approvals/leave" replace />} />
-    <Route path="/approvals/custom-workflow" element={<CustomApprovalWorkflowPage />} />
+    <Route path="/approvals/custom-workflow" element={<Navigate to="/approvals/leave" replace />} />
     <Route path="/approvals/:type" element={<ApprovalManagementPage />} />
     <Route path="/departments" element={<DepartmentsPage />} />
     <Route path="/admins" element={<AdminsPage />} />
