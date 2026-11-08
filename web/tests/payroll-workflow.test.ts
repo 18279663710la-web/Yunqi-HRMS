@@ -8,7 +8,7 @@ import {
   createLinkedWorkflowAddition,
   serializeWorkflow,
   workflowSignature,
-} from '../src/utils/payrollWorkflow';
+} from '../src/modules/models-formulas/payroll-workflow/workflowUtils';
 
 test('薪资发放流程包含六种预设节点', () => {
   assert.deepEqual(PAYROLL_WORKFLOW_PRESETS.map(preset => preset.title), [

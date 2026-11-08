@@ -42,7 +42,7 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/models-formulas/overtime', label: '加班绩效规则' },
       { key: '/models-formulas/salary', label: '薪资构成模型' },
       { key: '/models-formulas/onboarding-template', label: '入职申请表设置' },
-      { key: '/models-formulas/payroll-workflow', label: '薪资发放流程' },
+      { key: '/models-formulas/payroll-workflow', label: '自定义审批流程' },
     ],
   },
   {

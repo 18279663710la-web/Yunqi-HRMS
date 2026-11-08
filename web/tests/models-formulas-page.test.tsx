@@ -59,9 +59,14 @@ test('入职申请表设置是独立子页面且限制超级管理员', () => {
   assert.ok(!denied.includes('新建模板'));
 });
 
-test('薪资发放流程是独立子页面且限制超级管理员', () => {
+test('自定义审批流程保留画布和功能区，不提供未定义的节点及保存', () => {
   const html = renderToStaticMarkup(<App><ModelsFormulasView role="super_admin" section="payroll-workflow" /></App>);
-  assert.ok(html.includes('薪资发放流程'));
+  assert.ok(html.includes('自定义审批流程'));
+  assert.ok(!html.includes('薪资发放流程'));
+  assert.ok(!html.includes('sub-module-header'));
+  assert.ok(html.includes('salary-model-entries'));
+  assert.match(html, /<button[^>]*disabled[^>]*>清空<\/button>/);
+  assert.match(html, /<button[^>]*disabled[^>]*>保存<\/button>/);
   assert.ok(html.includes('添加节点'));
   assert.ok(html.includes('选择模式'));
   assert.ok(html.includes('平移模式'));

@@ -4,7 +4,7 @@ import type { AdminRole } from '../../types';
 import { OnboardingTemplateSettings } from './onboarding-template/OnboardingTemplateSettings';
 import { PayrollAttendanceRules } from './attendance/PayrollAttendanceRules';
 import { PayrollOvertimeRules } from './overtime/PayrollOvertimeRules';
-import { PayrollWorkflow } from './payroll-workflow/PayrollWorkflow';
+import { CustomApprovalWorkflow } from './payroll-workflow/CustomApprovalWorkflow';
 import { SalaryModels } from './salary/SalaryModels';
 
 const ruleSaved = () => {};
@@ -17,7 +17,7 @@ export function ModelsFormulasView({ role, section }: { role: AdminRole | undefi
     overtime: <PayrollOvertimeRules onSaved={ruleSaved} />,
     salary: <SalaryModels />,
     'onboarding-template': <OnboardingTemplateSettings />,
-    'payroll-workflow': <PayrollWorkflow />,
+    'payroll-workflow': <CustomApprovalWorkflow />,
   }[section];
   if (section === 'attendance' || section === 'overtime' || section === 'payroll-workflow' || section === 'salary') return content;
   return <div className="page-stack">

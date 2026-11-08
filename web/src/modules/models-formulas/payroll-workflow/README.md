@@ -2,11 +2,11 @@
 
 ## 职责
 
-薪资发放流程画布、节点图标及流程工具；不执行实际发放。
+复用原薪资流程画布展示自定义审批流程页面；目前仅有布局，不读取或保存审批流程。原薪资流程编辑代码保留但不再作为页面入口。
 
 ## 主要内容
 
-- 主要文件：`PayrollWorkflow.tsx`、`PayrollWorkflowCanvas.tsx`、`PayrollWorkflowIcons.tsx`、`workflowUtils.ts`。
+- 主要文件：`CustomApprovalWorkflow.tsx`、`PayrollWorkflow.tsx`、`PayrollWorkflowCanvas.tsx`、`PayrollWorkflowIcons.tsx`、`workflowUtils.ts`。
 
 ## 维护约束
 
