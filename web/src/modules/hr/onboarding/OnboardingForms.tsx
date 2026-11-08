@@ -83,15 +83,16 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
     catch (error) { message.error((error as Error).message); }
     finally { setApplicationHistoryLoading(false); }
   };
-  return <div className="page-stack">
-    <Card title="入职申请" extra={<Button type="primary" onClick={() => { form.resetFields(); setRegister(true); }}>登记申请</Button>}>
-      <Table rowKey="id" dataSource={rows} scroll={{ x: 800 }} columns={[
-        { title: '申请编号', dataIndex: 'id' }, { title: '员工', render: (_, r) => `${r.name} · ${r.employeeNo}` }, { title: '员工账号', dataIndex: 'loginName' },
-        { title: '预计入职日期', dataIndex: 'expectedDate' }, { title: '填写状态', render: (_, r) => <Tag color={r.archivedAt ? 'blue' : r.submittedAt ? 'green' : 'orange'}>{r.archivedAt ? '已封存' : r.submittedAt ? '已提交' : '待填写'}</Tag> },
-        { title: '登记时间', dataIndex: 'createdAt', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
-        { title: '操作', render: (_, r) => <Button type="link" onClick={() => setDetail(r)}>查看详情</Button> },
-      ]} />
-    </Card>
+  return <div className="onboarding-page">
+    <div className="salary-model-entries" role="toolbar" aria-label="入职管理操作">
+      <button type="button" className="salary-model-entry" onClick={() => { form.resetFields(); setRegister(true); }}>登记申请</button>
+    </div>
+    <Table rowKey="id" dataSource={rows} scroll={{ x: 800 }} columns={[
+      { title: '申请编号', dataIndex: 'id' }, { title: '员工', render: (_, r) => `${r.name} · ${r.employeeNo}` }, { title: '员工账号', dataIndex: 'loginName' },
+      { title: '预计入职日期', dataIndex: 'expectedDate' }, { title: '填写状态', render: (_, r) => <Tag color={r.archivedAt ? 'blue' : r.submittedAt ? 'green' : 'orange'}>{r.archivedAt ? '已封存' : r.submittedAt ? '已提交' : '待填写'}</Tag> },
+      { title: '登记时间', dataIndex: 'createdAt', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
+      { title: '操作', render: (_, r) => <Button type="link" onClick={() => setDetail(r)}>查看详情</Button> },
+    ]} />
     {legacy.length > 0 && <Card title="历史入职申请"><Table rowKey="id" dataSource={legacy} pagination={{ pageSize: 10 }} columns={[
       { title: '申请编号', dataIndex: 'id' }, { title: '申请内容', render: (_, r) => Object.entries(r.fields).map(([k, v]) => `${k}：${v}`).join(' · ') },
       { title: '员工档案', render: (_, r) => r.employeeId || '未建档' }, { title: '登记时间', dataIndex: 'createdAt', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
