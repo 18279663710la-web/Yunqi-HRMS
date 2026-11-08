@@ -4,7 +4,6 @@ import { queryOne, transaction } from './pool';
 import {
   approvalTypes as approvalTypesSeed,
   company as companySeed,
-  departments as departmentsSeed,
   employees as employeesSeed,
   notices as noticesSeed,
   quickActions as quickActionsSeed,
@@ -13,20 +12,10 @@ import { config } from '../../config';
 import { hashPassword } from '../utils/password';
 import { seedAttendanceForEmployees, seedTodayCheckIns } from './attendanceSeed';
 
-interface SeedDepartment {
-  id: string;
-  parentId: string;
-  name: string;
-  leaderId: string;
-  order: number;
-}
-
 interface SeedEmployee {
   id: string;
   name: string;
   pinyin: string;
-  deptId: string;
-  deptName: string;
   position: string;
   level: string;
   employeeNo: string;
@@ -72,7 +61,6 @@ interface SeedNotice {
   attachments: unknown[];
 }
 
-const departments = departmentsSeed as SeedDepartment[];
 const employees = employeesSeed as SeedEmployee[];
 const approvalTypes = approvalTypesSeed as SeedApprovalType[];
 const quickActions = quickActionsSeed as SeedQuickAction[];
@@ -106,6 +94,7 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'employees',
     'hr_payroll_legacy_job_titles',
     'job_titles',
+    'legacy_department_names',
     'departments',
     'companies',
     'app_meta',
@@ -121,36 +110,20 @@ async function insertAll(conn: PoolConnection): Promise<void> {
     [companySeed.name, companySeed.shortName, companySeed.logoText, companySeed.address, companySeed.workTime, companySeed.flexible]
   );
 
-  for (const d of departments) {
-    await conn.query(
-      'INSERT INTO departments (id, parent_id, name, leader_id, sort_order) VALUES (?, ?, ?, ?, ?)',
-      [d.id, d.parentId || null, d.name, d.leaderId || null, d.order]
-    );
-  }
-
-  const deptMap = new Map(departments.map((d) => [d.id, d]));
-  const resolveLeaderId = (employee: SeedEmployee): string | null => {
-    let dept = deptMap.get(employee.deptId);
-    const visited = new Set<string>();
-    while (dept && !visited.has(dept.id)) {
-      visited.add(dept.id);
-      if (dept.leaderId && dept.leaderId !== employee.id) return dept.leaderId;
-      dept = dept.parentId ? deptMap.get(dept.parentId) : undefined;
-    }
-    return null;
-  };
+  await conn.query("INSERT INTO departments (id, parent_id, name, leader_id, sort_order) VALUES ('D00', NULL, '未分配', NULL, 0)");
 
   for (const e of employees) {
     await conn.query(
       `INSERT INTO employees
-        (id, name, pinyin, gender, dept_id, position, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, name, pinyin, gender, dept_id, position, job_category, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         e.id,
         e.name,
         e.pinyin,
         null,
-        e.deptId,
+        'D00',
+        e.position,
         e.position,
         e.level,
         e.employeeNo,
@@ -159,7 +132,7 @@ async function insertAll(conn: PoolConnection): Promise<void> {
         e.joinDate,
         e.isLeader ? 1 : 0,
         e.seat,
-        resolveLeaderId(e),
+        null,
       ]
     );
   }

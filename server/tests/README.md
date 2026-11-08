@@ -7,6 +7,7 @@
 ## 主要内容
 
 - `u9-business.integration.test.ts` 使用隔离 MySQL 和模拟 U9 校验绑定、身份隔离与 PDF 下载；`u9-money.test.ts` 校验金额精度。
+- `organizations.integration.test.ts` 在隔离数据库验证平级组织迁移、维护、员工归属及历史异动保护。
 - `onboarding-attachments.integration.test.ts` 在隔离数据库验证附件归属、权限和历史；`onboarding-attachment-mini.test.ts` 模拟小程序三种选择入口。
 
 - 子目录：[fixtures/](fixtures/README.md)。

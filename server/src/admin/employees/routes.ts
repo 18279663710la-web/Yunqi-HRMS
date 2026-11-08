@@ -22,8 +22,31 @@ upsertEmployeeAccount
 import { adminOf } from '../adminContext';
 import { createJobTitle, deleteJobTitle, listAdminJobTitles } from '../../domains/employees/jobTitleService';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
+import { createOrganization, deleteOrganization, listOrganizations, renameOrganization } from '../../domains/employees/organizationService';
 
 const router = Router();
+
+const organizationName = z.object({ name: z.string().trim().min(1).max(50) });
+router.get('/organizations', asyncHandler(async (_req, res) => { success(res, await listOrganizations()); }));
+router.post('/organizations', asyncHandler(async (req, res) => {
+  const { name } = parse(organizationName, req.body);
+  const organization = await createOrganization(name);
+  await recordAdminLog(adminOf(req), '创建组织', 'organization', organization.id, { name });
+  success(res, organization);
+}));
+router.put('/organizations/:id', asyncHandler(async (req, res) => {
+  const id = parse(z.string().trim().min(1).max(10), req.params.id);
+  const { name } = parse(organizationName, req.body);
+  const organization = await renameOrganization(id, name);
+  await recordAdminLog(adminOf(req), '修改组织', 'organization', id, { name });
+  success(res, organization);
+}));
+router.delete('/organizations/:id', asyncHandler(async (req, res) => {
+  const id = parse(z.string().trim().min(1).max(10), req.params.id);
+  await deleteOrganization(id);
+  await recordAdminLog(adminOf(req), '删除组织', 'organization', id, {});
+  success(res, {});
+}));
 
 router.get('/job-titles', asyncHandler(async (_req, res) => { success(res, await listAdminJobTitles()); }));
 router.post('/job-titles', asyncHandler(async (req, res) => {

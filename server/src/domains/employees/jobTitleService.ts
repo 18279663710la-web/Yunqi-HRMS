@@ -30,8 +30,8 @@ export async function listJobTitles(): Promise<JobTitle[]> {
 export async function listAdminJobTitles() {
   const [titles, employees] = await Promise.all([
     listJobTitles(),
-    queryRows<{ id: string; name: string; position: string; titleId: number; employeeNo: string; phone: string; joinDate: string; isLeader: number; loginName: string | null; accountStatus: string | null }>(`SELECT e.id, e.name, e.position, t.id AS titleId, e.employee_no AS employeeNo, e.phone, e.join_date AS joinDate, e.is_leader AS isLeader, a.login_name AS loginName, a.status AS accountStatus
-      FROM employees e JOIN job_titles t ON t.name = TRIM(e.position) LEFT JOIN employee_accounts a ON a.employee_id = e.id
+    queryRows<{ id: string; name: string; position: string; deptId: string; deptName: string; titleId: number; employeeNo: string; phone: string; joinDate: string; isLeader: number; loginName: string | null; accountStatus: string | null }>(`SELECT e.id, e.name, e.position, e.dept_id AS deptId, COALESCE(d.name, '未分配') AS deptName, t.id AS titleId, e.employee_no AS employeeNo, e.phone, e.join_date AS joinDate, e.is_leader AS isLeader, a.login_name AS loginName, a.status AS accountStatus
+      FROM employees e JOIN job_titles t ON t.name = TRIM(e.position) LEFT JOIN departments d ON d.id = e.dept_id LEFT JOIN employee_accounts a ON a.employee_id = e.id
       WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') ORDER BY e.pinyin`),
   ]);
   return titles.map(title => ({ ...title, employees: employees.filter(employee => Number(employee.titleId) === title.id).map(employee => ({ ...employee, isLeader: !!employee.isLeader, accountStatus: employee.accountStatus || 'none' })) }));

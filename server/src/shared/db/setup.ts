@@ -5,6 +5,7 @@ import { seedAttendanceIfEmpty } from './attendanceSeed';
 import { ensureDefaultAdmin } from '../../admin/admin-accounts/adminAuthService';
 import { backfillEmployeeJobCategories } from '../../admin/employees/adminEmployeeService';
 import { backfillJobTitles } from '../../domains/employees/jobTitleService';
+import { migrateOrganizations } from '../../domains/employees/organizationService';
 
 async function main(): Promise<void> {
   const reset = process.argv.includes('--reset');
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
   const backfilled = await backfillEmployeeJobCategories();
   if (backfilled) console.log(`[db] 已补齐 ${backfilled} 名员工的职位分类`);
   await backfillJobTitles();
+  await migrateOrganizations();
   await closePool();
 }
 

@@ -14,7 +14,7 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
     await (await import('../src/shared/db/seed')).seedDatabase();
-    await pool.execute("UPDATE employees SET position = '高级前端工程师' WHERE id = 'U001'");
+    await pool.execute("UPDATE employees SET position = '高级前端工程师', job_category = '研发员' WHERE id = 'U001'");
     await pool.execute("INSERT INTO job_titles (name) VALUES ('高级前端工程师')");
     await pool.execute("INSERT INTO app_meta (`k`, `v`) VALUES ('job_titles_backfilled', '1')");
     await pool.execute("INSERT INTO hr_payroll_batches (id, payroll_month, status, created_at) VALUES (1, '2025-01', 'reviewed', NOW())");

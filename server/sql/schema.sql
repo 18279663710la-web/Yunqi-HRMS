@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS `job_titles` (
   UNIQUE KEY `uk_job_titles_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `legacy_department_names` (
+  `id` VARCHAR(10) PRIMARY KEY,
+  `name` VARCHAR(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `hr_payroll_legacy_job_titles` (
   `item_id` BIGINT NOT NULL PRIMARY KEY,
   `position` VARCHAR(100) NOT NULL

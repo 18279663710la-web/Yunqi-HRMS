@@ -15,6 +15,7 @@ import { recordAdminLog } from '../../domains/audit/adminLogService';
 import type { AdminUser } from '../../shared/types/admin';
 import { getDepartmentTree, getEmployeeGroups } from '../../domains/employees/userService';
 import { assertJobTitle, listAdminJobTitles } from '../../domains/employees/jobTitleService';
+import { assertOrganization } from '../../domains/employees/organizationService';
 import { revokeEmployeeSessions } from '../../domains/accounts/employeeSessionService';
 import type { PoolConnection } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2';
@@ -315,6 +316,7 @@ export async function createEmployee(
   }
 
   await transaction(async (conn) => {
+    await assertOrganization(conn, input.deptId);
     await assertJobTitle(conn, position);
     await conn.query(
       `INSERT INTO employees
@@ -375,6 +377,7 @@ export async function updateEmployee(
   const position = input.position;
 
   await transaction(async (conn) => {
+    await assertOrganization(conn, input.deptId);
     await assertJobTitle(conn, position);
     await conn.execute(
     `UPDATE employees

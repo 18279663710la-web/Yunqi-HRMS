@@ -15,71 +15,35 @@ const company = {
   flexible: '弹性打卡 ±30 分钟',
 };
 
-/** 当前登录用户 */
-const currentUser = {
-  id: 'U001',
-  name: '陈亦然',
-  pinyin: 'chenyiran',
-  gender: '男',
-  deptId: 'D02',
-  deptName: '产品技术中心 · 前端研发组',
-  position: '研发员',
-  level: 'P6',
-  employeeNo: 'YQ2021038',
-  phone: '13888886688',
-  email: 'chenyiran@yunqi-tech.com',
-  joinDate: '2021-03-15',
-  leaderId: 'U005',
-  leaderName: '周明远',
-  seat: '12F-A-032',
-};
-
-/** 部门（parentId 组成组织树，D00 为根） */
-const departments = [
-  { id: 'D00', parentId: '', name: '云启科技', leaderId: 'U005', order: 0 },
-  { id: 'D01', parentId: 'D00', name: '产品技术中心', leaderId: 'U005', order: 1 },
-  { id: 'D02', parentId: 'D01', name: '前端研发组', leaderId: 'U005', order: 1 },
-  { id: 'D03', parentId: 'D01', name: '后端研发组', leaderId: 'U005', order: 2 },
-  { id: 'D04', parentId: 'D01', name: '测试与质量组', leaderId: 'U005', order: 3 },
-  { id: 'D05', parentId: 'D01', name: '产品设计部', leaderId: 'U005', order: 4 },
-  { id: 'D06', parentId: 'D00', name: '市场运营中心', leaderId: 'U012', order: 2 },
-  { id: 'D07', parentId: 'D06', name: '品牌市场组', leaderId: 'U012', order: 1 },
-  { id: 'D08', parentId: 'D06', name: '用户运营组', leaderId: 'U012', order: 2 },
-  { id: 'D09', parentId: 'D00', name: '职能支持中心', leaderId: 'U010', order: 3 },
-  { id: 'D10', parentId: 'D09', name: '人力资源部', leaderId: 'U010', order: 1 },
-  { id: 'D11', parentId: 'D09', name: '财务部', leaderId: 'U010', order: 2 },
-  { id: 'D12', parentId: 'D09', name: '行政部', leaderId: 'U010', order: 3 },
-];
-
 /** 员工（pinyin 用于通讯录 A-Z 索引） */
 const employees = [
   {
-    id: 'U001', name: '陈亦然', pinyin: 'chenyiran', deptId: 'D02', deptName: '前端研发组',
+    id: 'U001', name: '陈亦然', pinyin: 'chenyiran',
     position: '研发员', level: 'P6', employeeNo: 'YQ2021038', phone: '13888886688',
     email: 'chenyiran@yunqi-tech.com', joinDate: '2021-03-15', isLeader: false, seat: '12F-A-032',
   },
   {
-    id: 'U005', name: '周明远', pinyin: 'zhoumingyuan', deptId: 'D02', deptName: '前端研发组',
+    id: 'U005', name: '周明远', pinyin: 'zhoumingyuan',
     position: '研发员', level: 'M3', employeeNo: 'YQ2018009', phone: '13600001111',
     email: 'zhoumingyuan@yunqi-tech.com', joinDate: '2018-04-09', isLeader: true, seat: '12F-A-020',
   },
   {
-    id: 'U010', name: '吴静婷', pinyin: 'wujingting', deptId: 'D10', deptName: '人力资源部',
+    id: 'U010', name: '吴静婷', pinyin: 'wujingting',
     position: '员工', level: 'M3', employeeNo: 'YQ2017012', phone: '13900009999',
     email: 'wujingting@yunqi-tech.com', joinDate: '2017-03-06', isLeader: true, seat: '11F-A-006',
   },
   {
-    id: 'U011', name: '黄可欣', pinyin: 'huangkexin', deptId: 'D10', deptName: '人力资源部',
+    id: 'U011', name: '黄可欣', pinyin: 'huangkexin',
     position: '员工', level: 'P6', employeeNo: 'YQ2021042', phone: '13911112222',
     email: 'huangkexin@yunqi-tech.com', joinDate: '2021-04-12', isLeader: false, seat: '11F-A-008',
   },
   {
-    id: 'U012', name: '梁思远', pinyin: 'liangsiyuan', deptId: 'D07', deptName: '品牌市场组',
+    id: 'U012', name: '梁思远', pinyin: 'liangsiyuan',
     position: '业务员', level: 'M3', employeeNo: 'YQ2019015', phone: '13822223333',
     email: 'liangsiyuan@yunqi-tech.com', joinDate: '2019-11-04', isLeader: true, seat: '11F-B-002',
   },
   {
-    id: 'U013', name: '叶芷楠', pinyin: 'yezhinan', deptId: 'D07', deptName: '品牌市场组',
+    id: 'U013', name: '叶芷楠', pinyin: 'yezhinan',
     position: '业务员', level: 'P5', employeeNo: 'YQ2023055', phone: '13844445555',
     email: 'yezhinan@yunqi-tech.com', joinDate: '2023-05-22', isLeader: false, seat: '11F-B-004',
   },
@@ -621,4 +585,4 @@ const notices = [
   },
 ];
 
-export { company, currentUser, departments, employees, approvalTypes, quickActions, approvals, notices };
+export { company, employees, approvalTypes, quickActions, approvals, notices };

@@ -6,6 +6,7 @@ import { queryRows, transaction } from '../../shared/db/pool';
 import { dateKey } from '../../shared/utils/datetime';
 import { badRequest, notFound } from '../../shared/utils/errors';
 import { assertJobTitle } from '../../domains/employees/jobTitleService';
+import { assertOrganization } from '../../domains/employees/organizationService';
 
 const fields = { position: 'position', level: 'level', jobCategory: 'position', deptId: 'dept_id' } as const;
 type Field = keyof typeof fields;
@@ -32,7 +33,9 @@ export async function listTransitions(employeeId: string) {
   const employees = await queryRows('SELECT id FROM employees WHERE id = ?', [employeeId]);
   if (!employees.length) throw notFound('员工不存在');
   const rows = await queryRows<{ id: number; change_type: string; effective_date: string; before_json: unknown; after_json: unknown; note: string; status: string; created_at: string }>('SELECT id, change_type, effective_date, before_json, after_json, note, status, created_at FROM hr_employee_transitions WHERE employee_id = ? ORDER BY id DESC LIMIT 200', [employeeId]);
-  return rows.map((row) => ({ id: row.id, type: row.change_type, effectiveDate: row.effective_date, before: parseJson(row.before_json), after: parseJson(row.after_json), note: row.note, status: row.status, createdAt: row.created_at }));
+  const legacy = await queryRows<{ id: string; name: string }>('SELECT id, name FROM legacy_department_names');
+  const legacyNames = Object.fromEntries(legacy.map(item => [item.id, item.name]));
+  return rows.map((row) => ({ id: row.id, type: row.change_type, effectiveDate: row.effective_date, before: parseJson(row.before_json), after: parseJson(row.after_json), legacyOrganizationNames: legacyNames, note: row.note, status: row.status, createdAt: row.created_at }));
 }
 
 export async function submitTransition(input: Input, adminId: number) {
@@ -44,8 +47,7 @@ export async function submitTransition(input: Input, adminId: number) {
     const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [input.employeeId]);
     if (departures.length) throw badRequest('已离职员工不能提交人事异动');
     if (input.changes.deptId) {
-      const [departments] = await conn.query<RowDataPacket[]>('SELECT id FROM departments WHERE id = ?', [input.changes.deptId]);
-      if (!departments.length) throw badRequest('部门不存在');
+      await assertOrganization(conn, input.changes.deptId);
     }
     const before: Snapshot = {}; const after: Snapshot = {};
     for (const key of Object.keys(input.changes) as Array<keyof Input['changes']>) {
@@ -80,6 +82,7 @@ export async function cancelTransition(id: string, adminId: number) {
     if (keys.includes('position') && keys.includes('jobCategory')) throw badRequest('旧异动包含两个职务字段，无法直接撤销');
     if (!keys.length || keys.some((key) => !Object.hasOwn(fields, key) || !Object.hasOwn(before, key))) throw badRequest('异动记录无效，无法撤销');
     if (keys.some((key) => employees[0][fields[key]] !== after[key])) throw badRequest('员工资料已被修改，不能直接撤销');
+    if (keys.includes('deptId') && before.deptId) await assertOrganization(conn, before.deptId);
     await conn.execute(`UPDATE employees SET ${keys.map((key) => `\`${fields[key]}\` = ?`).join(', ')} WHERE id = ?`, [...keys.map((key) => before[key] ?? null), employeeId]);
     await conn.execute("UPDATE hr_employee_transitions SET status = 'cancelled', cancelled_by = ?, cancelled_at = NOW() WHERE id = ?", [adminId, id]);
   });

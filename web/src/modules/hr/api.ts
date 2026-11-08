@@ -6,7 +6,7 @@ export interface OnboardingTask { id: number; title: string; description: string
 export interface OnboardingEmployeeInput { name: string; pinyin: string; employeeNo: string; phone: string; joinDate: string; jobCategory: string }
 export interface TaskTemplateItem { title: string; required: boolean; description?: string; beginOn?: number | null; duration?: number | null }
 export interface HrEvent { id: number; employeeId: string; type: string; effectiveDate: string; note: string }
-export interface HrTransition { id: number; type: 'promotion' | 'transfer'; effectiveDate: string; before: Record<string, string | null>; after: Record<string, string | null>; note: string; status: 'submitted' | 'cancelled'; createdAt: string }
+export interface HrTransition { id: number; type: 'promotion' | 'transfer'; effectiveDate: string; before: Record<string, string | null>; after: Record<string, string | null>; legacyOrganizationNames?: Record<string, string>; note: string; status: 'submitted' | 'cancelled'; createdAt: string }
 export interface HrHistory { id: number; data: Record<string, unknown>; createdAt: string }
 export interface PayrollBatch { id: number; month: string; status: 'draft' | 'reviewed'; createdAt: string; reviewedAt: string | null }
 export interface PayrollFieldValue { name: string; value: number | string; type?: 'number' | 'text'; category?: 'income' | 'deduction' | 'info'; interfaceSource?: 'attendance'; attendanceMetric?: 'presentDays' | 'overtimeHours' | 'overtimePay'; calculationRule?: SalaryCalculationRule; attendancePeriod?: string; manualAdjustment?: { originalValue: number | string; updatedAt: string; updatedBy: number } }

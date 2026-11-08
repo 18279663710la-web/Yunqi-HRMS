@@ -9,6 +9,7 @@ import { ensureDefaultAdmin } from './admin/admin-accounts/adminAuthService';
 import { backfillEmployeeJobCategories } from './admin/employees/adminEmployeeService';
 import { startExpenseAiWorker } from './domains/approvals/expenseAiService';
 import { backfillJobTitles } from './domains/employees/jobTitleService';
+import { migrateOrganizations } from './domains/employees/organizationService';
 
 async function bootstrap(): Promise<void> {
   fs.mkdirSync(config.uploadDir, { recursive: true });
@@ -25,6 +26,7 @@ async function bootstrap(): Promise<void> {
     const backfilled = await backfillEmployeeJobCategories();
     if (backfilled) console.log(`[db] 已补齐 ${backfilled} 名员工的职位分类`);
     await backfillJobTitles();
+    await migrateOrganizations();
   }
 
   const app = createApp();

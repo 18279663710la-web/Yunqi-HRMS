@@ -43,7 +43,7 @@ import type {
   JobCategoryName,
 } from '../../types';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
-import { fetchJobTitles, type JobTitle } from '../organization/api';
+import { fetchJobTitles, fetchOrganizations, type JobTitle, type Organization } from '../organization/api';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { useAuth } from '../../auth/AuthContext';
 import { deleteU9Binding, fetchU9Binding, fetchU9Operators, saveU9Binding, type U9Operator } from './u9Api';
@@ -54,6 +54,7 @@ interface EmployeeFormValues {
   name: string;
   gender?: string;
   jobCategory?: JobCategoryName;
+  deptId?: string;
   employeeNo: string;
   phone: string;
   email?: string;
@@ -80,6 +81,7 @@ export function EmployeesPage() {
   const { admin } = useAuth();
   const active = useWorkspaceActive();
   const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [list, setList] = useState<AdminEmployee[]>([]);
@@ -148,7 +150,7 @@ export function EmployeesPage() {
 
   useEffect(() => {
     if (!active) return;
-    fetchJobTitles().then(setJobTitles).catch((error: Error) => message.error(error.message));
+    Promise.all([fetchJobTitles(), fetchOrganizations()]).then(([titles, items]) => { setJobTitles(titles); setOrganizations(items); }).catch((error: Error) => message.error(error.message));
   }, [active]);
 
   useEffect(() => {
@@ -156,6 +158,7 @@ export function EmployeesPage() {
       if (editing) {
         form.setFieldsValue({
           name: editing.name,
+          deptId: editing.deptId,
           gender: editing.gender || '男',
           employeeNo: editing.employeeNo,
           phone: editing.phone,
@@ -168,6 +171,7 @@ export function EmployeesPage() {
         form.resetFields();
         form.setFieldsValue({
           gender: '男',
+          deptId: 'D00',
           joinDate: dayjs(),
           isLeader: false,
           withAccount: true,
@@ -236,7 +240,7 @@ export function EmployeesPage() {
         name: values.name.trim(),
         pinyin: editing ? editing.pinyin : generatedPinyin,
         gender: values.gender,
-        deptId: editing ? editing.deptId : 'D00',
+        deptId: values.deptId || 'D00',
         position: editing ? editing.position : (values.jobCategory || '员工'),
         level: editing ? editing.level : '—',
         employeeNo: values.employeeNo.trim(),
@@ -574,6 +578,12 @@ export function EmployeesPage() {
               </Col>
             ) : null}
 
+            <Col span={8}>
+              <Form.Item name="deptId" label="组织">
+                <Select options={[{ value: 'D00', label: '未分配' }, ...organizations.map(item => ({ value: item.id, label: item.name }))]} />
+              </Form.Item>
+            </Col>
+
 
             <Col span={8}>
               <Form.Item name="employeeNo" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
@@ -601,7 +611,7 @@ export function EmployeesPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="isLeader" label="部门负责人" valuePropName="checked">
+              <Form.Item name="isLeader" label="组织负责人" valuePropName="checked">
                 <Switch />
               </Form.Item>
             </Col>
@@ -609,10 +619,6 @@ export function EmployeesPage() {
 
           {!editing ? (
             <>
-              <div className="form-tip" style={{ marginBottom: 18 }}>
-                只需填写基础信息、职务与登录账号。拼音会自动生成，部门默认归入公司根节点，
-                职级/工位/直属上级使用默认值，不影响账号创建与登录。
-              </div>
               <Divider orientation="left" plain>登录账号</Divider>
               <Form.Item name="withAccount" label="同时开通小程序登录账号" valuePropName="checked">
                 <Switch />

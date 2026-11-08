@@ -73,7 +73,7 @@ export function DashboardPage() {
         </Space>
       ),
     },
-    { title: '部门', dataIndex: 'deptName' },
+    { title: '组织', dataIndex: 'deptName' },
     { title: '职务', dataIndex: 'position' },
     { title: '入职日期', dataIndex: 'joinDate' },
     {
