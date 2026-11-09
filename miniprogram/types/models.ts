@@ -111,6 +111,7 @@ export interface ApprovalType {
   color: string;
   desc: string;
   fields: ApprovalField[];
+  workflowPublicationVersion?: number;
 }
 
 export interface QuickAction {
@@ -216,6 +217,8 @@ export interface ExpensePrecheckResult {
 
 export interface ApprovalDetail extends ApprovalDecorated {
   canCancel: boolean;
+  aiRetryAvailable?: boolean;
+  workflowAiStatus?: 'queued' | 'processing' | 'failed' | null;
   attachments?: Array<{ name: string; fileID: string }>;
   aiAdvice?: {
     status: 'queued' | 'processing' | 'completed' | 'failed' | 'no_rules' | 'unconfigured';
@@ -438,6 +441,8 @@ export interface CreateApprovalPayload {
   invoices: Invoice[];
   attachments?: Array<{ name: string; fileID: string }>;
   urgent: boolean;
+  workflowPublicationVersion?: number;
+  workflowValues?: Record<string, string>;
 }
 
 export interface InvoiceChangeDetail {

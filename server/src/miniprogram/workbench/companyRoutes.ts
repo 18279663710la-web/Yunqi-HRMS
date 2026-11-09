@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { requireAuth } from '../auth/authMiddleware';
 import { queryRows } from '../../shared/db/pool';
 import { getCompany } from '../../domains/employees/userService';
+import { readPublishedWorkflows } from '../../domains/approvals/customWorkflowPublication';
 import type { ApprovalType, QuickAction } from '../../shared/types/models';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
@@ -54,13 +55,18 @@ router.get(
   '/approval-types',
   asyncHandler(async (_req, res) => {
     const rows = await queryRows<ApprovalTypeRow>('SELECT * FROM approval_types ORDER BY sort_order');
-    const list: ApprovalType[] = rows.map((r) => ({
-      key: r.key,
-      name: r.name,
-      color: r.color,
-      desc: r.description,
-      fields: typeof r.fields_json === 'string' ? JSON.parse(r.fields_json) : r.fields_json,
-    }));
+    const publications = await readPublishedWorkflows();
+    const list: ApprovalType[] = rows.map((r) => {
+      const published = publications.get(r.key);
+      return {
+        key: r.key,
+        name: r.name,
+        color: r.color,
+        desc: r.description,
+        fields: published ? [...published.fixedFields, ...(published.workflow.formFields ?? [])] : typeof r.fields_json === 'string' ? JSON.parse(r.fields_json) : r.fields_json,
+        ...(published ? { workflowPublicationVersion: published.publicationVersion } : {}),
+      };
+    });
     success(res, list);
   })
 );

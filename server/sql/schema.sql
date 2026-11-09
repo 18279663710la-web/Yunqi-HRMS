@@ -397,11 +397,65 @@ CREATE TABLE IF NOT EXISTS `custom_approval_workflows` (
   `updated_at` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `custom_approval_test_cases` (
+  `approval_type` VARCHAR(20) PRIMARY KEY,
+  `version` INT NOT NULL DEFAULT 0,
+  `cases_json` JSON NOT NULL,
+  `updated_by` INT NOT NULL,
+  `updated_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `custom_approval_test_runs` (
+  `approval_type` VARCHAR(20) PRIMARY KEY,
+  `workflow_version` INT NOT NULL,
+  `case_version` INT NOT NULL,
+  `fields_hash` CHAR(64) NOT NULL,
+  `passed` TINYINT(1) NOT NULL,
+  `tested_by` INT NOT NULL,
+  `tested_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `custom_approval_publications` (
+  `approval_type` VARCHAR(20) PRIMARY KEY,
+  `publication_version` INT NOT NULL,
+  `workflow_version` INT NOT NULL,
+  `case_version` INT NOT NULL,
+  `graph_json` JSON NOT NULL,
+  `fixed_fields_json` JSON NOT NULL,
+  `credentials_json` JSON NOT NULL,
+  `published_by` INT NOT NULL,
+  `published_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `custom_approval_credentials` (
   `approval_type` VARCHAR(20) NOT NULL,
   `node_id` VARCHAR(100) NOT NULL,
   `encrypted_key` TEXT NOT NULL,
   PRIMARY KEY (`approval_type`, `node_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `approval_workflow_instances` (
+  `approval_id` VARCHAR(30) PRIMARY KEY,
+  `publication_version` INT NOT NULL,
+  `outcome` ENUM('approved','rejected') NOT NULL,
+  `plan_json` JSON NOT NULL,
+  `workflow_json` JSON NOT NULL,
+  `credentials_json` JSON NOT NULL,
+  `created_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `approval_workflow_ai_jobs` (
+  `approval_id` VARCHAR(30) NOT NULL,
+  `step_no` INT NOT NULL,
+  `node_id` VARCHAR(100) NOT NULL,
+  `status` ENUM('waiting','queued','processing','completed','failed','stopped') NOT NULL,
+  `attempts` INT NOT NULL DEFAULT 0,
+  `input_json` JSON NOT NULL,
+  `result_json` JSON NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`approval_id`, `step_no`),
+  KEY `idx_workflow_ai_queue` (`status`, `updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `expense_ai_jobs` (

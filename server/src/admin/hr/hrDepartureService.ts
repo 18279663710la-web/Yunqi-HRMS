@@ -23,6 +23,12 @@ export async function finalizeDeparture(caseId: string, adminId: number) {
     if (usedCase.length) throw badRequest('该清单已经办理过离职，如需再次办理请新建清单');
     const [configured] = await conn.query<RowDataPacket[]>('SELECT type FROM approval_approvers WHERE employee_id = ? LIMIT 1 FOR UPDATE', [employeeId]);
     if (configured.length) throw badRequest('该员工仍是指定审批人，请先更换审批人');
+    const [published] = await conn.query<RowDataPacket[]>('SELECT graph_json FROM custom_approval_publications ORDER BY approval_type FOR UPDATE');
+    for (const row of published) {
+      const graph = typeof row.graph_json === 'string' ? JSON.parse(row.graph_json) : row.graph_json;
+      if (!graph || !Array.isArray(graph.nodes)) throw new Error('已发布审批流程格式无效');
+      if (graph.nodes.some((node: { kind?: string; config?: { approverIds?: string[] } }) => node.kind === 'approver' && node.config?.approverIds?.includes(employeeId))) throw badRequest('该员工仍是已发布流程的审批人，请先调整并发布流程');
+    }
     const [pending] = await conn.query<RowDataPacket[]>("SELECT a.id FROM approvals a LEFT JOIN approval_timeline t ON t.approval_id = a.id AND t.approver_id = ? AND t.state IN ('current', 'wait') WHERE a.status = 'pending' AND (a.applicant_id = ? OR t.id IS NOT NULL) LIMIT 1 FOR UPDATE", [employeeId, employeeId]);
     if (pending.length) throw badRequest('该员工仍有待处理的申请或审批，请先处理');
     await conn.execute("UPDATE employee_accounts SET status = 'disabled', updated_at = NOW() WHERE employee_id = ?", [employeeId]);

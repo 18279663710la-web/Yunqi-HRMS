@@ -20,7 +20,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
         const path = req.originalUrl.split('?')[0];
         const allowed = req.method === 'GET'
           ? path === '/api/me' || path === '/api/approvals' || (!['/api/approvals/leave-approver', '/api/approvals/expense-approver'].includes(path) && /^\/api\/approvals\/[A-Za-z0-9_-]+$/.test(path))
-          : req.method === 'POST' && /^\/api\/approvals\/[A-Za-z0-9_-]+\/action$/.test(path);
+          : req.method === 'POST' && /^\/api\/approvals\/[A-Za-z0-9_-]+\/(?:action|retry-ai)$/.test(path);
         if (!allowed) throw forbidden('董事长账号仅用于审批分配给自己的申请');
       } else {
         const path = req.originalUrl.split('?')[0];

@@ -162,6 +162,10 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
   onShow() {
     if (!this.data.types.length) return;
     this.approverGeneration += 1;
+    if (this.data.type.workflowPublicationVersion) {
+      this.setData({ leader: { name: '按流程分配', position: '' }, leaveApproverReady: true, expenseApproverReady: true, typeApproverReady: true });
+      return;
+    }
     this.setData({ leader: { name: '正在查找审批人', position: '' }, leaveApproverReady: false, expenseApproverReady: false, typeApproverReady: false });
     if (this.data.typeKey === 'leave') void this.loadLeaveApprover();
     else if (this.data.typeKey === 'expense') void this.loadExpenseApprover();
@@ -220,6 +224,10 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       expenseApproverReady: false,
       typeApproverReady: false,
     });
+    if (type.workflowPublicationVersion) {
+      this.setData({ leader: { name: '按流程分配', position: '' }, leaveApproverReady: true, expenseApproverReady: true, typeApproverReady: true });
+      return;
+    }
     if (type.key === 'leave') void this.loadLeaveApprover();
     if (type.key === 'expense') void this.loadExpenseApprover();
     if (type.key === 'overtime' || type.key === 'travel' || type.key === 'purchase') void this.loadTypeApprover(type.key);
@@ -509,7 +517,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     const form = fields.map((f) => ({ label: f.label, value: this.formatValue(f, values[f.key]) }));
     const invoices = type.key === 'expense' ? this.data.recognized.map((item) => ({ ...item, fileID: item.fileID?.startsWith(`${STATIC_BASE}/uploads/`) ? item.fileID.slice(STATIC_BASE.length) : item.fileID })) : [];
     if (invoices.length) form.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${this.data.invoiceSummary?.totalAmountText || '0.00'}` });
-    return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], urgent };
+    return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], urgent, ...(type.workflowPublicationVersion ? { workflowPublicationVersion: type.workflowPublicationVersion, workflowValues: { ...values } } : {}) };
   },
 
   async onAiPrecheck(): Promise<void> {

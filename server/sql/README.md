@@ -6,7 +6,7 @@
 
 职务目录在 `job_titles`，旧工资明细没有职务快照时，迁移前的显示值保存在 `hr_payroll_legacy_job_titles`。
 
-`custom_approval_workflows` 按审批类型保存独立流程设计稿及版本；JSON 内含表单字段、节点配置和连线条件，不参与现有审批流转。表由 `schema.sql` 的幂等建表语句创建。
+`custom_approval_workflows` 保存各类型设计稿；`custom_approval_test_cases` 和 `custom_approval_test_runs` 保存用例与版本绑定的测试状态；`custom_approval_publications` 保存发布流程、固定表单及加密凭据快照。`approval_workflow_instances` 固定每张新单的执行计划及快照，`approval_workflow_ai_jobs` 保存异步 AI 节点状态。旧测试记录迁移后须重新测试；若旧发布记录缺少固定表单快照，启动迁移会阻止并要求安全处理。
 
 ## 主要内容
 

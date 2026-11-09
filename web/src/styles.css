@@ -1156,3 +1156,12 @@ code {
   .salary-model-page { min-height: calc(100vh - 52px); margin-bottom: -16px; }
   .payroll-batches-workspace { height: calc(100vh - 52px); min-height: 420px; margin-bottom: -16px; }
 }
+.approval-test-cases { display: grid; gap: 16px; max-height: 60vh; overflow-y: auto; padding: 4px 4px 8px; }
+.approval-test-case-toolbar { display: flex; justify-content: space-between; gap: 12px; }
+.approval-test-case-toolbar > .ant-select { width: min(280px, 60%); }
+.approval-test-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.approval-test-field { display: grid; gap: 6px; color: var(--text); }
+.approval-test-field .ant-select { width: 100%; }
+@media (max-width: 600px) { .approval-test-fields { grid-template-columns: 1fr; } }
+.approval-test-report { display: grid; gap: 10px; max-height: 55vh; overflow-y: auto; }
+.approval-test-report-case { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }

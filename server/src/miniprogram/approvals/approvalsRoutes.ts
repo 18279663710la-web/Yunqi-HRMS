@@ -17,6 +17,7 @@ import {
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { notFound } from '../../shared/utils/errors';
 import { success } from '../../shared/utils/response';
+import { retryWorkflowAi } from '../../domains/approvals/workflowAiWorker';
 import { getExpenseApprover, getApprovalApprover, parseApproverType } from '../../domains/approvals/expenseApproverService';
 
 const router = Router();
@@ -80,6 +81,8 @@ const createSchema = z.object({
   invoices: z.array(z.record(z.string(), z.any())).max(30).optional(),
   attachments: z.array(z.object({ name: z.string().trim().min(1).max(100), fileID: z.string().min(1).max(200) })).max(9).optional(),
   urgent: z.boolean().optional(),
+  workflowPublicationVersion: z.number().int().min(1).optional(),
+  workflowValues: z.record(z.string().max(40), z.string().max(2000)).optional(),
 });
 
 router.post('/approvals/expense-precheck', asyncHandler(async (req, res) => {
@@ -112,6 +115,10 @@ router.post(
     success(res, await createApproval(payload, req.user));
   })
 );
+
+router.post('/approvals/:id/retry-ai', asyncHandler(async (req, res) => {
+  success(res, await retryWorkflowAi(req.params.id, req.user));
+}));
 
 const actionSchema = z.object({
   action: z.enum(['approve', 'reject']),

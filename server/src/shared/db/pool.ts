@@ -72,6 +72,16 @@ async function runMigrations(conn: Connection): Promise<void> {
     return (rows as unknown[]).length > 0;
   };
 
+  // 兼容开发阶段已有的审批测试表；旧测试结果必须重新执行。
+  if (!(await hasColumn('custom_approval_test_runs', 'fields_hash'))) {
+    await conn.query("ALTER TABLE custom_approval_test_runs ADD COLUMN fields_hash CHAR(64) NOT NULL DEFAULT '' AFTER case_version");
+  }
+  if (!(await hasColumn('custom_approval_publications', 'fixed_fields_json'))) {
+    const [existing] = await conn.query<mysql.RowDataPacket[]>('SELECT approval_type FROM custom_approval_publications LIMIT 1');
+    if (existing.length) throw new Error('已有发布流程缺少表单快照，需先安全迁移后再启动');
+    await conn.query('ALTER TABLE custom_approval_publications ADD COLUMN fixed_fields_json JSON NOT NULL AFTER graph_json');
+  }
+
   const hasIndex = async (table: string, index: string): Promise<boolean> => {
     const [rows] = await conn.query(
       `SELECT 1 FROM information_schema.statistics

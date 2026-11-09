@@ -71,6 +71,8 @@ const READ_EMPLOYEE_ID = 'U001';
 
 async function clearAll(conn: PoolConnection): Promise<void> {
   const tables = [
+    'approval_workflow_ai_jobs',
+    'approval_workflow_instances',
     'expense_ai_jobs',
     'expense_attachments',
     'expense_uploads',

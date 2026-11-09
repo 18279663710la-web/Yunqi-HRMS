@@ -31,6 +31,7 @@ interface DetailData {
   comment: string;
   quickComments: string[];
   submitting: boolean;
+  retryingAi: boolean;
 }
 
 interface DetailCustom {
@@ -45,6 +46,7 @@ interface DetailCustom {
   onQuickComment(e: TapEvent): void;
   confirmAction(): Promise<void>;
   onCancel(): void;
+  retryAi(): Promise<void>;
   onPreviewInvoice(e: TapEvent): void;
   onPreviewAttachment(e: TapEvent): void;
   copyId(): void;
@@ -62,6 +64,7 @@ Page<DetailData, DetailCustom>({
     comment: '',
     quickComments: ['同意', '情况属实，同意', '方案已确认，同意', '请补充相关材料'],
     submitting: false,
+    retryingAi: false,
   },
 
   onLoad(options: Record<string, string | undefined>) {
@@ -108,12 +111,24 @@ Page<DetailData, DetailCustom>({
         headClass: HEAD_CLASS[raw.status] || 'head-pending',
       });
       if (this.aiTimer) clearTimeout(this.aiTimer);
-      if (this.active && (raw.aiAdvice?.status === 'queued' || raw.aiAdvice?.status === 'processing')) {
+      if (this.active && (raw.aiAdvice?.status === 'queued' || raw.aiAdvice?.status === 'processing' || raw.workflowAiStatus === 'queued' || raw.workflowAiStatus === 'processing')) {
         this.aiTimer = setTimeout(() => { void this.load(true); }, 5000);
       }
     } catch {
       if (!silent) { toast('审批单不存在或已被删除'); setTimeout(() => wx.navigateBack(), 900); }
     }
+  },
+
+  async retryAi(): Promise<void> {
+    if (this.data.retryingAi) return;
+    this.setData({ retryingAi: true });
+    try {
+      await approvalsApi.retryWorkflowAi(this.data.id);
+      toast('已重新开始 AI 审批');
+      await this.load();
+    } catch {
+      // 请求层已提示。
+    } finally { this.setData({ retryingAi: false }); }
   },
 
   /* ---------------- 审批操作 ---------------- */

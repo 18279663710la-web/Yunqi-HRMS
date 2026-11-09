@@ -62,6 +62,10 @@ export function submitApprovalAction(
   return post<ApprovalActionResult>(`/approvals/${encodeURIComponent(id)}/action`, { action, comment });
 }
 
+export function retryWorkflowAi(id: string): Promise<{ ok: boolean }> {
+  return post<{ ok: boolean }>(`/approvals/${encodeURIComponent(id)}/retry-ai`, {});
+}
+
 export function cancelApproval(id: string): Promise<ApprovalActionResult> {
   return post<ApprovalActionResult>(`/approvals/${encodeURIComponent(id)}/cancel`, {});
 }

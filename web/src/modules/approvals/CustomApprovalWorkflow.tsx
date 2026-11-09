@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { DragOutlined, PlusOutlined, SelectOutlined } from '@ant-design/icons';
+import { DragOutlined, ExperimentOutlined, FileSearchOutlined, PlusOutlined, SelectOutlined } from '@ant-design/icons';
 import { Alert, App, Button } from 'antd';
 import { ReactFlowProvider, applyEdgeChanges, applyNodeChanges, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
 import { APPROVAL_NODE_PRESETS, CustomApprovalCanvas } from './CustomApprovalCanvas';
 import { ExpenseFormDesigner } from './ExpenseFormDesigner';
 import { CustomApprovalNodeEditor } from './CustomApprovalNodeEditor';
+import { ApprovalTestCases } from './ApprovalTestCases';
 import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serializeApprovalWorkflow, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
-import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
+import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, getWorkflowTestFields, getWorkflowTestCases, testSavedWorkflow, publishWorkflow, type WorkflowTestCasesDocument, type WorkflowTestField, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
 import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
 
 interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; saved: string; pendingApiKeys: Record<string, string> }
@@ -24,6 +25,9 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   const [drafts, setDrafts] = useState<Partial<Record<CustomApprovalType, Draft>>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [testEditor, setTestEditor] = useState<{ fields: WorkflowTestField[]; document: WorkflowTestCasesDocument } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -69,14 +73,14 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   const configNode = draft?.nodes.find(node => node.id === configNodeId);
   const addNode = (kind: CustomApprovalNodeKind, position: { x: number; y: number }) => {
     if (!isNodeAvailable(approvalType, kind)) return;
-    if (!draft || loading || saving) { message.info('请等待流程加载完成'); return; }
+    if (!draft || loading || saving || testing || publishing) { message.info('请等待流程加载完成'); return; }
     if (draft.nodes.length >= 200) { message.warning('最多添加 200 个节点'); return; }
     updateDraft(current => ({ ...current, nodes: [...current.nodes, createApprovalNode(kind, position)] }));
     setPanelOpen(false);
   };
   const requestNode = (kind: CustomApprovalNodeKind) => {
     if (!isNodeAvailable(approvalType, kind)) return;
-    if (!draft || loading || saving) { message.info('请等待流程加载完成'); return; }
+    if (!draft || loading || saving || testing || publishing) { message.info('请等待流程加载完成'); return; }
     setPanelOpen(false);
     setAddRequest({ kind, id: ++nextAdd.current });
   };
@@ -108,9 +112,43 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
     updateDraft(current => ({ ...current, formFields: fields }));
     return true;
   };
+  const openTestCases = async () => {
+    if (!draft || testing) return;
+    setTesting(true);
+    try {
+      const [fixed, document] = await Promise.all([getWorkflowTestFields(approvalType), getWorkflowTestCases(approvalType)]);
+      setTestEditor({ fields: [...fixed.fields, ...draft.formFields], document });
+    } catch (error) { message.error((error as Error).message || '加载测试用例失败'); }
+    finally { setTesting(false); }
+  };
+  const runSavedTests = async () => {
+    if (!draft || testing) return;
+    setTesting(true);
+    try {
+      const report = await testSavedWorkflow(approvalType);
+      const graph = serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields);
+      const titles: Record<string, string> = { start: '发起人', form: '申请表单', verify: '系统查验（模拟）', ai: 'AI 审批', approver: '审批人', branch: '条件分支', end: '结束' };
+      const nodes = new Map(graph.nodes.map(node => [node.id, titles[node.kind]]));
+      modal.info({ title: report.passed ? '测试通过' : '测试未通过', width: 680, content: <div className="approval-test-report">
+        {report.errors.map(error => <div key={error}>{error}</div>)}
+        {report.aiChecks.map(item => <div key={item.nodeId}>AI 接口：{item.reachable ? `可达（HTTP ${item.status}）` : '无法连接'}</div>)}
+        {report.cases.map((item, index) => <div key={index} className="approval-test-report-case"><strong>{item.name}：{item.passed ? '通过' : '未通过'}</strong><div>{item.path.map(id => nodes.get(id) || id).join(' → ')}</div>{item.approverIds.length > 0 && <div>审批人：{item.approverIds.join(' → ')}</div>}{item.outcome && <div>结束结果：{item.outcome === 'approved' ? '审批通过' : '审批驳回'}</div>}{item.error && <div>{item.error}</div>}</div>)}
+      </div> });
+    } catch (error) { message.error((error as Error).message || '测试失败'); }
+    finally { setTesting(false); }
+  };
+  const runTests = () => {
+    if (!draft || testing || saving || publishing) return;
+    if (dirty) {
+      modal.confirm({ title: '保存流程后测试？', okText: '保存并测试', cancelText: '取消', onOk: async () => { if ((await save()) !== null) await runSavedTests(); } });
+      return;
+    }
+    void runSavedTests();
+  };
   const clear = () => modal.confirm({ title: '清空画布？', content: '清空后保存，才会更新设计稿。', okText: '清空', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => updateDraft(current => ({ ...current, nodes: [], edges: [], pendingApiKeys: {} })) });
-  const save = async () => {
-    if (!draft || !dirty || saving) return;
+  const save = async (): Promise<number | null> => {
+    if (!draft || saving || publishing) return null;
+    if (!dirty) return draft.version;
     const type = approvalType;
     setSaving(true);
     try {
@@ -118,28 +156,51 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
       const saved = await saveCustomApprovalWorkflow(type, serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields), credentials);
       setDrafts(current => ({ ...current, [type]: fromDocument(saved) }));
       message.success('流程设计稿已保存');
-    } catch (error) { message.error((error as Error).message || '保存失败，请重试'); }
+      return saved.version;
+    } catch (error) { message.error((error as Error).message || '保存失败，请重试'); return null; }
     finally { setSaving(false); }
+  };
+
+  const publishSaved = async (version: number) => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const cases = await getWorkflowTestCases(approvalType);
+      await publishWorkflow(approvalType, version, cases.version);
+      message.success('审批流程已发布');
+    } catch (error) { message.error((error as Error).message || '发布失败'); }
+    finally { setPublishing(false); }
+  };
+  const publish = () => {
+    if (!draft || loading || saving || testing || publishing) return;
+    if (dirty) {
+      modal.confirm({ title: '流程尚未保存，是否保存后发布？', okText: '保存并发布', cancelText: '取消', onOk: async () => { const version = await save(); if (version !== null) await publishSaved(version); } });
+      return;
+    }
+    void publishSaved(draft.version);
   };
 
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving} onClick={() => setFormOpen(true)}>表单设计</button>
+      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)}>表单设计</button>
       {toolbarExtra}
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || !dirty} onClick={() => void save()}>保存</button>
+      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
+      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || !dirty} onClick={() => void save()}>保存</button>
+      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={publish}>发布</button>
     </div>
     {loadError && <Alert type="error" message="流程加载失败" action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
     <div className="payroll-workflow-editor">
       <div className="workflow-stage">
         <div className="workflow-rail" role="toolbar" aria-label="画布工具">
-          <button ref={plusRef} type="button" className={`workflow-rail-button${panelOpen ? ' is-active' : ''}`} aria-label="添加节点" aria-expanded={panelOpen} onClick={() => setPanelOpen(value => !value)}><PlusOutlined /></button>
+          <button ref={plusRef} type="button" disabled={!draft || loading || saving || testing || publishing} className={`workflow-rail-button${panelOpen ? ' is-active' : ''}`} aria-label="添加节点" aria-expanded={panelOpen} onClick={() => setPanelOpen(value => !value)}><PlusOutlined /></button>
           <button type="button" className={`workflow-rail-button${tool === 'select' ? ' is-active' : ''}`} aria-label="选择模式" aria-pressed={tool === 'select'} onClick={() => { setTool('select'); setPanelOpen(false); }}><SelectOutlined /></button>
           <button type="button" className={`workflow-rail-button${tool === 'pan' ? ' is-active' : ''}`} aria-label="平移模式" aria-pressed={tool === 'pan'} onClick={() => { setTool('pan'); setPanelOpen(false); }}><DragOutlined /></button>
+          <button type="button" className="workflow-rail-button" aria-label="测试用例" title="测试用例" disabled={!draft || loading || saving || testing || publishing} onClick={() => { setPanelOpen(false); void openTestCases(); }}><FileSearchOutlined /></button>
+          <button type="button" className="workflow-rail-button" aria-label="测试" title="测试" disabled={!draft || loading || saving || testing || publishing} onClick={() => { setPanelOpen(false); runTests(); }}><ExperimentOutlined /></button>
         </div>
         {mounted ? <ReactFlowProvider><CustomApprovalCanvas
           nodes={draft?.nodes ?? []} edges={draft?.edges ?? []} tool={tool} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-          onConnect={onConnect} onNodesDelete={onNodesDelete} onAdd={addNode} addRequest={addRequest} readOnly={!draft || loading || saving} onConfigure={configureNode} fields={draft?.formFields ?? []} approvalType={approvalType}
+          onConnect={onConnect} onNodesDelete={onNodesDelete} onAdd={addNode} addRequest={addRequest} readOnly={!draft || loading || saving || testing || publishing} onConfigure={configureNode} fields={draft?.formFields ?? []} approvalType={approvalType}
         /></ReactFlowProvider> : <div className="workflow-canvas-placeholder" />}
         {panelOpen && <div ref={panelRef} className="workflow-node-panel" role="dialog" aria-label="添加节点">
           {APPROVAL_NODE_PRESETS.filter(preset => isNodeAvailable(approvalType, preset.kind)).map(preset => <button key={preset.kind} type="button" className="workflow-node-option" draggable onDragStart={event => { event.dataTransfer.setData('application/approval-workflow-node', preset.kind); event.dataTransfer.effectAllowed = 'move'; }} onClick={() => requestNode(preset.kind)}>
@@ -158,5 +219,6 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
       }));
       setConfigNodeId(null);
     }} />}
+    {testEditor && <ApprovalTestCases approvalType={approvalType} fields={testEditor.fields} document={testEditor.document} onCancel={() => setTestEditor(null)} onSaved={() => setTestEditor(null)} />}
   </section>;
 }

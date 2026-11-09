@@ -39,6 +39,10 @@ test('离职确认检查审批与交接，停用账号且支持安全撤销', as
     await conn.query(`UPDATE \`${database}\`.employees SET join_date='2025-02-01' WHERE id='U001'`);
     assert.equal((await request(`/admin/hr/offboarding/${id}/finalize`, 'POST', {})).status, 400);
     await conn.query(`UPDATE \`${database}\`.employees SET join_date='2021-03-15' WHERE id='U001'`);
+    const publishedGraph = { nodes: [{ id: 'review', kind: 'approver', position: { x: 0, y: 0 }, config: { approverIds: ['U001'] } }], edges: [], formFields: [] };
+    await conn.query(`INSERT INTO \`${database}\`.custom_approval_publications (approval_type, publication_version, workflow_version, case_version, graph_json, fixed_fields_json, credentials_json, published_by, published_at) VALUES ('leave', 1, 1, 1, ?, '[]', '{}', 1, NOW())`, [JSON.stringify(publishedGraph)]);
+    assert.equal((await request(`/admin/hr/offboarding/${id}/finalize`, 'POST', {})).status, 400, '已发布流程的审批人不能直接离职');
+    await conn.query(`DELETE FROM \`${database}\`.custom_approval_publications WHERE approval_type='leave'`);
     assert.equal((await request(`/admin/hr/offboarding/${id}/finalize`, 'POST', {})).status, 200);
     assert.equal((await request('/admin/hr/offboarding', 'POST', { employeeId: 'U001', lastDate: '2026-01-01', note: '' })).status, 400);
     assert.equal((await request('/me', 'GET', undefined, old.accessToken)).status, 401);
@@ -70,5 +74,25 @@ test('离职确认检查审批与交接，停用账号且支持安全撤销', as
     assert.equal(concurrent.filter((result) => result.status === 200).length, 1);
     const [invalid] = await conn.query<any[]>(`SELECT d.id FROM \`${database}\`.hr_employee_departures d JOIN \`${database}\`.approval_approvers a ON a.employee_id=d.employee_id WHERE d.employee_id='U005' AND d.status='departed'`);
     assert.equal(invalid.length, 0);
+    const third = await request('/admin/hr/offboarding', 'POST', { employeeId: 'U012', lastDate: '2025-01-01', note: '' });
+    assert.equal(third.status, 200);
+    assert.equal((await request(`/admin/hr/offboarding/${third.body.data.id}/complete`, 'POST', {})).status, 200);
+    const graph = { version: 0, formFields: [], nodes: [
+      { id: 's', kind: 'start', position: { x: 0, y: 0 } },
+      { id: 'a', kind: 'approver', position: { x: 1, y: 0 }, config: { approverIds: ['U012'] } },
+      { id: 'e', kind: 'end', position: { x: 2, y: 0 } },
+    ], edges: [{ id: 'sa', source: 's', target: 'a' }, { id: 'ae', source: 'a', target: 'e' }] };
+    assert.equal((await request('/admin/approval-workflows/purchase', 'PUT', graph)).status, 200);
+    assert.equal((await request('/admin/approval-workflows/purchase/test-cases', 'PUT', { version: 0, cases: [{ id: 'one', name: '采购', values: { item: '电脑', amount: '100', needDate: '2026-01-01', reason: '测试' } }] })).status, 200);
+    assert.equal((await request('/admin/approval-workflows/purchase/test', 'POST', {})).body.data.passed, true);
+    const publishAndDepart = await Promise.all([
+      request(`/admin/hr/offboarding/${third.body.data.id}/finalize`, 'POST', {}),
+      request('/admin/approval-workflows/purchase/publish', 'POST', { workflowVersion: 1, caseVersion: 1 }),
+    ]);
+    assert.equal(publishAndDepart.filter(result => result.status === 200).length, 1, '发布与离职不能同时成功');
+    const [publishedRows] = await conn.query<any[]>(`SELECT graph_json FROM \`${database}\`.custom_approval_publications WHERE approval_type='purchase'`);
+    const [departedRows] = await conn.query<any[]>(`SELECT id FROM \`${database}\`.hr_employee_departures WHERE employee_id='U012' AND status='departed'`);
+    assert.ok(!publishedRows.length || !departedRows.length, '发布流程不能保留已离职审批人');
+
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });

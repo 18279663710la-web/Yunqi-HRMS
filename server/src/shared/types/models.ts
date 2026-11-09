@@ -114,6 +114,7 @@ export interface ApprovalType {
   color: string;
   desc: string;
   fields: ApprovalField[];
+  workflowPublicationVersion?: number;
 }
 
 export interface QuickAction {
@@ -185,6 +186,7 @@ export interface Approval {
   form: ApprovalFormItem[];
   invoices: Invoice[];
   timeline: TimelineNode[];
+  workflowInstance?: boolean;
 }
 
 export interface ApprovalDecorated extends Approval {
@@ -200,6 +202,8 @@ export interface ApprovalDetail extends ApprovalDecorated {
   canCancel: boolean;
   attachments?: Array<{ name: string; fileID: string }>;
   aiAdvice?: { status: string; advice: import('../../domains/approvals/expenseAiPolicy').AiAdvice | null } | null;
+  aiRetryAvailable?: boolean;
+  workflowAiStatus?: string | null;
 }
 
 export interface ApprovalTabCounts {

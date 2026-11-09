@@ -59,13 +59,15 @@ async function imagePart(fileID: string): Promise<{ type: 'image_url'; image_url
 }
 
 /** 使用 OpenAI 兼容协议；本地部署可配置独立地址及模型。 */
-export async function generateExpenseAdvice(input: AiInput, rules: string, options?: { onProgress?: (text: string) => void; signal?: AbortSignal }): Promise<AiAdvice> {
+export async function generateExpenseAdvice(input: AiInput, rules: string, options?: { onProgress?: (text: string) => void; signal?: AbortSignal; modelSettings?: { provider: 'deepseek' | 'openai-compatible'; model: string; baseUrl: string; apiKey: string } }): Promise<AiAdvice> {
   if (!rules.trim()) return { recommendation: null, reason: '审批规则尚未配置，请人工复核', rule: '', missingAttachments: [], attachmentIssues: [] };
-  if (config.expenseAi.driver !== 'deepseek' && config.expenseAi.driver !== 'local') throw new Error('AI 服务类型未配置');
-  if (config.expenseAi.driver === 'deepseek' && !config.expenseAi.apiKey) throw new Error('AI 服务密钥未配置');
-  const base = new URL(config.expenseAi.baseUrl);
-  if (config.expenseAi.driver === 'deepseek' && (base.protocol !== 'https:' || base.hostname !== 'api.deepseek.com')) throw new Error('DeepSeek 服务地址无效');
-  if (config.expenseAi.driver === 'local' && !['localhost', '127.0.0.1', '::1', '[::1]'].includes(base.hostname)) throw new Error('本地模型地址必须指向本机');
+  const custom = options?.modelSettings;
+  if (!custom && config.expenseAi.driver !== 'deepseek' && config.expenseAi.driver !== 'local') throw new Error('AI 服务类型未配置');
+  if (!(custom?.apiKey || (!custom && (config.expenseAi.driver === 'local' || config.expenseAi.apiKey)))) throw new Error('AI 服务密钥未配置');
+  const base = new URL(custom?.baseUrl ?? config.expenseAi.baseUrl);
+  if (custom && (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash)) throw new Error('AI 服务地址无效');
+  if (!custom && config.expenseAi.driver === 'deepseek' && (base.protocol !== 'https:' || base.hostname !== 'api.deepseek.com')) throw new Error('DeepSeek 服务地址无效');
+  if (!custom && config.expenseAi.driver === 'local' && !['localhost', '127.0.0.1', '::1', '[::1]'].includes(base.hostname)) throw new Error('本地模型地址必须指向本机');
   const images: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [];
   let imageBytes = 0;
   const fileRefs = [...input.invoices.map((item) => ({ label: `发票 ${item.invoiceNumber}`, fileID: item.fileID || '' })), ...(input.attachments || []).map((item) => ({ label: item.name, fileID: item.fileID }))];
@@ -89,9 +91,10 @@ export async function generateExpenseAdvice(input: AiInput, rules: string, optio
   else options?.signal?.addEventListener('abort', abort, { once: true });
   try {
   const response = await fetch(`${base.toString().replace(/\/$/, '')}/chat/completions`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', ...(config.expenseAi.driver === 'deepseek' && config.expenseAi.apiKey ? { Authorization: `Bearer ${config.expenseAi.apiKey}` } : {}) },
-    body: JSON.stringify({ model: config.expenseAi.model, messages: [{ role: 'system', content: system }, { role: 'user', content }], response_format: { type: 'json_object' }, ...(options?.onProgress ? { stream: true } : {}) }),
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(custom?.apiKey ? { Authorization: `Bearer ${custom.apiKey}` } : !custom && config.expenseAi.driver === 'deepseek' && config.expenseAi.apiKey ? { Authorization: `Bearer ${config.expenseAi.apiKey}` } : {}) },
+    body: JSON.stringify({ model: custom?.model ?? config.expenseAi.model, messages: [{ role: 'system', content: system }, { role: 'user', content }], response_format: { type: 'json_object' }, ...(options?.onProgress ? { stream: true } : {}) }),
     signal: controller.signal,
+    ...(custom ? { redirect: 'error' as const } : {}),
   });
   if (!response.ok) throw new Error(`AI 服务请求失败 (${response.status})`);
   let text = '';
