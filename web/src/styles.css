@@ -31,6 +31,19 @@ code {
   font-size: 12px;
 }
 
+/* 顶部消息共用一个位置，最新消息显示在最上层。 */
+.ant-message.ant-message-top {
+  display: grid;
+}
+
+.ant-message.ant-message-top > .ant-message-notice-wrapper {
+  grid-area: 1 / 1;
+}
+
+.ant-message.ant-message-top > .ant-message-notice-wrapper:not(:last-child) {
+  visibility: hidden;
+}
+
 /* ---------------- 登录页 ---------------- */
 
 .login-page {

@@ -5,6 +5,7 @@
 
 ## 架构
 - 管理后台使用“云枢办公”名称，登录页与主侧栏复用品牌图形；登录页沿用后台浅色品牌配色，桌面显示装饰性工作台图形，窄屏仅显示登录表单；保留既有认证和校验行为。
+- 顶部消息提示共用一个位置，最新提示位于上层；消息的关闭和计时沿用 Ant Design。
 - `src/main.tsx` 启动 React；`App.tsx` 定义路由和登录保护，`auth/` 管理登录状态。
 - 页面经各业务模块的 API 和 `api/client.ts` 访问服务端；管理员 token 存于 localStorage，401 后返回登录页。
 - 使用 React、React Router、Ant Design 和 Vite；开发代理将 API 和上传资源请求转到服务端。
