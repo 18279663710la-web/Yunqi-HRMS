@@ -2,11 +2,11 @@
 
 ## 职责
 
-页面标题和子模块标题等跨模块组件。
+页面标题、子模块标题和后台品牌图形等跨模块组件。
 
 ## 主要内容
 
-- 主要文件：`PageTitle.tsx`、`SubModuleHeader.tsx`。
+- 主要文件：`PageTitle.tsx`、`SubModuleHeader.tsx`、`BrandSymbol.tsx`。
 
 ## 维护约束
 

@@ -26,6 +26,7 @@ import { useLocation, useNavigate, type Location } from 'react-router-dom';
 
 import { changePassword } from '../modules/auth/api';
 import { useAuth } from '../auth/AuthContext';
+import { BrandSymbol } from '../components/BrandSymbol';
 import { accessibleSubModules, SUB_MODULES, matchSubModule, resolvePageKey, subModuleMetrics, type SubModule } from './subModules';
 import { AdminPageRoutes } from './AdminPageRoutes';
 import { WorkspaceActiveContext } from './WorkspaceContext';
@@ -176,9 +177,9 @@ export function AdminLayout() {
     <Layout className="admin-shell is-sider-collapsed">
       <Sider width={236} collapsedWidth={72} collapsed className="admin-sider" theme="light">
         <div className="admin-brand">
-          <div className="admin-brand-mark">云</div>
+          <div className="admin-brand-mark" aria-hidden="true"><BrandSymbol /></div>
           <div className="admin-brand-text">
-            <div className="admin-brand-name">云启办公</div>
+            <div className="admin-brand-name">云枢办公</div>
             <div className="admin-brand-sub">管理后台</div>
           </div>
         </div>

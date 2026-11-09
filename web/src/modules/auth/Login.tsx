@@ -4,6 +4,7 @@ import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthContext';
+import { BrandSymbol } from '../../components/BrandSymbol';
 
 interface LoginForm {
   username: string;
@@ -40,7 +41,7 @@ export function LoginPage() {
           <div className="login-visual-ring login-visual-ring-inner" />
           <div className="login-visual-window">
             <div className="login-visual-sidebar">
-              <span className="login-visual-logo">云</span>
+              <span className="login-visual-logo"><BrandSymbol /></span>
               <span className="login-visual-nav is-active" />
               <span className="login-visual-nav" />
               <span className="login-visual-nav" />
@@ -64,8 +65,8 @@ export function LoginPage() {
         <div className="login-panel">
           <div className="login-card">
             <div className="login-brand">
-              <div className="admin-brand-mark" aria-hidden="true">云</div>
-              <div className="login-brand-name">云启办公</div>
+              <div className="admin-brand-mark" aria-hidden="true"><BrandSymbol /></div>
+              <div className="login-brand-name">云枢办公</div>
             </div>
 
             <Typography.Title id="login-title" level={1} className="login-title">

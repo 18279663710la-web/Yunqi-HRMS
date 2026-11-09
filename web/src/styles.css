@@ -102,6 +102,12 @@ code {
   background: #fff;
 }
 
+.brand-symbol {
+  display: block;
+  width: 60%;
+  height: 60%;
+}
+
 .login-visual-logo {
   display: grid;
   width: 30px;
