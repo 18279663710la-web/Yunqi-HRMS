@@ -4,7 +4,6 @@ import { getCustomTabBar, type TapEvent } from '../../types/ui';
 import { formatTime, toast } from '../../utils/util';
 
 interface LocationState {
-  address: string;
   ok: boolean;
   fallback: boolean;
   privacyIssue: boolean;
@@ -56,7 +55,7 @@ Page<AttendanceData, AttendanceCustom>({
     date: '',
     weekday: '',
     attendance: {} as AttendanceView,
-    location: { address: '', ok: false, fallback: false, privacyIssue: false },
+    location: { ok: false, fallback: false, privacyIssue: false },
     locationText: '正在获取定位…',
     punchTip: '',
     stats: {
@@ -120,13 +119,12 @@ Page<AttendanceData, AttendanceCustom>({
   /* ---------------- 定位 ---------------- */
 
   async initLocation(): Promise<LocationState | null> {
-    const address = this.data.site?.address || '';
     return new Promise((resolve) => wx.getLocation({
       type: 'gcj02',
       isHighAccuracy: true,
       highAccuracyExpireTime: 5000,
       success: (res) => {
-        const location = { address, ok: true, fallback: false, privacyIssue: false,
+        const location = { ok: true, fallback: false, privacyIssue: false,
           latitude: res.latitude, longitude: res.longitude, accuracy: res.accuracy };
         this.setData({
           location,
@@ -142,7 +140,7 @@ Page<AttendanceData, AttendanceCustom>({
         const privacyIssue = msg.includes('privacy agreement') || fail.errno === 112;
 
         this.setData({
-          location: { address, ok: false, fallback: true, privacyIssue },
+          location: { ok: false, fallback: true, privacyIssue },
           locationText: privacyIssue
             ? '未完成隐私声明，无法获取定位'
             : '未获取到定位，请检查权限后重试',

@@ -14,7 +14,7 @@
     <view class="card loc-card" bindtap="onTapLocation" hover-class="card-hover">
       <view class="loc-icon"></view>
       <view class="flex-1 loc-main">
-        <view class="loc-title ellipsis">{{site ? site.address + (site.floor ? ' · ' + site.floor : '') : '管理员尚未设置打卡地点'}}</view>
+        <view class="loc-title ellipsis">{{site ? '打卡范围半径 ' + site.radius + ' 米' : '管理员尚未设置打卡地点'}}</view>
         <view class="loc-sub ellipsis">{{locationText}}</view>
       </view>
       <view class="loc-action">

@@ -13,7 +13,7 @@ export async function calculatePayrollAttendance(conn: PoolConnection, employeeI
   const settings: AttendanceSettings | null = row ? {
     startTime: row.start_time, inEndTime: row.in_end_time, endTime: row.end_time, outEndTime: row.out_end_time,
     restDates: typeof row.rest_dates === 'string' ? JSON.parse(row.rest_dates) : (row.rest_dates || []),
-    address: row.address, floor: row.floor, latitude: Number(row.latitude), longitude: Number(row.longitude), radius: Number(row.radius),
+    latitude: Number(row.latitude), longitude: Number(row.longitude), radius: Number(row.radius),
   } : null;
   const [employees] = await conn.query<RowDataPacket[]>("SELECT (SELECT MAX(last_date) FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed') AS departure_date", [employeeId]);
   const departure = employees[0]?.departure_date ? String(employees[0].departure_date).slice(0, 10) : null;

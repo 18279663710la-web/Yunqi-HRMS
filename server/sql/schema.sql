@@ -600,6 +600,7 @@ CREATE TABLE IF NOT EXISTS `attendance_overtime_punches` (
   KEY `idx_overtime_employee_start` (`employee_id`, `check_in`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- start_time/end_time 分别是上班卡、下班卡时间段的开始，均可自由设置。
 CREATE TABLE IF NOT EXISTS `attendance_settings` (
   `id` INT PRIMARY KEY,
   `start_time` CHAR(5) NOT NULL,
@@ -607,14 +608,12 @@ CREATE TABLE IF NOT EXISTS `attendance_settings` (
   `end_time` CHAR(5) NOT NULL,
   `out_end_time` CHAR(5) NULL,
   `rest_dates` JSON NULL,
-  `address` VARCHAR(255) NOT NULL,
-  `floor` VARCHAR(50) NOT NULL DEFAULT '',
   `latitude` DECIMAL(10,7) NOT NULL,
   `longitude` DECIMAL(10,7) NOT NULL,
   `radius` INT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 非默认考勤组独立保存打卡规则；未分配员工继续使用 attendance_settings 中的默认设置。
+-- 各考勤组独立保存打卡规则；start_time/end_time 分别是上班卡、下班卡时间段的开始。
 CREATE TABLE IF NOT EXISTS `attendance_groups` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(50) NOT NULL,
@@ -623,8 +622,6 @@ CREATE TABLE IF NOT EXISTS `attendance_groups` (
   `end_time` CHAR(5) NOT NULL,
   `out_end_time` CHAR(5) NOT NULL,
   `rest_dates` JSON NULL,
-  `address` VARCHAR(255) NOT NULL,
-  `floor` VARCHAR(50) NOT NULL DEFAULT '',
   `latitude` DECIMAL(10,7) NOT NULL,
   `longitude` DECIMAL(10,7) NOT NULL,
   `radius` INT NOT NULL,

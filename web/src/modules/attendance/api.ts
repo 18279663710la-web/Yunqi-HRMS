@@ -36,10 +36,6 @@ export function updateAttendanceGroup(id: number, input: AttendanceGroupInput): 
   return request<AttendanceGroup>(`/admin/attendance/groups/${id}`, { method: 'PUT', body: input });
 }
 
-export function renameAttendanceGroup(id: number, name: string): Promise<AttendanceGroup> {
-  return request<AttendanceGroup>(`/admin/attendance/groups/${id}/name`, { method: 'PATCH', body: { name } });
-}
-
 export function deleteAttendanceGroup(id: number): Promise<null> {
   return request<null>(`/admin/attendance/groups/${id}`, { method: 'DELETE' });
 }

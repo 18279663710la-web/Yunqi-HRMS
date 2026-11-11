@@ -250,8 +250,6 @@ export interface AttendanceSettings {
   endTime: string;
   outEndTime: string | null;
   restDates: string[];
-  address: string;
-  floor: string;
   latitude: number;
   longitude: number;
   radius: number;
@@ -268,7 +266,6 @@ export interface AttendanceGroup extends AttendanceSettings {
 
 export interface AttendanceGroupsResponse {
   groups: AttendanceGroup[];
-  unassignedCount: number;
   initialSettings: AttendanceSettings | null;
 }
 

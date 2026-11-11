@@ -19,8 +19,6 @@ export const attendanceGroupMetaSchema = z.object({
   employeeIds: z.array(z.string().min(1).max(10)).max(1000, '单个考勤组最多选择 1000 名员工'),
 });
 
-export const attendanceGroupNameSchema = z.string().trim().min(1, '考勤组名称不能为空').max(50, '考勤组名称不能超过 50 个字符');
-
 export type AttendanceGroupMeta = z.infer<typeof attendanceGroupMetaSchema>;
 export type AttendanceGroupInput = AttendanceSettingsInput & AttendanceGroupMeta;
 
@@ -35,8 +33,6 @@ export interface AttendanceGroup extends AttendanceSettings {
 
 export interface AttendanceGroupsResult {
   groups: AttendanceGroup[];
-  /** 未分配员工的数量；这些员工按规则使用第一个考勤组。 */
-  unassignedCount: number;
   /** 无考勤组时生效的初始考勤设置，供新建组预填。 */
   initialSettings: AttendanceSettings | null;
 }
@@ -107,14 +103,10 @@ async function replaceMembers(conn: PoolConnection, groupId: number, employeeIds
 }
 
 export async function listAttendanceGroups(): Promise<AttendanceGroupsResult> {
-  const [rows, members, unassigned, initialSettings] = await Promise.all([
+  const [rows, members, initialSettings] = await Promise.all([
     queryRows<GroupRow>('SELECT * FROM attendance_groups ORDER BY id ASC'),
     queryRows<{ group_id: number; employee_id: string }>(
       'SELECT group_id, employee_id FROM attendance_group_employees ORDER BY employee_id ASC'
-    ),
-    queryOne<{ total: number }>(
-      `SELECT COUNT(*) AS total FROM employees e
-       WHERE NOT EXISTS (SELECT 1 FROM attendance_group_employees m WHERE m.employee_id = e.id)`
     ),
     getAttendanceSettings(),
   ]);
@@ -129,7 +121,6 @@ export async function listAttendanceGroups(): Promise<AttendanceGroupsResult> {
 
   return {
     groups: rows.map((row) => mapGroup(row, memberMap.get(Number(row.id)) ?? [])),
-    unassignedCount: Number(unassigned?.total || 0),
     initialSettings,
   };
 }
@@ -188,8 +179,8 @@ export async function createAttendanceGroup(
   const groupId = await transaction(async (conn) => {
     const [result] = await conn.query<ResultSetHeader>(
       `INSERT INTO attendance_groups
-        (name, start_time, in_end_time, end_time, out_end_time, rest_dates, address, floor, latitude, longitude, radius, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        (name, start_time, in_end_time, end_time, out_end_time, rest_dates, latitude, longitude, radius, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         meta.name,
         settings.startTime,
@@ -197,8 +188,6 @@ export async function createAttendanceGroup(
         settings.endTime,
         settings.outEndTime,
         JSON.stringify(settings.restDates),
-        settings.address,
-        settings.floor,
         settings.latitude,
         settings.longitude,
         settings.radius,
@@ -236,7 +225,7 @@ export async function updateAttendanceGroup(
     await conn.query(
       `UPDATE attendance_groups
        SET name = ?, start_time = ?, in_end_time = ?, end_time = ?, out_end_time = ?, rest_dates = ?,
-           address = ?, floor = ?, latitude = ?, longitude = ?, radius = ?, updated_at = NOW()
+           latitude = ?, longitude = ?, radius = ?, updated_at = NOW()
        WHERE id = ?`,
       [
         meta.name,
@@ -245,8 +234,6 @@ export async function updateAttendanceGroup(
         settings.endTime,
         settings.outEndTime,
         JSON.stringify(settings.restDates),
-        settings.address,
-        settings.floor,
         settings.latitude,
         settings.longitude,
         settings.radius,
@@ -262,28 +249,6 @@ export async function updateAttendanceGroup(
     name: group.name,
     employeeIds,
     settings,
-  });
-  return group;
-}
-
-export async function renameAttendanceGroup(
-  id: number,
-  name: string,
-  admin: AdminUser
-): Promise<AttendanceGroup> {
-  const existing = await getGroupById(id);
-  if (!existing) throw notFound('考勤组不存在');
-  const nextName = attendanceGroupNameSchema.parse(name);
-  await assertNameAvailable(nextName, id);
-
-  await transaction(async (conn) => {
-    await conn.query('UPDATE attendance_groups SET name = ?, updated_at = NOW() WHERE id = ?', [nextName, id]);
-  });
-  const group = await getGroupById(id);
-  if (!group) throw new Error('考勤组重命名失败');
-  await recordAdminLog(admin, '重命名考勤组', 'attendance_group', String(id), {
-    from: existing.name,
-    to: group.name,
   });
   return group;
 }

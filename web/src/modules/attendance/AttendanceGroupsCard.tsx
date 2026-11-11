@@ -36,7 +36,6 @@ import {
   createAttendanceGroup,
   deleteAttendanceGroup,
   fetchAttendanceGroups,
-  renameAttendanceGroup,
   updateAttendanceGroup,
 } from './api';
 import { fetchDepartments } from '../organization/api';
@@ -49,7 +48,6 @@ interface GroupFormValues {
   endTime: Dayjs;
   outEndTime: Dayjs;
   restDates?: Dayjs[];
-  address: string;
   latitude?: number;
   longitude?: number;
   radius: number;
@@ -69,8 +67,6 @@ const INITIAL_GROUP: AttendanceGroup = {
   endTime: '17:40',
   outEndTime: '19:50',
   restDates: [],
-  address: '',
-  floor: '',
   latitude: 23.1291,
   longitude: 113.2644,
   radius: 100,
@@ -92,7 +88,6 @@ function formValues(group: AttendanceGroup, withName: boolean): GroupFormValues 
     endTime: timeValue(group.endTime) as Dayjs,
     outEndTime: timeValue(group.outEndTime) as Dayjs,
     restDates: (group.restDates || []).map((date) => dayjs(date)),
-    address: group.address,
     latitude: group.latitude,
     longitude: group.longitude,
     radius: group.radius,
@@ -168,16 +163,10 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   const [pickerPositions, setPickerPositions] = useState<string[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameGroup, setRenameGroup] = useState<AttendanceGroup | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-  const [renameSaving, setRenameSaving] = useState(false);
 
   const latitude = Form.useWatch('latitude', form);
   const longitude = Form.useWatch('longitude', form);
   const radius = Form.useWatch('radius', form);
-  const startTime = Form.useWatch('startTime', form);
-  const endTime = Form.useWatch('endTime', form);
 
   const load = async (initial = false) => {
     if (initial) setLoading(true);
@@ -280,33 +269,6 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       : current.filter((id) => !filteredIds.includes(id)));
   };
 
-  const openRename = (group: AttendanceGroup) => {
-    setRenameGroup(group);
-    setRenameValue(group.name);
-    setRenameOpen(true);
-  };
-
-  const submitRename = async () => {
-    if (!renameGroup) return;
-    const name = renameValue.trim();
-    if (!name) {
-      message.warning('请输入考勤组名称');
-      return;
-    }
-    setRenameSaving(true);
-    try {
-      await renameAttendanceGroup(renameGroup.id, name);
-      message.success('考勤组名称已修改');
-      setRenameOpen(false);
-      await load(false);
-      onChanged?.();
-    } catch (err) {
-      message.error((err as Error).message);
-    } finally {
-      setRenameSaving(false);
-    }
-  };
-
   const save = async (values: GroupFormValues) => {
     if (values.latitude === undefined || values.longitude === undefined) {
       message.warning('请在地图上选点或填写经纬度');
@@ -318,8 +280,6 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       endTime: values.endTime.format('HH:mm'),
       outEndTime: values.outEndTime.format('HH:mm'),
       restDates: (values.restDates || []).map((date) => date.format('YYYY-MM-DD')).sort(),
-      address: values.address.trim(),
-      floor: '',
       latitude: values.latitude,
       longitude: values.longitude,
       radius: values.radius,
@@ -352,7 +312,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   const remove = async (group: AttendanceGroup) => {
     try {
       await deleteAttendanceGroup(group.id);
-      message.success('考勤组已删除，组内员工将使用默认考勤组');
+      message.success('考勤组已删除');
       await load(false);
       onChanged?.();
     } catch (err) {
@@ -361,23 +321,16 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   };
 
   const columns: ColumnsType<AttendanceGroup> = [
-    {
-      title: '考勤组',
-      dataIndex: 'name',
-      width: 150,
-      render: (_value, group) => (
-        <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={() => openRename(group)}>{group.name}</Button>
-      ),
-    },
-    { title: '办公时间', width: 130, render: (_value, group) => `${group.startTime}–${group.endTime}` },
+    { title: '考勤组', dataIndex: 'name', width: 150 },
     {
       title: '打卡时段',
-      width: 220,
-      render: (_value, group) => `上班 ${group.startTime}–${group.inEndTime || '未设置'}；下班 ${group.endTime}–${group.outEndTime || '未设置'}`,
+      width: 240,
+      render: (_value, group) => `上班卡 ${group.startTime}–${group.inEndTime || '未设置'}；下班卡 ${group.endTime}–${group.outEndTime || '未设置'}`,
     },
     {
-      title: '打卡地点',
-      render: (_value, group) => `${group.address} · ${group.radius} 米`,
+      title: '打卡半径',
+      width: 120,
+      render: (_value, group) => `${group.radius} 米`,
     },
     {
       title: '员工',
@@ -410,19 +363,16 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       bordered={false}
       loading={loading}
       title="考勤组"
-      extra={<Space><Button onClick={() => void load(false)}>刷新考勤组</Button><Button type="primary" onClick={showCreate}>新建考勤组</Button></Space>}
+      extra={<Button type="primary" onClick={showCreate}>新建考勤组</Button>}
     >
       {loadError && <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load(true)}>重试</Button>} style={{ marginBottom: 16 }} />}
-      {!loadError && data && data.unassignedCount > 0 && (
-        <Alert type="info" showIcon message={`未分配考勤组的员工有 ${data.unassignedCount} 人，将使用第一个考勤组。`} style={{ marginBottom: 16 }} />
-      )}
       <Table
         rowKey={(group) => String(group.id)}
         columns={columns}
         dataSource={rows}
         pagination={false}
         size="small"
-        scroll={{ x: 900 }}
+        scroll={{ x: 800 }}
       />
     </Card>
 
@@ -443,15 +393,13 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
           <Input maxLength={50} placeholder="例如：生产部早班" />
         </Form.Item>
         <Row gutter={16}>
-          <Col xs={12}><Form.Item name="startTime" label="上班时间" rules={[{ required: true, message: '请选择上班时间' }]}><TimePicker format="HH:mm" style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12}><Form.Item name="endTime" label="下班时间" dependencies={['startTime']} rules={[{ required: true, message: '请选择下班时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs) { return !value || !getFieldValue('startTime') || value.format('HH:mm') > (getFieldValue('startTime') as Dayjs).format('HH:mm') ? Promise.resolve() : Promise.reject(new Error('下班时间必须晚于上班时间')); } })]}><TimePicker format="HH:mm" style={{ width: '100%' }} /></Form.Item></Col>
-        </Row>
-        <Row gutter={16}>
           <Col xs={24} sm={12}>
             <Typography.Text strong>上班卡时间段</Typography.Text>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <TimePicker value={startTime} format="HH:mm" disabled style={{ width: '50%' }} aria-label="上班卡开始时间" />
-              <Form.Item name="inEndTime" dependencies={['startTime', 'endTime']} style={{ width: '50%', marginBottom: 0 }} rules={[{ required: true, message: '请选择上班卡结束时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs | undefined) { if (!value) return Promise.resolve(); const text = value.format('HH:mm'); const start = getFieldValue('startTime') as Dayjs | undefined; const end = getFieldValue('endTime') as Dayjs | undefined; return (!start || text >= start.format('HH:mm')) && (!end || text < end.format('HH:mm')) ? Promise.resolve() : Promise.reject(new Error('结束时间须不早于上班时间且早于下班时间')); } })]}>
+              <Form.Item name="startTime" style={{ width: '50%', marginBottom: 0 }} rules={[{ required: true, message: '请选择开始时间' }]}>
+                <TimePicker format="HH:mm" placeholder="开始时间" style={{ width: '100%' }} aria-label="上班卡开始时间" />
+              </Form.Item>
+              <Form.Item name="inEndTime" dependencies={['startTime']} style={{ width: '50%', marginBottom: 0 }} rules={[{ required: true, message: '请选择结束时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs | undefined) { const start = getFieldValue('startTime') as Dayjs | undefined; return !value || !start || value.format('HH:mm') >= start.format('HH:mm') ? Promise.resolve() : Promise.reject(new Error('结束时间不能早于开始时间')); } })]}>
                 <TimePicker format="HH:mm" placeholder="结束时间" style={{ width: '100%' }} aria-label="上班卡结束时间" />
               </Form.Item>
             </div>
@@ -459,48 +407,27 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
           <Col xs={24} sm={12}>
             <Typography.Text strong>下班卡时间段</Typography.Text>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <TimePicker value={endTime} format="HH:mm" disabled style={{ width: '50%' }} aria-label="下班卡开始时间" />
-              <Form.Item name="outEndTime" dependencies={['endTime']} style={{ width: '50%', marginBottom: 0 }} rules={[{ required: true, message: '请选择下班卡结束时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs | undefined) { const end = getFieldValue('endTime') as Dayjs | undefined; return !value || !end || value.format('HH:mm') >= end.format('HH:mm') ? Promise.resolve() : Promise.reject(new Error('结束时间不能早于下班时间')); } })]}>
+              <Form.Item name="endTime" dependencies={['inEndTime']} style={{ width: '50%', marginBottom: 0 }} rules={[{ required: true, message: '请选择开始时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs | undefined) { const inEnd = getFieldValue('inEndTime') as Dayjs | undefined; return !value || !inEnd || value.format('HH:mm') > inEnd.format('HH:mm') ? Promise.resolve() : Promise.reject(new Error('上班卡时间段不能与下班卡时间段重合或晚于下班卡时间段')); } })]}>
+                <TimePicker format="HH:mm" placeholder="开始时间" style={{ width: '100%' }} aria-label="下班卡开始时间" />
+              </Form.Item>
+              <Form.Item name="outEndTime" dependencies={['endTime']} style={{ width: '50%', marginBottom: 0 }} rules={[{ required: true, message: '请选择结束时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs | undefined) { const end = getFieldValue('endTime') as Dayjs | undefined; return !value || !end || value.format('HH:mm') >= end.format('HH:mm') ? Promise.resolve() : Promise.reject(new Error('结束时间不能早于开始时间')); } })]}>
                 <TimePicker format="HH:mm" placeholder="结束时间" style={{ width: '100%' }} aria-label="下班卡结束时间" />
               </Form.Item>
             </div>
           </Col>
         </Row>
-        <Form.Item name="restDates" label="休息日期（可多选）" style={{ marginTop: 24 }}>
-          <DatePicker multiple format="YYYY-MM-DD" placeholder="选择休息日期，可不选择" style={{ width: '100%' }} />
-        </Form.Item>
         <Typography.Text strong>在地图上点击选择打卡中心</Typography.Text>
         <div style={{ marginTop: 8 }}><MapPicker latitude={latitude ?? form.getFieldValue('latitude')} longitude={longitude ?? form.getFieldValue('longitude')} radius={radius ?? form.getFieldValue('radius')} onSelect={(lat, lng) => form.setFieldsValue({ latitude: lat, longitude: lng })} /></div>
         <Row gutter={16}>
           <Col xs={12}><Form.Item name="latitude" label="纬度（GCJ-02）" rules={[{ required: true, type: 'number', min: -90, max: 90, message: '请在地图选点或输入有效纬度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
           <Col xs={12}><Form.Item name="longitude" label="经度（GCJ-02）" rules={[{ required: true, type: 'number', min: -180, max: 180, message: '请在地图选点或输入有效经度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
-          <Col xs={24}><Form.Item name="address" label="地点名称或地址" rules={[{ required: true, whitespace: true, max: 255, message: '请填写地点名称或地址' }]}><Input placeholder="例如：公司办公楼" /></Form.Item></Col>
-          <Col xs={12}><Form.Item name="radius" label="打卡半径（米）" rules={[{ required: true, type: 'number', min: 1, max: 10000, message: '请输入 1–10000 米' }]}><InputNumber min={1} max={10000} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={16}><Form.Item name="restDates" label="休息日期（可多选）"><DatePicker multiple format="YYYY-MM-DD" placeholder="选择休息日期，可不选择" style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={8}><Form.Item name="radius" label="打卡半径（米）" rules={[{ required: true, type: 'number', min: 1, max: 10000, message: '请输入 1–10000 米' }]}><InputNumber min={1} max={10000} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
         <Form.Item label="员工">
-          <Space direction="vertical" style={{ width: '100%' }} size={8}>
-            <Space>
-              <Button onClick={openPicker}>选择员工</Button>
-              <Typography.Text type="secondary">已选择 {selectedEmployeeIds.length} 人</Typography.Text>
-            </Space>
-            {selectedEmployeeIds.length > 0 && (
-              <div style={{ maxHeight: 120, overflowY: 'auto' }}>
-                <Space wrap size={4}>
-                  {selectedEmployeeIds.map((id) => {
-                    const employee = employeeOptions.find((option) => option.id === id);
-                    return (
-                      <Tag
-                        key={id}
-                        closable
-                        onClose={() => togglePicker(id, false)}
-                      >
-                        {employee ? `${employee.name}（${employee.employeeNo}）` : id}
-                      </Tag>
-                    );
-                  })}
-                </Space>
-              </div>
-            )}
+          <Space>
+            <Button onClick={openPicker}>选择员工</Button>
+            <Typography.Text type="secondary">已选择 {selectedEmployeeIds.length} 人</Typography.Text>
           </Space>
         </Form.Item>
       </Form>
@@ -595,27 +522,6 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
         </div>
         <Typography.Text type="secondary">已选择 {pickerSelection.length} 人；保存后所选员工将移入本考勤组。</Typography.Text>
       </Space>
-    </Modal>
-
-    <Modal
-      title="修改考勤组名称"
-      open={renameOpen}
-      onCancel={() => setRenameOpen(false)}
-      onOk={() => void submitRename()}
-      confirmLoading={renameSaving}
-      okText="保存"
-      cancelText="取消"
-      width={420}
-      zIndex={1200}
-      destroyOnClose
-    >
-      <Input
-        value={renameValue}
-        maxLength={50}
-        placeholder="请输入考勤组名称"
-        onChange={(event) => setRenameValue(event.target.value)}
-        onPressEnter={() => void submitRename()}
-      />
     </Modal>
   </>;
 }

@@ -4,11 +4,9 @@ import { z } from 'zod';
 import { attendanceSettingsSchema } from '../../domains/attendance/attendancePolicy';
 import {
   attendanceGroupMetaSchema,
-  attendanceGroupNameSchema,
   createAttendanceGroup,
   deleteAttendanceGroup,
   listAttendanceGroups,
-  renameAttendanceGroup,
   updateAttendanceGroup,
 } from '../../domains/attendance/attendanceGroups';
 import { getAttendanceSettings, saveAttendanceSettings } from '../../domains/attendance/attendanceSettings';
@@ -51,12 +49,6 @@ router.put('/attendance/groups/:id', asyncHandler(async (req, res) => {
   const settings = parse(attendanceSettingsSchema, req.body);
   const meta = parse(attendanceGroupMetaSchema, req.body);
   success(res, await updateAttendanceGroup(id, { ...settings, ...meta }, adminOf(req)));
-}));
-
-router.patch('/attendance/groups/:id/name', asyncHandler(async (req, res) => {
-  const id = parse(groupIdSchema, req.params.id);
-  const body = parse(z.object({ name: attendanceGroupNameSchema }), req.body);
-  success(res, await renameAttendanceGroup(id, body.name, adminOf(req)));
 }));
 
 router.delete('/attendance/groups/:id', asyncHandler(async (req, res) => {

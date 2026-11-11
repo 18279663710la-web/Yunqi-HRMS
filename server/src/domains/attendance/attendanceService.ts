@@ -211,9 +211,9 @@ export async function getTodayAttendance(employeeId: string): Promise<TodayAtten
     nextType,
     nextText,
     workday,
-    workTime: settings ? `${settings.startTime} - ${settings.endTime}` : company.workTime,
+    workTime: company.workTime,
     flexible: company.flexible,
-    address: settings?.address || company.address,
+    address: company.address,
     inEndTime: settings?.inEndTime || null,
     outEndTime: settings?.outEndTime || null,
   };

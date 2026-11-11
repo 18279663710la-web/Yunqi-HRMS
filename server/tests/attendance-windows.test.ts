@@ -3,7 +3,7 @@ import test from 'node:test';
 import { attendanceSettingsSchema, getPunchWindow } from '../src/domains/attendance/attendancePolicy';
 import { buildDayRecord, summarizeRecords } from '../src/domains/attendance/attendanceService';
 
-const settings = { startTime: '09:00', inEndTime: '10:00', endTime: '18:00', outEndTime: '20:00', restDates: ['2026-10-28'], address: '办公楼', floor: '', latitude: 23.1, longitude: 113.3, radius: 100 };
+const settings = { startTime: '09:00', inEndTime: '10:00', endTime: '18:00', outEndTime: '20:00', restDates: ['2026-10-28'], latitude: 23.1, longitude: 113.3, radius: 100 };
 
 test('打卡时段包含开始与结束分钟，时间段外不可打卡', () => {
   assert.equal(getPunchWindow(settings, '2026-10-27', '08:59'), null);

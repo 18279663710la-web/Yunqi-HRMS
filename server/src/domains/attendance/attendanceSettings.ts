@@ -16,8 +16,6 @@ export interface AttendanceSettingsRow {
   end_time: string;
   out_end_time: string | null;
   rest_dates: string | string[] | null;
-  address: string;
-  floor: string;
   latitude: number;
   longitude: number;
   radius: number;
@@ -33,8 +31,6 @@ export function mapAttendanceSettingsRow(row: AttendanceSettingsRow): Attendance
     endTime: row.end_time,
     outEndTime: row.out_end_time,
     restDates,
-    address: row.address,
-    floor: row.floor,
     latitude: Number(row.latitude),
     longitude: Number(row.longitude),
     radius: Number(row.radius),
@@ -49,12 +45,11 @@ export async function getAttendanceSettings(): Promise<AttendanceSettings | null
 export async function saveAttendanceSettings(input: AttendanceSettingsInput, admin: AdminUser): Promise<AttendanceSettingsInput> {
   const settings = attendanceSettingsSchema.parse(input);
   await transaction(async (conn) => {
-    await conn.query(`INSERT INTO attendance_settings (id, start_time, in_end_time, end_time, out_end_time, rest_dates, address, floor, latitude, longitude, radius)
-      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), in_end_time=VALUES(in_end_time),
+    await conn.query(`INSERT INTO attendance_settings (id, start_time, in_end_time, end_time, out_end_time, rest_dates, latitude, longitude, radius)
+      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), in_end_time=VALUES(in_end_time),
       end_time=VALUES(end_time), out_end_time=VALUES(out_end_time), rest_dates=VALUES(rest_dates),
-      address=VALUES(address), floor=VALUES(floor), latitude=VALUES(latitude), longitude=VALUES(longitude), radius=VALUES(radius)`,
-      [settings.startTime, settings.inEndTime, settings.endTime, settings.outEndTime, JSON.stringify(settings.restDates), settings.address, settings.floor, settings.latitude, settings.longitude, settings.radius]);
-    await conn.query('UPDATE companies SET work_time = ? WHERE id = 1', [`${settings.startTime} - ${settings.endTime}`]);
+      latitude=VALUES(latitude), longitude=VALUES(longitude), radius=VALUES(radius)`,
+      [settings.startTime, settings.inEndTime, settings.endTime, settings.outEndTime, JSON.stringify(settings.restDates), settings.latitude, settings.longitude, settings.radius]);
   });
   await recordAdminLog(admin, '修改考勤设置', 'attendance_settings', '1', settings);
   return settings;

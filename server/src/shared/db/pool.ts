@@ -137,6 +137,19 @@ async function runMigrations(conn: Connection): Promise<void> {
   if (!(await hasColumn('attendance_settings', 'rest_dates'))) {
     await conn.query('ALTER TABLE `attendance_settings` ADD COLUMN `rest_dates` JSON NULL AFTER `out_end_time`');
   }
+  // 地点和楼层说明字段已移除，打卡范围仅保留坐标与半径。
+  if (await hasColumn('attendance_settings', 'address')) {
+    await conn.query('ALTER TABLE `attendance_settings` DROP COLUMN `address`');
+  }
+  if (await hasColumn('attendance_settings', 'floor')) {
+    await conn.query('ALTER TABLE `attendance_settings` DROP COLUMN `floor`');
+  }
+  if (await hasColumn('attendance_groups', 'address')) {
+    await conn.query('ALTER TABLE `attendance_groups` DROP COLUMN `address`');
+  }
+  if (await hasColumn('attendance_groups', 'floor')) {
+    await conn.query('ALTER TABLE `attendance_groups` DROP COLUMN `floor`');
+  }
   if (!(await hasColumn('attendance_punches', 'status_override'))) {
     await conn.query("ALTER TABLE `attendance_punches` ADD COLUMN `status_override` ENUM('leave','absent','rest') NULL AFTER `check_out`");
   }

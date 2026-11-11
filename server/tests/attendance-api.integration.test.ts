@@ -27,9 +27,10 @@ test('考勤设置和打卡接口在独立数据库中验证时段、休息日�
     const poolModule = await import('../src/shared/db/pool');
     closePool = poolModule.closePool;
     await poolModule.ensureSchema();
-    const [oldRows] = await connection.query(`SELECT start_time, end_time, address, in_end_time, out_end_time FROM \`${database}\`.attendance_settings WHERE id=1`);
-    const old = (oldRows as Array<{ start_time: string; end_time: string; address: string; in_end_time: string | null; out_end_time: string | null }>)[0];
-    assert.deepEqual(old, { start_time: '08:00', end_time: '17:00', address: '旧地点', in_end_time: null, out_end_time: null });
+    // 旧地点与楼层列随迁移删除，时间与坐标保留。
+    const [oldRows] = await connection.query(`SELECT start_time, end_time, in_end_time, out_end_time FROM \`${database}\`.attendance_settings WHERE id=1`);
+    const old = (oldRows as Array<{ start_time: string; end_time: string; in_end_time: string | null; out_end_time: string | null }>)[0];
+    assert.deepEqual(old, { start_time: '08:00', end_time: '17:00', in_end_time: null, out_end_time: null });
     await connection.query(`DELETE FROM \`${database}\`.attendance_settings WHERE id=1`);
     const { seedDatabase } = await import('../src/shared/db/seed');
     await seedDatabase();
@@ -54,12 +55,12 @@ test('考勤设置和打卡接口在独立数据库中验证时段、休息日�
     const position = { latitude: 23.1, longitude: 113.3, accuracy: 10 };
     const unconfigured = await request('/attendance/punch', employee, 'POST', { type: 'in', ...position });
     assert.equal(unconfigured.payload.data.ok, false);
-    const settings = { startTime: '08:00', inEndTime: '10:00', endTime: '17:00', outEndTime: '18:30', restDates: ['2026-10-28'], address: '测试地点', floor: '3楼', latitude: 23.1, longitude: 113.3, radius: 100 };
+    const settings = { startTime: '08:00', inEndTime: '10:00', endTime: '17:00', outEndTime: '18:30', restDates: ['2026-10-28'], latitude: 23.1, longitude: 113.3, radius: 100 };
     assert.equal((await request('/admin/attendance/settings', employee, 'PUT', settings)).status, 401);
     assert.equal((await request('/admin/attendance/settings', admin, 'PUT', { ...settings, radius: 0 })).status, 400);
+    assert.equal((await request('/admin/attendance/settings', admin, 'PUT', { ...settings, inEndTime: '17:00' })).status, 400);
     assert.equal((await request('/admin/attendance/settings', admin, 'PUT', settings)).status, 200);
-    assert.equal((await request('/attendance/settings', employee)).payload.data.floor, '3楼');
-    assert.equal((await request('/attendance/today', employee)).payload.data.workTime, '08:00 - 17:00');
+    assert.equal((await request('/attendance/today', employee)).payload.data.workTime, '09:00 - 18:00');
     assert.equal((await request('/attendance/punch', employee, 'POST', { type: 'out' })).payload.data.ok, false);
     assert.equal((await request('/attendance/punch', employee, 'POST', { type: 'out', ...position, latitude: 23.11 })).payload.data.ok, false);
     assert.equal((await request('/attendance/punch', employee, 'POST', { type: 'in', ...position })).payload.data.ok, false);
