@@ -19,6 +19,7 @@ import {
 } from '../../domains/attendance/attendanceGroups';
 import { resolveConfiguredRestDates } from '../../domains/attendance/companyCalendar';
 import { getTravelDateMapForEmployees, getTravelDatesForEmployee } from '../../domains/attendance/travelAttendanceService';
+import { getLeaveDateMapForEmployees, getLeaveDatesForEmployee } from '../../domains/attendance/leaveAttendanceService';
 import { getOvertimeMapForEmployees } from '../../domains/attendance/overtimeAttendanceService';
 import { listJobTitles } from '../../domains/employees/jobTitleService';
 
@@ -172,10 +173,11 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
 
   const days = iterateDays(startDate, endDate);
   const employeeIds = employees.map((e) => e.id);
-  const [punchMap, configMap, travelMap, overtimeMap] = await Promise.all([
+  const [punchMap, configMap, travelMap, leaveMap, overtimeMap] = await Promise.all([
     getPunchMapForEmployees(employeeIds, startDate, endDate),
     getAttendanceConfigMap(employeeIds),
     getTravelDateMapForEmployees(employeeIds, startDate, endDate),
+    getLeaveDateMapForEmployees(employeeIds, startDate, endDate),
     getOvertimeMapForEmployees(employeeIds, startDate, endDate),
   ]);
   const todayKey = dateKey(new Date());
@@ -187,10 +189,11 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
     const employeeRecords: AttendanceRecord[] = [];
     const settings = settingsForConfig(configMap.get(employee.id), startDate, endDate);
     const travelDates = travelMap.get(employee.id) ?? emptyTravelDates;
+    const leaveDates = leaveMap.get(employee.id) ?? emptyTravelDates;
     for (const day of days) {
       if (employee.departure_date && day > String(employee.departure_date).slice(0, 10)) continue;
       const log = punchMap.get(`${employee.id}|${day}`) || null;
-      const record = buildDayRecord(day, log, { isToday: day === todayKey, settings, travelDates });
+      const record = buildDayRecord(day, log, { isToday: day === todayKey, settings, travelDates, leaveDates });
       employeeRecords.push(record);
       allRows.push({
         ...record,
@@ -314,7 +317,8 @@ export async function updateAttendancePunch(
   const config = await getAttendanceConfigForEmployee(input.employeeId);
   const settings = settingsForConfig(config, input.date, input.date);
   const travelDates = await getTravelDatesForEmployee(input.employeeId, input.date, input.date);
-  const record = buildDayRecord(input.date, log, { isToday: input.date === dateKey(new Date()), settings, travelDates });
+  const leaveDates = await getLeaveDatesForEmployee(input.employeeId, input.date, input.date);
+  const record = buildDayRecord(input.date, log, { isToday: input.date === dateKey(new Date()), settings, travelDates, leaveDates });
   return {
     ...record,
     employeeId: employee.id,
@@ -337,16 +341,17 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
 
   const today = dateKey(new Date());
   const employees = await queryRows<AdminEmployeeRow>(`${EMPLOYEE_SELECT} WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed') ORDER BY e.pinyin`);
-  const [punchMap, configMap, travelMap] = await Promise.all([
+  const [punchMap, configMap, travelMap, leaveMap] = await Promise.all([
     getPunchMapForEmployees(employees.map((e) => e.id), today, today),
     getAttendanceConfigMap(employees.map((e) => e.id)),
     getTravelDateMapForEmployees(employees.map((e) => e.id), today, today),
+    getLeaveDateMapForEmployees(employees.map((e) => e.id), today, today),
   ]);
 
   const todayStats = { total: employees.length, checkedIn: 0, late: 0, notChecked: 0, rest: 0, overtime: 0, onLeave: 0, onTravel: 0 };
   employees.forEach((employee) => {
     const settings = settingsForConfig(configMap.get(employee.id), today, today);
-    const record = buildDayRecord(today, punchMap.get(`${employee.id}|${today}`) || null, { isToday: true, settings, travelDates: travelMap.get(employee.id) ?? emptyTravelDates });
+    const record = buildDayRecord(today, punchMap.get(`${employee.id}|${today}`) || null, { isToday: true, settings, travelDates: travelMap.get(employee.id) ?? emptyTravelDates, leaveDates: leaveMap.get(employee.id) ?? emptyTravelDates });
     if (record.status === 'rest') todayStats.rest += 1;
     if (record.status === 'leave') todayStats.onLeave += 1;
     if (record.status === 'travel') todayStats.onTravel += 1;

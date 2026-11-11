@@ -11,6 +11,7 @@
 - `attendance-groups.integration.test.ts` 在隔离数据库验证考勤组创建、编辑、删除、员工迁移、公司日历必选，以及未分配员工回退第一个考勤组、无组回退初始设置对打卡、今日状态、管理端休息日和工资出勤取数的影响。
 - `company-calendar.test.ts` 和 `company-calendar.integration.test.ts` 验证每周固定、大小周轮换、例外休息/上班优先级、规则 CRUD、重名/日期冲突/使用保护和权限。
 - `travel-attendance.integration.test.ts` 在隔离数据库验证出差审批通过后按起止日期标记出差状态、出差日免打卡、月度汇总出差天数及工资出勤计入出差日。
+- `leave-attendance.integration.test.ts` 在隔离数据库验证请假审批通过后覆盖即整天标记请假、日历休息日与出差优先于请假、免打卡及工资缺勤口径。
 - `onboarding-attachments.integration.test.ts` 在隔离数据库验证附件归属、权限和历史；`onboarding-attachment-mini.test.ts` 模拟小程序三种选择入口。
 
 - 子目录：[fixtures/](fixtures/README.md)。
