@@ -1,7 +1,7 @@
 import type { RowDataPacket } from 'mysql2';
 import { queryRows, transaction } from '../../shared/db/pool';
 import { formatTime } from '../../shared/utils/datetime';
-import { getAttendanceSettings } from './attendanceSettings';
+import { getAttendanceSettingsForEmployee } from './attendanceGroups';
 import { validatePunchLocation, type Location } from './attendancePolicy';
 
 interface FormField { label: string; value: string }
@@ -24,7 +24,7 @@ export async function listOvertimePunches(employeeId: string) {
 }
 
 export async function punchOvertime(employeeId: string, approvalId: string, type: 'in' | 'out', location?: Location) {
-  const locationCheck = validatePunchLocation(await getAttendanceSettings(), location);
+  const locationCheck = validatePunchLocation(await getAttendanceSettingsForEmployee(employeeId), location);
   if (!locationCheck.ok) return { ok: false, message: locationCheck.message };
   const now = formatTime(new Date(), 'YYYY-MM-DD HH:mm:ss');
   return transaction(async conn => {

@@ -12,7 +12,10 @@ import { dateKey, parseDateKey, toMinuteText } from '../../shared/utils/datetime
 import { badRequest, notFound } from '../../shared/utils/errors';
 import { getPunch, getPunchMapForEmployees, buildDayRecord, summarizeRecords } from '../../domains/attendance/attendanceService';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
-import { getAttendanceSettings } from '../../domains/attendance/attendanceSettings';
+import {
+  getAttendanceSettingsForEmployee,
+  getAttendanceSettingsMap,
+} from '../../domains/attendance/attendanceGroups';
 import { getOvertimeMapForEmployees } from '../../domains/attendance/overtimeAttendanceService';
 import { listJobTitles } from '../../domains/employees/jobTitleService';
 
@@ -156,9 +159,9 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
   }
 
   const days = iterateDays(startDate, endDate);
-  const [punchMap, settings, overtimeMap] = await Promise.all([
+  const [punchMap, settingsMap, overtimeMap] = await Promise.all([
     getPunchMapForEmployees(employees.map((e) => e.id), startDate, endDate),
-    getAttendanceSettings(),
+    getAttendanceSettingsMap(employees.map((e) => e.id)),
     getOvertimeMapForEmployees(employees.map((e) => e.id), startDate, endDate),
   ]);
   const todayKey = dateKey(new Date());
@@ -168,6 +171,7 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
 
   for (const employee of employees) {
     const employeeRecords: AttendanceRecord[] = [];
+    const settings = settingsMap.get(employee.id) ?? null;
     for (const day of days) {
       if (employee.departure_date && day > String(employee.departure_date).slice(0, 10)) continue;
       const log = punchMap.get(`${employee.id}|${day}`) || null;
@@ -292,7 +296,7 @@ export async function updateAttendancePunch(
   });
 
   const log = await getPunch(input.employeeId, input.date);
-  const settings = await getAttendanceSettings();
+  const settings = await getAttendanceSettingsForEmployee(input.employeeId);
   const record = buildDayRecord(input.date, log, { isToday: input.date === dateKey(new Date()), settings });
   return {
     ...record,
@@ -316,13 +320,14 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
 
   const today = dateKey(new Date());
   const employees = await queryRows<AdminEmployeeRow>(`${EMPLOYEE_SELECT} WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed') ORDER BY e.pinyin`);
-  const [punchMap, settings] = await Promise.all([
+  const [punchMap, settingsMap] = await Promise.all([
     getPunchMapForEmployees(employees.map((e) => e.id), today, today),
-    getAttendanceSettings(),
+    getAttendanceSettingsMap(employees.map((e) => e.id)),
   ]);
 
   const todayStats = { total: employees.length, checkedIn: 0, late: 0, notChecked: 0, rest: 0, overtime: 0, onLeave: 0 };
   employees.forEach((employee) => {
+    const settings = settingsMap.get(employee.id) ?? null;
     const record = buildDayRecord(today, punchMap.get(`${employee.id}|${today}`) || null, { isToday: true, settings });
     if (record.status === 'rest') todayStats.rest += 1;
     if (record.status === 'leave') todayStats.onLeave += 1;

@@ -11,14 +11,14 @@ import {
 } from '../../domains/attendance/attendanceService';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
-import { getAttendanceSettings } from '../../domains/attendance/attendanceSettings';
+import { getAttendanceSettingsForEmployee } from '../../domains/attendance/attendanceGroups';
 import { listOvertimePunches, punchOvertime } from '../../domains/attendance/overtimeAttendanceService';
 
 const router = Router();
 router.use(requireAuth);
 
-router.get('/settings', asyncHandler(async (_req, res) => {
-  success(res, await getAttendanceSettings());
+router.get('/settings', asyncHandler(async (req, res) => {
+  success(res, await getAttendanceSettingsForEmployee(req.user.id));
 }));
 
 router.get('/overtime', asyncHandler(async (req, res) => { success(res, await listOvertimePunches(req.user.id)); }));

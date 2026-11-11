@@ -4,7 +4,7 @@
 
 数据库建表结构；增量迁移在 `src/shared/db/pool.ts`。工资发放补充字段、逐员工金额和已发放批次快照分别存储于独立表，不改写原工资批次明细；工资月份可有多个批次，通过月份锁表协调添加和复核；工资条 PDF 和已读版本保存在 `hr_payroll_payslips`，发放前的文件按管理员及版本暂存在 `hr_payroll_payslip_staging`。
 
-职务目录在 `job_titles`，旧工资明细没有职务快照时，迁移前的显示值保存在 `hr_payroll_legacy_job_titles`。
+职务目录在 `job_titles`，旧工资明细没有职务快照时，迁移前的显示值保存在 `hr_payroll_legacy_job_titles`。考勤默认设置保存在 `attendance_settings`；自定义考勤组保存在 `attendance_groups`，员工归属保存在 `attendance_group_employees`，同一员工只保留一个组。
 
 `custom_approval_workflows` 保存各类型设计稿；`custom_approval_test_cases` 和 `custom_approval_test_runs` 保存用例与版本绑定的测试状态；`custom_approval_publications` 保存发布流程、固定表单及加密凭据快照。`approval_workflow_instances` 固定每张新单的执行计划及快照，`approval_workflow_ai_jobs` 保存异步 AI 节点状态。旧测试记录迁移后须重新测试；若旧发布记录缺少固定表单快照，启动迁移会阻止并要求安全处理。
 

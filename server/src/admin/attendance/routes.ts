@@ -2,7 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { attendanceSettingsSchema } from '../../domains/attendance/attendancePolicy';
-import { getAttendanceSettings,saveAttendanceSettings } from '../../domains/attendance/attendanceSettings';
+import {
+  attendanceGroupMetaSchema,
+  createAttendanceGroup,
+  deleteAttendanceGroup,
+  listAttendanceGroups,
+  updateAttendanceGroup,
+} from '../../domains/attendance/attendanceGroups';
+import { getAttendanceSettings, saveAttendanceSettings } from '../../domains/attendance/attendanceSettings';
 import { parse } from '../../shared/middleware/validate';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
@@ -23,6 +30,31 @@ router.get('/attendance/settings', asyncHandler(async (_req, res) => {
 router.put('/attendance/settings', asyncHandler(async (req, res) => {
   const body = parse(attendanceSettingsSchema, req.body);
   success(res, await saveAttendanceSettings(body, adminOf(req)));
+}));
+
+const groupIdSchema = z.coerce.number().int().positive();
+
+router.get('/attendance/groups', asyncHandler(async (_req, res) => {
+  success(res, await listAttendanceGroups());
+}));
+
+router.post('/attendance/groups', asyncHandler(async (req, res) => {
+  const settings = parse(attendanceSettingsSchema, req.body);
+  const meta = parse(attendanceGroupMetaSchema, req.body);
+  success(res, await createAttendanceGroup({ ...settings, ...meta }, adminOf(req)));
+}));
+
+router.put('/attendance/groups/:id', asyncHandler(async (req, res) => {
+  const id = parse(groupIdSchema, req.params.id);
+  const settings = parse(attendanceSettingsSchema, req.body);
+  const meta = parse(attendanceGroupMetaSchema, req.body);
+  success(res, await updateAttendanceGroup(id, { ...settings, ...meta }, adminOf(req)));
+}));
+
+router.delete('/attendance/groups/:id', asyncHandler(async (req, res) => {
+  const id = parse(groupIdSchema, req.params.id);
+  await deleteAttendanceGroup(id, adminOf(req));
+  success(res, null);
 }));
 
 router.get(

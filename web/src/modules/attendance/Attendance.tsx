@@ -29,7 +29,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { fetchAttendance, saveAttendancePunch } from './api';
 import { fetchEmployeeOptions } from '../employees/api';
 import { PageTitle } from '../../components/PageTitle';
-import { AttendanceSettingsCard } from './AttendanceSettingsCard';
+import { AttendanceGroupsCard } from './AttendanceGroupsCard';
 import { fetchJobTitles, type JobTitle } from '../organization/api';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type {
@@ -328,7 +328,7 @@ export function AttendancePage() {
         }
       />
 
-      <AttendanceSettingsCard />
+      <AttendanceGroupsCard employeeOptions={employeeOptions} onChanged={load} />
 
       <Card className="panel-card" bordered={false}>
         <div className="filter-bar">

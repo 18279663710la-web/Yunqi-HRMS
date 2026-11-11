@@ -90,6 +90,8 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'attendance_overtime_punches',
     'approvals',
     'notices',
+    'attendance_group_employees',
+    'attendance_groups',
     'attendance_punches',
     'quick_actions',
     'approval_types',

@@ -257,6 +257,26 @@ export interface AttendanceSettings {
   radius: number;
 }
 
+export interface AttendanceGroup extends AttendanceSettings {
+  id: number;
+  name: string;
+  isDefault: boolean;
+  employeeIds: string[];
+  employeeCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface AttendanceGroupsResponse {
+  defaultGroup: AttendanceGroup | null;
+  groups: AttendanceGroup[];
+}
+
+export interface AttendanceGroupInput extends AttendanceSettings {
+  name: string;
+  employeeIds: string[];
+}
+
 export interface ManualPunchInput {
   employeeId: string;
   date: string;

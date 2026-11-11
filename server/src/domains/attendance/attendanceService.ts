@@ -17,7 +17,8 @@ import {
 } from '../../shared/utils/datetime';
 import { badRequest } from '../../shared/utils/errors';
 import { getCompany } from '../employees/userService';
-import { getAttendanceSettings, type AttendanceSettings } from './attendanceSettings';
+import { getAttendanceSettingsForEmployee } from './attendanceGroups';
+import type { AttendanceSettings } from './attendanceSettings';
 import { getPunchWindow, validatePunchLocation, type Location } from './attendancePolicy';
 
 export type DayOverride = 'leave' | 'absent' | 'rest';
@@ -167,14 +168,18 @@ export function buildDayRecord(
 }
 
 export async function getAttendanceRecord(employeeId: string, day: string): Promise<AttendanceRecord> {
-  const [log, settings] = await Promise.all([getPunch(employeeId, day), getAttendanceSettings()]);
+  const [log, settings] = await Promise.all([getPunch(employeeId, day), getAttendanceSettingsForEmployee(employeeId)]);
   return buildDayRecord(day, log, { isToday: day === dateKey(new Date()), settings });
 }
 
 export async function getTodayAttendance(employeeId: string): Promise<TodayAttendance> {
   const now = new Date();
   const day = dateKey(now);
-  const [log, company, settings] = await Promise.all([getPunch(employeeId, day), getCompany(), getAttendanceSettings()]);
+  const [log, company, settings] = await Promise.all([
+    getPunch(employeeId, day),
+    getCompany(),
+    getAttendanceSettingsForEmployee(employeeId),
+  ]);
   const hasIn = !!(log && log.checkIn);
   const hasOut = !!(log && log.checkOut);
   const override = log ? log.statusOverride : null;
@@ -206,9 +211,9 @@ export async function getTodayAttendance(employeeId: string): Promise<TodayAtten
     nextType,
     nextText,
     workday,
-    workTime: company.workTime,
+    workTime: settings ? `${settings.startTime} - ${settings.endTime}` : company.workTime,
     flexible: company.flexible,
-    address: company.address,
+    address: settings?.address || company.address,
     inEndTime: settings?.inEndTime || null,
     outEndTime: settings?.outEndTime || null,
   };
@@ -217,7 +222,7 @@ export async function getTodayAttendance(employeeId: string): Promise<TodayAtten
 export async function punch(employeeId: string, type: PunchType, location?: Location): Promise<PunchResult> {
   if (type !== 'in' && type !== 'out') throw badRequest('打卡类型不正确');
 
-  const settings = await getAttendanceSettings();
+  const settings = await getAttendanceSettingsForEmployee(employeeId);
   const locationCheck = validatePunchLocation(settings, location);
   if (!locationCheck.ok) return { ok: false, message: locationCheck.message };
 
@@ -261,7 +266,10 @@ export async function getAttendanceRecords(employeeId: string, days = 14): Promi
   const now = new Date();
   const todayKey = dateKey(now);
   const startKey = dateKey(new Date(now.getTime() - (count - 1) * 86400000));
-  const [punchMap, settings] = await Promise.all([getPunchMap(employeeId, startKey, todayKey), getAttendanceSettings()]);
+  const [punchMap, settings] = await Promise.all([
+    getPunchMap(employeeId, startKey, todayKey),
+    getAttendanceSettingsForEmployee(employeeId),
+  ]);
 
   const list: AttendanceRecord[] = [];
   for (let i = 0; i < count; i += 1) {

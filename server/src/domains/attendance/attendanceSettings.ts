@@ -10,11 +10,40 @@ export type AttendanceSettings = Omit<AttendanceSettingsInput, 'inEndTime' | 'ou
   outEndTime: string | null;
 };
 
+export interface AttendanceSettingsRow {
+  start_time: string;
+  in_end_time: string | null;
+  end_time: string;
+  out_end_time: string | null;
+  rest_dates: string | string[] | null;
+  address: string;
+  floor: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+}
+
+export function mapAttendanceSettingsRow(row: AttendanceSettingsRow): AttendanceSettings {
+  const restDates = row.rest_dates
+    ? (typeof row.rest_dates === 'string' ? JSON.parse(row.rest_dates) as string[] : row.rest_dates)
+    : [];
+  return {
+    startTime: row.start_time,
+    inEndTime: row.in_end_time,
+    endTime: row.end_time,
+    outEndTime: row.out_end_time,
+    restDates,
+    address: row.address,
+    floor: row.floor,
+    latitude: Number(row.latitude),
+    longitude: Number(row.longitude),
+    radius: Number(row.radius),
+  };
+}
+
 export async function getAttendanceSettings(): Promise<AttendanceSettings | null> {
-  const row = await queryOne<{ start_time: string; in_end_time: string | null; end_time: string; out_end_time: string | null; rest_dates: string | string[] | null; address: string; floor: string; latitude: number; longitude: number; radius: number }>('SELECT * FROM attendance_settings WHERE id = 1');
-  const restDates = row?.rest_dates ? (typeof row.rest_dates === 'string' ? JSON.parse(row.rest_dates) as string[] : row.rest_dates) : [];
-  return row ? { startTime: row.start_time, inEndTime: row.in_end_time, endTime: row.end_time, outEndTime: row.out_end_time, restDates,
-    address: row.address, floor: row.floor, latitude: Number(row.latitude), longitude: Number(row.longitude), radius: Number(row.radius) } : null;
+  const row = await queryOne<AttendanceSettingsRow>('SELECT * FROM attendance_settings WHERE id = 1');
+  return row ? mapAttendanceSettingsRow(row) : null;
 }
 
 export async function saveAttendanceSettings(input: AttendanceSettingsInput, admin: AdminUser): Promise<AttendanceSettingsInput> {
