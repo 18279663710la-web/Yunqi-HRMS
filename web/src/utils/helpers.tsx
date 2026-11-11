@@ -53,6 +53,7 @@ const ATTENDANCE_TAG: Record<string, { color: string; text: string }> = {
   absent: { color: 'error', text: '缺卡' },
   leave: { color: 'processing', text: '请假' },
   rest: { color: 'default', text: '休息' },
+  travel: { color: 'cyan', text: '出差' },
 };
 
 export function attendanceTag(status: string, text?: string): ReactNode {

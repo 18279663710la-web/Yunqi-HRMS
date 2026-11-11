@@ -11,6 +11,7 @@ const TAG_CLASS: Record<string, string> = {
   absent: 'tag-red',
   leave: 'tag-blue',
   rest: 'tag-gray',
+  travel: 'tag-cyan',
 };
 
 interface RecordData {

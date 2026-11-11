@@ -242,6 +242,11 @@ textarea {
   color: #8A94A6;
 }
 
+.tag-cyan {
+  background: #E0F7FB;
+  color: #00A5BC;
+}
+
 /* ---------- 头像 ---------- */
 .avatar {
   border-radius: 50%;

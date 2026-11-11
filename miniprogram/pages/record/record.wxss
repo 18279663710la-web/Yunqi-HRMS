@@ -40,6 +40,10 @@
   color: #3D6EF7;
 }
 
+.c-cyan {
+  color: #00A5BC;
+}
+
 .sum-foot {
   margin-top: 28rpx;
   padding-top: 22rpx;

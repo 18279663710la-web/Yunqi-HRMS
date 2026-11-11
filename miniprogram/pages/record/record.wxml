@@ -32,6 +32,10 @@
           <view class="sum-value">{{stats.month.rest}}</view>
           <view class="sum-label">休息</view>
         </view>
+        <view class="sum-item">
+          <view class="sum-value c-cyan">{{stats.month.travel}}</view>
+          <view class="sum-label">出差</view>
+        </view>
       </view>
 
       <view class="sum-foot">

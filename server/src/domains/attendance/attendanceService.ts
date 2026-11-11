@@ -19,6 +19,7 @@ import { badRequest } from '../../shared/utils/errors';
 import { getCompany } from '../employees/userService';
 import { getAttendanceConfigForEmployee, type EmployeeAttendanceConfig } from './attendanceGroups';
 import { resolveConfiguredRestDates } from './companyCalendar';
+import { getTravelDatesForEmployee } from './travelAttendanceService';
 import type { AttendanceSettings } from './attendanceSettings';
 import { getPunchWindow, validatePunchLocation, type Location } from './attendancePolicy';
 
@@ -46,6 +47,8 @@ export interface DayRecordOptions {
   isToday?: boolean;
   settings?: AttendanceSettings | null;
   currentTime?: string;
+  /** 已通过出差审批覆盖的日期；出差日状态为“出差”，优先于日历休息日。 */
+  travelDates?: Set<string>;
 }
 
 function mapPunch(row: PunchRow): PunchLog {
@@ -157,6 +160,9 @@ export function buildDayRecord(
 
   const checkIn = log?.checkIn || '';
   const checkOut = log?.checkOut || '';
+  if (options.travelDates?.has(day)) {
+    return { ...base, checkIn, checkOut, status: 'travel', statusText: '出差', duration: '—' };
+  }
   if (options.settings?.restDates.includes(day)) {
     return { ...base, checkIn, checkOut, status: 'rest', statusText: '休息', duration: '—' };
   }
@@ -176,36 +182,42 @@ function settingsForRange(config: EmployeeAttendanceConfig, from: string, to: st
 }
 
 export async function getAttendanceRecord(employeeId: string, day: string): Promise<AttendanceRecord> {
-  const [log, config] = await Promise.all([getPunch(employeeId, day), getAttendanceConfigForEmployee(employeeId)]);
+  const [log, config, travelDates] = await Promise.all([
+    getPunch(employeeId, day),
+    getAttendanceConfigForEmployee(employeeId),
+    getTravelDatesForEmployee(employeeId, day, day),
+  ]);
   const settings = settingsForRange(config, day, day);
-  return buildDayRecord(day, log, { isToday: day === dateKey(new Date()), settings });
+  return buildDayRecord(day, log, { isToday: day === dateKey(new Date()), settings, travelDates });
 }
 
 export async function getTodayAttendance(employeeId: string): Promise<TodayAttendance> {
   const now = new Date();
   const day = dateKey(now);
-  const [log, company, config] = await Promise.all([
+  const [log, company, config, travelDates] = await Promise.all([
     getPunch(employeeId, day),
     getCompany(),
     getAttendanceConfigForEmployee(employeeId),
+    getTravelDatesForEmployee(employeeId, day, day),
   ]);
   const settings = settingsForRange(config, day, day);
   const hasIn = !!(log && log.checkIn);
   const hasOut = !!(log && log.checkOut);
   const override = log ? log.statusOverride : null;
   const workday = !settings?.restDates.includes(day) && override !== 'rest';
-  const record = buildDayRecord(day, log, { isToday: true, settings });
+  const record = buildDayRecord(day, log, { isToday: true, settings, travelDates });
   const window = settings ? getPunchWindow(settings, day, formatTime(now, 'HH:mm')) : null;
+  const onTravel = travelDates.has(day) && override !== 'leave' && override !== 'rest';
 
   let nextType: TodayAttendance['nextType'] = 'wait';
-  let nextText = !settings || !settings.inEndTime || !settings.outEndTime ? '请先设置打卡规则' : !workday ? '休息日无需打卡' : override === 'leave' ? '请假无需打卡' : '不在打卡时间段内';
-  if (override !== 'leave' && override !== 'rest' && window === 'in' && !hasIn) {
+  let nextText = onTravel ? '出差期间无需打卡' : !settings || !settings.inEndTime || !settings.outEndTime ? '请先设置打卡规则' : !workday ? '休息日无需打卡' : override === 'leave' ? '请假无需打卡' : '不在打卡时间段内';
+  if (override !== 'leave' && override !== 'rest' && !onTravel && window === 'in' && !hasIn) {
     nextType = 'in';
     nextText = '上班打卡';
-  } else if (override !== 'leave' && override !== 'rest' && window === 'out' && !hasOut) {
+  } else if (override !== 'leave' && override !== 'rest' && !onTravel && window === 'out' && !hasOut) {
     nextType = 'out';
     nextText = '下班打卡';
-  } else if (override !== 'leave' && override !== 'rest' && window && ((window === 'in' && hasIn) || (window === 'out' && hasOut))) {
+  } else if (override !== 'leave' && override !== 'rest' && !onTravel && window && ((window === 'in' && hasIn) || (window === 'out' && hasOut))) {
     nextType = 'done';
     nextText = window === 'in' ? '上班卡已打' : '下班卡已打';
   }
@@ -234,6 +246,9 @@ export async function punch(employeeId: string, type: PunchType, location?: Loca
 
   const now = new Date();
   const day = dateKey(now);
+  const travelDates = await getTravelDatesForEmployee(employeeId, day, day);
+  if (travelDates.has(day)) return { ok: false, message: '出差期间无需打卡' };
+
   const config = await getAttendanceConfigForEmployee(employeeId);
   const settings = settingsForRange(config, day, day);
   const locationCheck = validatePunchLocation(settings, location);
@@ -277,9 +292,10 @@ export async function getAttendanceRecords(employeeId: string, days = 14): Promi
   const now = new Date();
   const todayKey = dateKey(now);
   const startKey = dateKey(new Date(now.getTime() - (count - 1) * 86400000));
-  const [punchMap, config] = await Promise.all([
+  const [punchMap, config, travelDates] = await Promise.all([
     getPunchMap(employeeId, startKey, todayKey),
     getAttendanceConfigForEmployee(employeeId),
+    getTravelDatesForEmployee(employeeId, startKey, todayKey),
   ]);
   const settings = settingsForRange(config, startKey, todayKey);
 
@@ -287,7 +303,7 @@ export async function getAttendanceRecords(employeeId: string, days = 14): Promi
   for (let i = 0; i < count; i += 1) {
     const d = new Date(now.getTime() - i * 86400000);
     const key = dateKey(d);
-    const record = buildDayRecord(key, punchMap.get(key) || null, { isToday: key === todayKey, settings });
+    const record = buildDayRecord(key, punchMap.get(key) || null, { isToday: key === todayKey, settings, travelDates });
     record.isToday = record.date === todayKey;
     list.push(record);
   }
@@ -295,10 +311,16 @@ export async function getAttendanceRecords(employeeId: string, days = 14): Promi
 }
 
 export function summarizeRecords(list: AttendanceRecord[]): AttendanceSummary {
-  const s: AttendanceSummary = { normal: 0, missingIn: 0, missingOut: 0, rest: 0, presentDays: 0, late: 0, absent: 0, leave: 0, overtime: 0, workdays: 0 };
+  const s: AttendanceSummary = { normal: 0, missingIn: 0, missingOut: 0, rest: 0, presentDays: 0, late: 0, absent: 0, leave: 0, travel: 0, overtime: 0, workdays: 0 };
   list.forEach((r) => {
     if (r.status === 'rest') { s.rest += 1; return; }
     s.workdays += 1;
+    if (r.status === 'travel') {
+      // 出差按正常出勤计算，单独统计天数。
+      s.travel += 1;
+      s.presentDays += 1;
+      return;
+    }
     if (r.checkIn || r.checkOut) s.presentDays += 1;
     if (r.isLate) s.late += 1;
     if (r.status === 'normal') s.normal += 1;

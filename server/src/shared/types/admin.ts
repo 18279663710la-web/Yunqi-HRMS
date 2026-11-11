@@ -134,6 +134,7 @@ export interface AdminDashboard {
     rest: number;
     overtime: number;
     onLeave: number;
+    onTravel: number;
   };
   recentEmployees: Array<{
     id: string;

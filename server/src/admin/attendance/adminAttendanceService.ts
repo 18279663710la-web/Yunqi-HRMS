@@ -18,6 +18,7 @@ import {
   type EmployeeAttendanceConfig,
 } from '../../domains/attendance/attendanceGroups';
 import { resolveConfiguredRestDates } from '../../domains/attendance/companyCalendar';
+import { getTravelDateMapForEmployees, getTravelDatesForEmployee } from '../../domains/attendance/travelAttendanceService';
 import { getOvertimeMapForEmployees } from '../../domains/attendance/overtimeAttendanceService';
 import { listJobTitles } from '../../domains/employees/jobTitleService';
 
@@ -131,7 +132,7 @@ function minutesOf(record: AttendanceRecord): number {
 }
 
 function emptySummary(): AttendanceSummary {
-  return { normal: 0, missingIn: 0, missingOut: 0, rest: 0, presentDays: 0, late: 0, absent: 0, leave: 0, overtime: 0, workdays: 0 };
+  return { normal: 0, missingIn: 0, missingOut: 0, rest: 0, presentDays: 0, late: 0, absent: 0, leave: 0, travel: 0, overtime: 0, workdays: 0 };
 }
 
 /** 按公司日历展开某员工在日期范围内的休息日。 */
@@ -140,6 +141,8 @@ function settingsForConfig(config: EmployeeAttendanceConfig | undefined, from: s
   const restDates = resolveConfiguredRestDates(config.calendarRule, config.settings.restDates, from, to);
   return { ...config.settings, restDates: Array.from(restDates).sort() };
 }
+
+const emptyTravelDates: Set<string> = new Set();
 
 export interface AdminAttendanceParams {
   month?: string;
@@ -168,10 +171,12 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
   }
 
   const days = iterateDays(startDate, endDate);
-  const [punchMap, configMap, overtimeMap] = await Promise.all([
-    getPunchMapForEmployees(employees.map((e) => e.id), startDate, endDate),
-    getAttendanceConfigMap(employees.map((e) => e.id)),
-    getOvertimeMapForEmployees(employees.map((e) => e.id), startDate, endDate),
+  const employeeIds = employees.map((e) => e.id);
+  const [punchMap, configMap, travelMap, overtimeMap] = await Promise.all([
+    getPunchMapForEmployees(employeeIds, startDate, endDate),
+    getAttendanceConfigMap(employeeIds),
+    getTravelDateMapForEmployees(employeeIds, startDate, endDate),
+    getOvertimeMapForEmployees(employeeIds, startDate, endDate),
   ]);
   const todayKey = dateKey(new Date());
 
@@ -181,10 +186,11 @@ export async function getAdminAttendance(params: AdminAttendanceParams = {}): Pr
   for (const employee of employees) {
     const employeeRecords: AttendanceRecord[] = [];
     const settings = settingsForConfig(configMap.get(employee.id), startDate, endDate);
+    const travelDates = travelMap.get(employee.id) ?? emptyTravelDates;
     for (const day of days) {
       if (employee.departure_date && day > String(employee.departure_date).slice(0, 10)) continue;
       const log = punchMap.get(`${employee.id}|${day}`) || null;
-      const record = buildDayRecord(day, log, { isToday: day === todayKey, settings });
+      const record = buildDayRecord(day, log, { isToday: day === todayKey, settings, travelDates });
       employeeRecords.push(record);
       allRows.push({
         ...record,
@@ -307,7 +313,8 @@ export async function updateAttendancePunch(
   const log = await getPunch(input.employeeId, input.date);
   const config = await getAttendanceConfigForEmployee(input.employeeId);
   const settings = settingsForConfig(config, input.date, input.date);
-  const record = buildDayRecord(input.date, log, { isToday: input.date === dateKey(new Date()), settings });
+  const travelDates = await getTravelDatesForEmployee(input.employeeId, input.date, input.date);
+  const record = buildDayRecord(input.date, log, { isToday: input.date === dateKey(new Date()), settings, travelDates });
   return {
     ...record,
     employeeId: employee.id,
@@ -330,23 +337,25 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
 
   const today = dateKey(new Date());
   const employees = await queryRows<AdminEmployeeRow>(`${EMPLOYEE_SELECT} WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed') ORDER BY e.pinyin`);
-  const [punchMap, configMap] = await Promise.all([
+  const [punchMap, configMap, travelMap] = await Promise.all([
     getPunchMapForEmployees(employees.map((e) => e.id), today, today),
     getAttendanceConfigMap(employees.map((e) => e.id)),
+    getTravelDateMapForEmployees(employees.map((e) => e.id), today, today),
   ]);
 
-  const todayStats = { total: employees.length, checkedIn: 0, late: 0, notChecked: 0, rest: 0, overtime: 0, onLeave: 0 };
+  const todayStats = { total: employees.length, checkedIn: 0, late: 0, notChecked: 0, rest: 0, overtime: 0, onLeave: 0, onTravel: 0 };
   employees.forEach((employee) => {
     const settings = settingsForConfig(configMap.get(employee.id), today, today);
-    const record = buildDayRecord(today, punchMap.get(`${employee.id}|${today}`) || null, { isToday: true, settings });
+    const record = buildDayRecord(today, punchMap.get(`${employee.id}|${today}`) || null, { isToday: true, settings, travelDates: travelMap.get(employee.id) ?? emptyTravelDates });
     if (record.status === 'rest') todayStats.rest += 1;
     if (record.status === 'leave') todayStats.onLeave += 1;
+    if (record.status === 'travel') todayStats.onTravel += 1;
     if (record.checkIn || record.checkOut) {
       todayStats.checkedIn += 1;
       if (record.isLate) todayStats.late += 1;
     }
   });
-  todayStats.notChecked = Math.max(0, todayStats.total - todayStats.checkedIn - todayStats.rest - todayStats.onLeave);
+  todayStats.notChecked = Math.max(0, todayStats.total - todayStats.checkedIn - todayStats.rest - todayStats.onLeave - todayStats.onTravel);
 
   const jobCategoryCounts = await listJobTitles();
 

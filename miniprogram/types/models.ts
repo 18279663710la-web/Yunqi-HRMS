@@ -268,7 +268,7 @@ export interface AttendanceRecord {
   weekdayText: string;
   checkIn: string;
   checkOut: string;
-  status: 'normal' | 'missing_in' | 'missing_out' | 'absent' | 'leave' | 'rest';
+  status: 'normal' | 'missing_in' | 'missing_out' | 'absent' | 'leave' | 'rest' | 'travel';
   statusText: string;
   duration: string;
   isToday?: boolean;
@@ -290,6 +290,7 @@ export interface AttendanceSummary {
   late: number;
   absent: number;
   leave: number;
+  travel: number;
   overtime: number;
   workdays: number;
 }

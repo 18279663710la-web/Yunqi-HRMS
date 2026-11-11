@@ -186,7 +186,7 @@ export function AttendanceRecordsPage() {
     if (!data) return;
     if (tab === 'summary') {
       downloadCsv(`考勤月度汇总-${data.month}.csv`, [
-        ['员工', '工号', '职务', '正常', '异常', '缺卡', '请假', '休息', '加班天数', '加班时长', '出勤天数', '累计工时'],
+        ['员工', '工号', '职务', '正常', '异常', '缺卡', '请假', '休息', '出差', '加班天数', '加班时长', '出勤天数', '累计工时'],
         ...data.employeeSummary.map((row) => [
           row.employeeName,
           row.employeeNo,
@@ -196,6 +196,7 @@ export function AttendanceRecordsPage() {
           row.absent,
           row.leave,
           row.rest,
+          row.travel,
           row.overtime,
           overtimeDuration(row.overtimeSeconds),
           row.presentDays,
@@ -316,6 +317,7 @@ export function AttendanceRecordsPage() {
     { title: '缺卡', dataIndex: 'absent' },
     { title: '请假', dataIndex: 'leave' },
     { title: '休息', dataIndex: 'rest' },
+    { title: '出差', dataIndex: 'travel' },
     { title: '加班天数', dataIndex: 'overtime' },
     { title: '加班时长', dataIndex: 'overtimeSeconds', render: (value: number) => overtimeDuration(value) },
     { title: '出勤天数', dataIndex: 'presentDays' },
@@ -402,6 +404,9 @@ export function AttendanceRecordsPage() {
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="休息" value={summary?.rest || 0} /></div>
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <div className="mini-stat"><Statistic title="出差" value={summary?.travel || 0} valueStyle={{ color: '#00A5BC' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="加班" value={summary?.overtime || 0} /></div>
