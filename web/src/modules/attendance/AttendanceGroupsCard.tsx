@@ -47,7 +47,6 @@ interface GroupFormValues {
   outEndTime: Dayjs;
   restDates?: Dayjs[];
   address: string;
-  floor?: string;
   latitude?: number;
   longitude?: number;
   radius: number;
@@ -91,7 +90,6 @@ function formValues(group: AttendanceGroup, withName: boolean): GroupFormValues 
     outEndTime: timeValue(group.outEndTime) as Dayjs,
     restDates: (group.restDates || []).map((date) => dayjs(date)),
     address: group.address,
-    floor: group.floor,
     latitude: group.latitude,
     longitude: group.longitude,
     radius: group.radius,
@@ -246,7 +244,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       outEndTime: values.outEndTime.format('HH:mm'),
       restDates: (values.restDates || []).map((date) => date.format('YYYY-MM-DD')).sort(),
       address: values.address.trim(),
-      floor: values.floor?.trim() || '',
+      floor: '',
       latitude: values.latitude,
       longitude: values.longitude,
       radius: values.radius,
@@ -299,7 +297,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       width: 150,
       render: (_value, group) => (
         <Space size={6}>
-          <span>{group.name}</span>
+          <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={() => showEdit(group)}>{group.name}</Button>
           {group.isDefault && <Tag color="blue">默认</Tag>}
         </Space>
       ),
@@ -312,7 +310,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     },
     {
       title: '打卡地点',
-      render: (_value, group) => `${group.address}${group.floor ? ` · ${group.floor}` : ''} · ${group.radius} 米`,
+      render: (_value, group) => `${group.address} · ${group.radius} 米`,
     },
     {
       title: '员工',
@@ -390,9 +388,6 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
             <Input maxLength={50} placeholder="例如：生产部早班" />
           </Form.Item>
         )}
-        {editing?.isDefault && (
-          <Alert type="info" showIcon message="未分配考勤组的员工默认使用本组设置。" style={{ marginBottom: 16 }} />
-        )}
         <Row gutter={16}>
           <Col xs={12}><Form.Item name="startTime" label="上班时间" rules={[{ required: true, message: '请选择上班时间' }]}><TimePicker format="HH:mm" style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={12}><Form.Item name="endTime" label="下班时间" dependencies={['startTime']} rules={[{ required: true, message: '请选择下班时间' }, ({ getFieldValue }) => ({ validator(_, value: Dayjs) { return !value || !getFieldValue('startTime') || value.format('HH:mm') > (getFieldValue('startTime') as Dayjs).format('HH:mm') ? Promise.resolve() : Promise.reject(new Error('下班时间必须晚于上班时间')); } })]}><TimePicker format="HH:mm" style={{ width: '100%' }} /></Form.Item></Col>
@@ -420,14 +415,12 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
         <Form.Item name="restDates" label="休息日期（可多选）" style={{ marginTop: 24 }}>
           <DatePicker multiple format="YYYY-MM-DD" placeholder="选择休息日期，可不选择" style={{ width: '100%' }} />
         </Form.Item>
-        <Alert type="info" showIcon message="时间段包含开始和结束分钟，不支持跨午夜；楼层仅作地点说明。" style={{ marginBottom: 16 }} />
         <Typography.Text strong>在地图上点击选择打卡中心</Typography.Text>
         <div style={{ marginTop: 8 }}><MapPicker latitude={latitude ?? form.getFieldValue('latitude')} longitude={longitude ?? form.getFieldValue('longitude')} radius={radius ?? form.getFieldValue('radius')} onSelect={(lat, lng) => form.setFieldsValue({ latitude: lat, longitude: lng })} /></div>
         <Row gutter={16}>
           <Col xs={12}><Form.Item name="latitude" label="纬度（GCJ-02）" rules={[{ required: true, type: 'number', min: -90, max: 90, message: '请在地图选点或输入有效纬度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
           <Col xs={12}><Form.Item name="longitude" label="经度（GCJ-02）" rules={[{ required: true, type: 'number', min: -180, max: 180, message: '请在地图选点或输入有效经度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
-          <Col xs={16}><Form.Item name="address" label="地点名称或地址" rules={[{ required: true, whitespace: true, max: 255, message: '请填写地点名称或地址' }]}><Input placeholder="例如：公司办公楼" /></Form.Item></Col>
-          <Col xs={8}><Form.Item name="floor" label="楼层说明"><Input maxLength={50} placeholder="例如：3楼" /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="address" label="地点名称或地址" rules={[{ required: true, whitespace: true, max: 255, message: '请填写地点名称或地址' }]}><Input placeholder="例如：公司办公楼" /></Form.Item></Col>
           <Col xs={12}><Form.Item name="radius" label="打卡半径（米）" rules={[{ required: true, type: 'number', min: 1, max: 10000, message: '请输入 1–10000 米' }]}><InputNumber min={1} max={10000} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
         {!editing?.isDefault && (
