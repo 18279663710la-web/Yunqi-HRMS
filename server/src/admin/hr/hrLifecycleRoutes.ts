@@ -18,6 +18,11 @@ import { overtimeRuleConfigSchema, overtimeRulesKey, overtimeRulesSchema } from 
 import { OVERTIME_RULE_CONFIG_KEY, readOvertimeRuleConfig, saveOvertimeRuleConfig } from '../../domains/payroll/overtimeRuleConfigRepository';
 import { attendanceRangeRuleConfigSchema, attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
 import { ATTENDANCE_RULE_CONFIG_KEY, readAttendanceRuleConfig, saveAttendanceRuleConfig } from '../../domains/payroll/attendanceRuleConfigRepository';
+import {
+  mapCompanyCalendarRuleRow,
+  resolveCalendarRestDates,
+  type CalendarRuleRow,
+} from '../../domains/attendance/companyCalendar';
 
 const router = Router();
 const monthSchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) });
@@ -77,8 +82,25 @@ router.post('/onboarding/:id/apply-template', asyncHandler(async (req, res) => {
     if (!tasks.length) throw badRequest('请先设置入职任务模板');
     if (tasks.some((task) => task.beginOn != null) && !input.startDate) throw badRequest('该模板包含计划时间，请选择入职活动开始日期');
     const [attendance] = await conn.query<RowDataPacket[]>('SELECT rest_dates FROM attendance_settings WHERE id = 1');
-    const dates = attendance.length && attendance[0].rest_dates ? json(attendance[0].rest_dates) : [];
-    const holidays = new Set<string>(Array.isArray(dates) ? dates.filter((date): date is string => typeof date === 'string') : []);
+    const legacyRestDates = attendance.length && attendance[0].rest_dates ? json(attendance[0].rest_dates) : [];
+    const [firstGroup] = await conn.query<RowDataPacket[]>('SELECT calendar_rule_id FROM attendance_groups ORDER BY id ASC LIMIT 1');
+    let holidays: Set<string>;
+    if (firstGroup.length && firstGroup[0].calendar_rule_id) {
+      // 有考勤组时按第一个组的公司日历排期；无组时沿用初始设置的显式休息日期。
+      const [ruleRows] = await conn.query<RowDataPacket[]>('SELECT * FROM company_calendar_rules WHERE id = ?', [firstGroup[0].calendar_rule_id]);
+      if (ruleRows.length) {
+        const rule = mapCompanyCalendarRuleRow(ruleRows[0] as unknown as CalendarRuleRow);
+        const maxOffset = Math.max(0, ...tasks.map((task) => (task.beginOn ?? 0) + (task.duration ?? 0)));
+        const startDate = input.startDate ?? new Date().toISOString().slice(0, 10);
+        const startTime = Date.parse(`${startDate}T00:00:00Z`);
+        const endDate = new Date(startTime + (maxOffset + 31) * 86400000).toISOString().slice(0, 10);
+        holidays = resolveCalendarRestDates(rule, startDate, endDate);
+      } else {
+        holidays = new Set<string>(Array.isArray(legacyRestDates) ? legacyRestDates.filter((date): date is string => typeof date === 'string') : []);
+      }
+    } else {
+      holidays = new Set<string>(Array.isArray(legacyRestDates) ? legacyRestDates.filter((date): date is string => typeof date === 'string') : []);
+    }
     for (const task of tasks) {
       const start = task.beginOn == null ? null : scheduledDate(input.startDate!, task.beginOn, holidays);
       const end = task.beginOn == null || task.duration == null ? null : scheduledDate(input.startDate!, task.beginOn + task.duration, holidays);

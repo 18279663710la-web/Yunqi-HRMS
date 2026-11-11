@@ -41,6 +41,7 @@ export const SUB_MODULES: SubModule[] = [
     items: [
       { key: '/models-formulas/attendance', label: '出勤率绩效规则' },
       { key: '/models-formulas/overtime', label: '加班绩效规则' },
+      { key: '/models-formulas/company-calendar', label: '公司日历' },
       { key: '/models-formulas/salary', label: '薪资构成模型' },
       { key: '/models-formulas/onboarding-template', label: '入职申请表设置' },
     ],

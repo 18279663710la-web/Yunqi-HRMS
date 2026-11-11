@@ -150,6 +150,64 @@ async function runMigrations(conn: Connection): Promise<void> {
   if (await hasColumn('attendance_groups', 'floor')) {
     await conn.query('ALTER TABLE `attendance_groups` DROP COLUMN `floor`');
   }
+
+  // 公司日历：老考勤组按原有休息日期生成规则并绑定，未配置的组绑定默认规则。
+  const jsonArray = (value: unknown): string[] => {
+    if (!value) return [];
+    try {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string').sort() : [];
+    } catch {
+      return [];
+    }
+  };
+  if (!(await hasColumn('attendance_groups', 'calendar_rule_id'))) {
+    await conn.query('ALTER TABLE `attendance_groups` ADD COLUMN `calendar_rule_id` INT NULL AFTER `name`');
+  }
+  if (!(await hasIndex('attendance_groups', 'idx_attendance_group_calendar'))) {
+    await conn.query('ALTER TABLE `attendance_groups` ADD INDEX `idx_attendance_group_calendar` (`calendar_rule_id`)');
+  }
+  const [calendarRows] = await conn.query<mysql.RowDataPacket[]>('SELECT id, rest_dates FROM company_calendar_rules ORDER BY id ASC LIMIT 1');
+  const [settingsRows] = await conn.query<mysql.RowDataPacket[]>('SELECT rest_dates FROM attendance_settings WHERE id = 1');
+  let defaultCalendarId: number;
+  let defaultRestDates: string[];
+  if (!calendarRows.length) {
+    defaultRestDates = settingsRows.length ? jsonArray(settingsRows[0].rest_dates) : [];
+    const [result] = await conn.query<ResultSetHeader>(
+      `INSERT INTO company_calendar_rules
+        (name, mode, weekly_rest_days, cycle_weeks, cycle_rest_days, anchor_date, rest_dates, work_dates, created_at, updated_at)
+       VALUES ('默认公司日历', 'none', '[]', NULL, '[]', NULL, ?, '[]', NOW(), NOW())`,
+      [JSON.stringify(defaultRestDates)]
+    );
+    defaultCalendarId = Number(result.insertId);
+  } else {
+    defaultCalendarId = Number(calendarRows[0].id);
+    defaultRestDates = jsonArray(calendarRows[0].rest_dates);
+  }
+  const [unassignedGroups] = await conn.query<mysql.RowDataPacket[]>('SELECT id, name, rest_dates FROM attendance_groups WHERE calendar_rule_id IS NULL');
+  for (const group of unassignedGroups) {
+    const restDates = jsonArray(group.rest_dates);
+    let ruleId = defaultCalendarId;
+    if (restDates.length && JSON.stringify(restDates) !== JSON.stringify(defaultRestDates)) {
+      const baseName = `${String(group.name).slice(0, 38)} 日历`;
+      let name = baseName;
+      const [existing] = await conn.query<mysql.RowDataPacket[]>('SELECT id FROM company_calendar_rules WHERE name = ?', [name]);
+      if (existing.length) name = `${baseName} ${group.id}`.slice(0, 50);
+      const [duplicate] = await conn.query<mysql.RowDataPacket[]>('SELECT id FROM company_calendar_rules WHERE name = ?', [name]);
+      if (duplicate.length) {
+        ruleId = Number(duplicate[0].id);
+      } else {
+        const [result] = await conn.query<ResultSetHeader>(
+          `INSERT INTO company_calendar_rules
+            (name, mode, weekly_rest_days, cycle_weeks, cycle_rest_days, anchor_date, rest_dates, work_dates, created_at, updated_at)
+           VALUES (?, 'none', '[]', NULL, '[]', NULL, ?, '[]', NOW(), NOW())`,
+          [name, JSON.stringify(restDates)]
+        );
+        ruleId = Number(result.insertId);
+      }
+    }
+    await conn.query('UPDATE attendance_groups SET calendar_rule_id = ? WHERE id = ?', [ruleId, group.id]);
+  }
   if (!(await hasColumn('attendance_punches', 'status_override'))) {
     await conn.query("ALTER TABLE `attendance_punches` ADD COLUMN `status_override` ENUM('leave','absent','rest') NULL AFTER `check_out`");
   }

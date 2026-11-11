@@ -876,6 +876,16 @@ code {
 .salary-model-entry:focus-visible { outline: 2px solid #3d6ef7; outline-offset: 3px; border-radius: 2px; }
 .salary-model-entry:disabled { opacity: .45; cursor: not-allowed; }
 .salary-model-entry-danger:not(:disabled) { color: #c43838; }
+.company-calendar-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.company-calendar-entries { display: flex; align-items: center; gap: 32px; min-height: 48px; margin: -24px -26px 24px; padding: 0 26px; overflow-x: auto; background: #fff; border-bottom: 1px solid #dce3ee; }
+.company-calendar-entry { flex: 0 0 auto; padding: 4px 0; border: 0; background: none; color: #245bb8; font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; }
+.company-calendar-entry:hover:not(:disabled) { color: #16448f; text-decoration: underline; }
+.company-calendar-entry:focus-visible { outline: 2px solid #3d6ef7; outline-offset: 3px; border-radius: 2px; }
+.company-calendar-entry:disabled { opacity: .45; cursor: not-allowed; }
+.company-calendar-entry-danger:not(:disabled) { color: #c43838; }
+.company-calendar-content { flex: 1; min-width: 0; padding-bottom: 24px; background: #fff; }
+.company-calendar-content .ant-table-thead > tr > th { background: #e9edf2; color: #334155; font-size: 13px; font-weight: 500; border-color: #d3d8df; }
+.company-calendar-content .ant-table-tbody > tr > td { font-size: 13px; border-color: #e7ebf0; }
 .salary-model-scroll { flex: 1; min-width: 0; min-height: 140px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: #9aa9bd #e7ebf0; }
 .salary-model-scroll:focus-visible { outline: 2px solid #3d6ef7; outline-offset: -2px; }
 .salary-model-field-list { width: max-content; border-spacing: 0; text-align: center; }
@@ -1149,11 +1159,13 @@ code {
 @media (max-width: 900px) {
   .workflow-node-panel { width: min(220px, calc(100% - 88px)); }
   .salary-model-entries { margin: -16px -16px 24px; padding: 0 16px; }
+  .company-calendar-entries { margin: -16px -16px 24px; padding: 0 16px; }
 }
 
 @media (max-width: 900px) {
   .payroll-workflow-page { min-height: calc(100vh - 68px); }
   .salary-model-page { min-height: calc(100vh - 52px); margin-bottom: -16px; }
+  .company-calendar-page { min-height: calc(100vh - 52px); margin-bottom: -16px; }
   .payroll-batches-workspace { height: calc(100vh - 52px); min-height: 420px; margin-bottom: -16px; }
 }
 .approval-test-cases { display: grid; gap: 16px; max-height: 60vh; overflow-y: auto; padding: 4px 4px 8px; }

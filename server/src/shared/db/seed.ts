@@ -92,6 +92,7 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'notices',
     'attendance_group_employees',
     'attendance_groups',
+    'company_calendar_rules',
     'attendance_punches',
     'quick_actions',
     'approval_types',
@@ -115,6 +116,12 @@ async function insertAll(conn: PoolConnection): Promise<void> {
   );
 
   await conn.query("INSERT INTO departments (id, parent_id, name, leader_id, sort_order) VALUES ('D00', NULL, '未分配', NULL, 0)");
+
+  await conn.query(
+    `INSERT IGNORE INTO company_calendar_rules
+      (name, mode, weekly_rest_days, cycle_weeks, cycle_rest_days, anchor_date, rest_dates, work_dates, created_at, updated_at)
+     VALUES ('默认公司日历', 'none', '[]', NULL, '[]', NULL, '[]', '[]', NOW(), NOW())`
+  );
 
   for (const e of employees) {
     await conn.query(

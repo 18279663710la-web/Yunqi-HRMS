@@ -6,7 +6,6 @@ import {
   Card,
   Checkbox,
   Col,
-  DatePicker,
   Form,
   Input,
   InputNumber,
@@ -29,6 +28,7 @@ import type {
   AttendanceGroupInput,
   AttendanceGroupsResponse,
   AttendanceSettings,
+  CompanyCalendarRule,
   DepartmentNode,
   EmployeeOption,
 } from '../../types';
@@ -38,16 +38,17 @@ import {
   fetchAttendanceGroups,
   updateAttendanceGroup,
 } from './api';
+import { fetchCompanyCalendarRules } from '../models-formulas/company-calendar/api';
 import { fetchDepartments } from '../organization/api';
 import { createAttendanceMap, type MapPoint, type MapSdk } from './attendanceMap';
 
 interface GroupFormValues {
   name?: string;
+  calendarRuleId?: number;
   startTime: Dayjs;
   inEndTime: Dayjs;
   endTime: Dayjs;
   outEndTime: Dayjs;
-  restDates?: Dayjs[];
   latitude?: number;
   longitude?: number;
   radius: number;
@@ -62,6 +63,8 @@ interface AttendanceGroupsCardProps {
 const INITIAL_GROUP: AttendanceGroup = {
   id: 0,
   name: '',
+  calendarRuleId: null,
+  calendarRuleName: '',
   startTime: '09:00',
   inEndTime: '09:50',
   endTime: '17:40',
@@ -83,11 +86,11 @@ function timeValue(value?: string | null): Dayjs | undefined {
 function formValues(group: AttendanceGroup, withName: boolean): GroupFormValues {
   return {
     name: withName ? group.name : undefined,
+    calendarRuleId: group.calendarRuleId ?? undefined,
     startTime: timeValue(group.startTime) as Dayjs,
     inEndTime: timeValue(group.inEndTime) as Dayjs,
     endTime: timeValue(group.endTime) as Dayjs,
     outEndTime: timeValue(group.outEndTime) as Dayjs,
-    restDates: (group.restDates || []).map((date) => dayjs(date)),
     latitude: group.latitude,
     longitude: group.longitude,
     radius: group.radius,
@@ -163,6 +166,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   const [pickerPositions, setPickerPositions] = useState<string[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const [calendarRules, setCalendarRules] = useState<CompanyCalendarRule[]>([]);
 
   const latitude = Form.useWatch('latitude', form);
   const longitude = Form.useWatch('longitude', form);
@@ -182,6 +186,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
 
   useEffect(() => {
     void load(true);
+    fetchCompanyCalendarRules().then(setCalendarRules).catch(() => setCalendarRules([]));
   }, []);
 
   useEffect(() => {
@@ -231,15 +236,29 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   const allFilteredChecked = filteredIds.length > 0 && checkedFilteredCount === filteredIds.length;
   const someFilteredChecked = checkedFilteredCount > 0 && !allFilteredChecked;
 
+  const loadCalendarRules = async (): Promise<CompanyCalendarRule[]> => {
+    try {
+      const list = await fetchCompanyCalendarRules();
+      setCalendarRules(list);
+      return list;
+    } catch {
+      return calendarRules;
+    }
+  };
+
   const showCreate = () => {
     // 新建组预填当前生效的初始考勤设置；已有组时预填第一个组的设置。
     const base: AttendanceGroup = data?.initialSettings
       ? { ...INITIAL_GROUP, ...data.initialSettings }
       : data?.groups[0] ?? INITIAL_GROUP;
+    const values = formValues(base, false);
     setEditing(null);
     setSelectedEmployeeIds([]);
-    form.setFieldsValue(formValues(base, false));
+    form.setFieldsValue(values);
     setOpen(true);
+    void loadCalendarRules().then((list) => {
+      if (!values.calendarRuleId) form.setFieldValue('calendarRuleId', list[0]?.id);
+    });
   };
 
   const showEdit = (group: AttendanceGroup) => {
@@ -247,6 +266,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     setSelectedEmployeeIds(group.employeeIds);
     form.setFieldsValue(formValues(group, true));
     setOpen(true);
+    void loadCalendarRules();
   };
 
   const openPicker = () => {
@@ -279,7 +299,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       inEndTime: values.inEndTime.format('HH:mm'),
       endTime: values.endTime.format('HH:mm'),
       outEndTime: values.outEndTime.format('HH:mm'),
-      restDates: (values.restDates || []).map((date) => date.format('YYYY-MM-DD')).sort(),
+      restDates: [],
       latitude: values.latitude,
       longitude: values.longitude,
       radius: values.radius,
@@ -290,6 +310,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       const input: AttendanceGroupInput = {
         ...settings,
         name: (values.name || '').trim(),
+        calendarRuleId: values.calendarRuleId ?? 0,
         employeeIds: selectedEmployeeIds,
       };
       if (editing) {
@@ -322,6 +343,11 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
 
   const columns: ColumnsType<AttendanceGroup> = [
     { title: '考勤组', dataIndex: 'name', width: 150 },
+    {
+      title: '公司日历',
+      width: 160,
+      render: (_value, group) => group.calendarRuleName || '—',
+    },
     {
       title: '打卡时段',
       width: 240,
@@ -392,6 +418,13 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
         <Form.Item name="name" label="考勤组名称" rules={[{ required: true, whitespace: true, max: 50, message: '请填写考勤组名称' }]}>
           <Input maxLength={50} placeholder="例如：生产部早班" />
         </Form.Item>
+        <Form.Item name="calendarRuleId" label="公司日历" rules={[{ required: true, message: '请选择公司日历' }]}>
+          <Select
+            placeholder="请选择公司日历"
+            options={calendarRules.map((rule) => ({ value: rule.id, label: rule.name }))}
+            notFoundContent="请先在“模型与公式 → 公司日历”创建规则"
+          />
+        </Form.Item>
         <Row gutter={16}>
           <Col xs={24} sm={12}>
             <Typography.Text strong>上班卡时间段</Typography.Text>
@@ -421,8 +454,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
         <Row gutter={16}>
           <Col xs={12}><Form.Item name="latitude" label="纬度（GCJ-02）" rules={[{ required: true, type: 'number', min: -90, max: 90, message: '请在地图选点或输入有效纬度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
           <Col xs={12}><Form.Item name="longitude" label="经度（GCJ-02）" rules={[{ required: true, type: 'number', min: -180, max: 180, message: '请在地图选点或输入有效经度' }]}><InputNumber style={{ width: '100%' }} precision={7} /></Form.Item></Col>
-          <Col xs={16}><Form.Item name="restDates" label="休息日期（可多选）"><DatePicker multiple format="YYYY-MM-DD" placeholder="选择休息日期，可不选择" style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={8}><Form.Item name="radius" label="打卡半径（米）" rules={[{ required: true, type: 'number', min: 1, max: 10000, message: '请输入 1–10000 米' }]}><InputNumber min={1} max={10000} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={12}><Form.Item name="radius" label="打卡半径（米）" rules={[{ required: true, type: 'number', min: 1, max: 10000, message: '请输入 1–10000 米' }]}><InputNumber min={1} max={10000} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
         <Form.Item label="员工">
           <Space>

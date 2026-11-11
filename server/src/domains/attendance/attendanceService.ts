@@ -17,7 +17,8 @@ import {
 } from '../../shared/utils/datetime';
 import { badRequest } from '../../shared/utils/errors';
 import { getCompany } from '../employees/userService';
-import { getAttendanceSettingsForEmployee } from './attendanceGroups';
+import { getAttendanceConfigForEmployee, type EmployeeAttendanceConfig } from './attendanceGroups';
+import { resolveConfiguredRestDates } from './companyCalendar';
 import type { AttendanceSettings } from './attendanceSettings';
 import { getPunchWindow, validatePunchLocation, type Location } from './attendancePolicy';
 
@@ -167,19 +168,28 @@ export function buildDayRecord(
     isLate: !!checkIn && checkIn > '09:30' };
 }
 
+/** 将公司日历展开为指定日期范围的休息日集合，并合并到设置中。 */
+function settingsForRange(config: EmployeeAttendanceConfig, from: string, to: string): AttendanceSettings | null {
+  if (!config.settings) return null;
+  const restDates = resolveConfiguredRestDates(config.calendarRule, config.settings.restDates, from, to);
+  return { ...config.settings, restDates: Array.from(restDates).sort() };
+}
+
 export async function getAttendanceRecord(employeeId: string, day: string): Promise<AttendanceRecord> {
-  const [log, settings] = await Promise.all([getPunch(employeeId, day), getAttendanceSettingsForEmployee(employeeId)]);
+  const [log, config] = await Promise.all([getPunch(employeeId, day), getAttendanceConfigForEmployee(employeeId)]);
+  const settings = settingsForRange(config, day, day);
   return buildDayRecord(day, log, { isToday: day === dateKey(new Date()), settings });
 }
 
 export async function getTodayAttendance(employeeId: string): Promise<TodayAttendance> {
   const now = new Date();
   const day = dateKey(now);
-  const [log, company, settings] = await Promise.all([
+  const [log, company, config] = await Promise.all([
     getPunch(employeeId, day),
     getCompany(),
-    getAttendanceSettingsForEmployee(employeeId),
+    getAttendanceConfigForEmployee(employeeId),
   ]);
+  const settings = settingsForRange(config, day, day);
   const hasIn = !!(log && log.checkIn);
   const hasOut = !!(log && log.checkOut);
   const override = log ? log.statusOverride : null;
@@ -222,12 +232,13 @@ export async function getTodayAttendance(employeeId: string): Promise<TodayAtten
 export async function punch(employeeId: string, type: PunchType, location?: Location): Promise<PunchResult> {
   if (type !== 'in' && type !== 'out') throw badRequest('打卡类型不正确');
 
-  const settings = await getAttendanceSettingsForEmployee(employeeId);
+  const now = new Date();
+  const day = dateKey(now);
+  const config = await getAttendanceConfigForEmployee(employeeId);
+  const settings = settingsForRange(config, day, day);
   const locationCheck = validatePunchLocation(settings, location);
   if (!locationCheck.ok) return { ok: false, message: locationCheck.message };
 
-  const now = new Date();
-  const day = dateKey(now);
   const time = formatTime(now, 'HH:mm');
   if (!settings || !settings.inEndTime || !settings.outEndTime) return { ok: false, message: '管理员尚未设置打卡时间段' };
   if (settings.restDates.includes(day)) return { ok: false, message: '休息日无需打卡' };
@@ -266,10 +277,11 @@ export async function getAttendanceRecords(employeeId: string, days = 14): Promi
   const now = new Date();
   const todayKey = dateKey(now);
   const startKey = dateKey(new Date(now.getTime() - (count - 1) * 86400000));
-  const [punchMap, settings] = await Promise.all([
+  const [punchMap, config] = await Promise.all([
     getPunchMap(employeeId, startKey, todayKey),
-    getAttendanceSettingsForEmployee(employeeId),
+    getAttendanceConfigForEmployee(employeeId),
   ]);
+  const settings = settingsForRange(config, startKey, todayKey);
 
   const list: AttendanceRecord[] = [];
   for (let i = 0; i < count; i += 1) {

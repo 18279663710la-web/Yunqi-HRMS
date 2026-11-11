@@ -258,6 +258,8 @@ export interface AttendanceSettings {
 export interface AttendanceGroup extends AttendanceSettings {
   id: number;
   name: string;
+  calendarRuleId: number | null;
+  calendarRuleName: string;
   employeeIds: string[];
   employeeCount: number;
   createdAt: string | null;
@@ -271,7 +273,36 @@ export interface AttendanceGroupsResponse {
 
 export interface AttendanceGroupInput extends AttendanceSettings {
   name: string;
+  calendarRuleId: number;
   employeeIds: string[];
+}
+
+export type CompanyCalendarMode = 'none' | 'weekly' | 'cycle';
+
+export interface CompanyCalendarRule {
+  id: number;
+  name: string;
+  mode: CompanyCalendarMode;
+  weeklyRestDays: number[];
+  cycleWeeks: number | null;
+  cycleRestDays: number[][];
+  anchorDate: string | null;
+  restDates: string[];
+  workDates: string[];
+  usageCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface CompanyCalendarRuleInput {
+  name: string;
+  mode: CompanyCalendarMode;
+  weeklyRestDays: number[];
+  cycleWeeks: number | null;
+  cycleRestDays: number[][];
+  anchorDate: string | null;
+  restDates: string[];
+  workDates: string[];
 }
 
 export interface ManualPunchInput {

@@ -3,6 +3,12 @@ import { badRequest } from '../../shared/utils/errors';
 import { buildDayRecord, type DayOverride } from './attendanceService';
 import type { AttendanceRecord } from '../../shared/types/models';
 import type { AttendanceSettings } from './attendanceSettings';
+import {
+  mapCompanyCalendarRuleRow,
+  resolveConfiguredRestDates,
+  type CalendarRuleRow,
+  type CompanyCalendarRule,
+} from './companyCalendar';
 import type { AttendanceMetric } from '../payroll/salaryModelService';
 import { calculateOvertimePay, isPaidOvertime, type OvertimeRuleConfig, type OvertimeRule } from '../payroll/overtimePayrollService';
 import { readOvertimeRuleConfig } from '../payroll/overtimeRuleConfigRepository';
@@ -42,29 +48,48 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
   if (metrics.has('presentDays')) {
     const config = options.attendanceRule ? await readAttendanceRuleConfigForPayroll(conn) : undefined;
     const [settingsRows] = await conn.query<RowDataPacket[]>('SELECT rest_dates FROM attendance_settings WHERE id = 1');
-    const [firstGroupRows] = await conn.query<RowDataPacket[]>('SELECT rest_dates FROM attendance_groups ORDER BY id ASC LIMIT 1');
-    const [groupRows] = await conn.query<RowDataPacket[]>(`SELECT m.employee_id, g.rest_dates FROM attendance_group_employees m JOIN attendance_groups g ON g.id = m.group_id WHERE m.employee_id IN (${placeholders})`, ids);
-    // 未分配员工使用第一个考勤组，完全无组时回退初始考勤设置。
-    const fallbackRestDates = firstGroupRows.length ? parseRestDates(firstGroupRows[0].rest_dates) : settingsRows.length ? parseRestDates(settingsRows[0].rest_dates) : null;
-    const groupRestDates = new Map<string, string[]>();
-    for (const row of groupRows) groupRestDates.set(String(row.employee_id), parseRestDates(row.rest_dates));
+    const [firstGroupRows] = await conn.query<RowDataPacket[]>('SELECT calendar_rule_id, rest_dates FROM attendance_groups ORDER BY id ASC LIMIT 1');
+    const [groupRows] = await conn.query<RowDataPacket[]>(`SELECT m.employee_id, g.calendar_rule_id, g.rest_dates FROM attendance_group_employees m JOIN attendance_groups g ON g.id = m.group_id WHERE m.employee_id IN (${placeholders})`, ids);
+    const [ruleRows] = await conn.query<RowDataPacket[]>('SELECT * FROM company_calendar_rules ORDER BY id ASC');
+    const rules = (ruleRows as unknown as CalendarRuleRow[]).map(mapCompanyCalendarRuleRow);
+    const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
+    const firstRule = rules[0] ?? null;
+    const hasGroups = firstGroupRows.length > 0;
+    // 无考勤组时沿用初始考勤设置；有组时未分配员工使用第一个组的日历。
+    const fallbackRule = hasGroups
+      ? (firstGroupRows[0].calendar_rule_id ? ruleMap.get(Number(firstGroupRows[0].calendar_rule_id)) ?? firstRule : firstRule)
+      : null;
+    const fallbackLegacyRestDates = hasGroups
+      ? parseRestDates(firstGroupRows[0].rest_dates)
+      : settingsRows.length ? parseRestDates(settingsRows[0].rest_dates) : null;
+    const groupConfigs = new Map<string, { rule: CompanyCalendarRule | null; legacyRestDates: string[] }>();
+    for (const row of groupRows) {
+      const ruleId = row.calendar_rule_id ? Number(row.calendar_rule_id) : null;
+      groupConfigs.set(String(row.employee_id), {
+        rule: ruleId ? ruleMap.get(ruleId) ?? fallbackRule : fallbackRule,
+        legacyRestDates: parseRestDates(row.rest_dates),
+      });
+    }
+    const [year, monthNumber] = month.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    const last = `${month}-${String(lastDay).padStart(2, '0')}`;
     const [rows] = await conn.query<RowDataPacket[]>(`SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') AS day, check_in, check_out, status_override, note, source FROM attendance_punches WHERE employee_id IN (${placeholders}) AND punch_date >= ? AND punch_date < DATE_ADD(?, INTERVAL 1 MONTH)`, [...ids, start, start]);
     const [employment] = config ? await conn.query<RowDataPacket[]>(`SELECT e.id, DATE_FORMAT(e.join_date, '%Y-%m-%d') AS join_date, (SELECT DATE_FORMAT(MAX(d.last_date), '%Y-%m-%d') FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departure_date FROM employees e WHERE e.id IN (${placeholders})`, ids) : [[]];
     const rowsByEmployee = groupByEmployee(rows);
     for (const employee of employees) {
       const ownRows = rowsByEmployee.get(employee.id) ?? [];
       if (!ownRows.length) throw badRequest(`员工“${employee.name}”在 ${month} 没有考勤记录，请先核实`);
-      const restDates = groupRestDates.get(employee.id) ?? fallbackRestDates;
-      if (!restDates) throw badRequest('请先配置考勤规则，再获取出勤天数');
+      const groupConfig = groupConfigs.get(employee.id);
+      const rule = groupConfig ? groupConfig.rule : fallbackRule;
+      const legacyRestDates = groupConfig ? groupConfig.legacyRestDates : fallbackLegacyRestDates;
+      if (!rule && legacyRestDates === null) throw badRequest('请先配置公司日历，再获取出勤天数');
+      const restDates = Array.from(resolveConfiguredRestDates(rule, legacyRestDates ?? [], start, last)).sort();
       const settings = { restDates } as AttendanceSettings;
       const records = ownRows.map(row => buildDayRecord(String(row.day), { checkIn: row.check_in || '', checkOut: row.check_out || '', statusOverride: row.status_override as DayOverride | null, note: row.note || '', source: row.source || 'employee' }, { settings }));
       result.get(employee.id)!.presentDays = payrollPresentDays(records);
       if (config) {
         const dates = employment.find(row => String(row.id) === employee.id);
         if (!dates?.join_date) throw badRequest(`员工“${employee.name}”缺少入职日期`);
-        const [year, monthNumber] = month.split('-').map(Number);
-        const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-        const last = `${month}-${String(lastDay).padStart(2, '0')}`;
         const periodStart = String(dates.join_date) > start ? String(dates.join_date) : start;
         const periodEnd = dates.departure_date && String(dates.departure_date) < last ? String(dates.departure_date) : last;
         const rest = new Set(restDates);

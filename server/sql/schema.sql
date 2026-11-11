@@ -617,6 +617,7 @@ CREATE TABLE IF NOT EXISTS `attendance_settings` (
 CREATE TABLE IF NOT EXISTS `attendance_groups` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(50) NOT NULL,
+  `calendar_rule_id` INT NULL,
   `start_time` CHAR(5) NOT NULL,
   `in_end_time` CHAR(5) NOT NULL,
   `end_time` CHAR(5) NOT NULL,
@@ -628,7 +629,25 @@ CREATE TABLE IF NOT EXISTS `attendance_groups` (
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_attendance_group_name` (`name`)
+  UNIQUE KEY `uq_attendance_group_name` (`name`),
+  KEY `idx_attendance_group_calendar` (`calendar_rule_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 公司日历：可创建多条作息规则，考勤组选择其一；例外休息/上班日期优先于默认规则。
+CREATE TABLE IF NOT EXISTS `company_calendar_rules` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(50) NOT NULL,
+  `mode` ENUM('none','weekly','cycle') NOT NULL DEFAULT 'none',
+  `weekly_rest_days` JSON NULL,
+  `cycle_weeks` INT NULL,
+  `cycle_rest_days` JSON NULL,
+  `anchor_date` DATE NULL,
+  `rest_dates` JSON NULL,
+  `work_dates` JSON NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_company_calendar_rule_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 同一员工只归属一个考勤组；未出现在此表中的员工使用默认考勤设置。

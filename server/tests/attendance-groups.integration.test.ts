@@ -55,18 +55,32 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
     };
     assert.equal((await request('/admin/attendance/settings', admin, 'PUT', initialSettings)).status, 200);
 
-    const earlySettings = {
+    const earlyCalendar = await request('/admin/models-formulas/calendar-rules', admin, 'POST', {
+      name: '早班日历', mode: 'none', weeklyRestDays: [], cycleWeeks: null, cycleRestDays: [],
+      anchorDate: null, restDates: ['2026-08-02'], workDates: [],
+    });
+    assert.equal(earlyCalendar.status, 200);
+    const lateCalendar = await request('/admin/models-formulas/calendar-rules', admin, 'POST', {
+      name: '晚班日历', mode: 'none', weeklyRestDays: [], cycleWeeks: null, cycleRestDays: [],
+      anchorDate: null, restDates: [], workDates: [],
+    });
+    assert.equal(lateCalendar.status, 200);
+    const earlyCalendarId = earlyCalendar.payload.data.id as number;
+    const lateCalendarId = lateCalendar.payload.data.id as number;
+
+    const earlyTimes = {
       startTime: '17:00', inEndTime: '18:00', endTime: '19:00', outEndTime: '20:00',
-      restDates: ['2026-08-02'],
       latitude: 23.1, longitude: 113.3, radius: 100,
     };
     const early = await request('/admin/attendance/groups', admin, 'POST', {
-      ...earlySettings, name: '早班组', employeeIds: ['U001', 'U005'],
+      ...earlyTimes, name: '早班组', calendarRuleId: earlyCalendarId, employeeIds: ['U001', 'U005'],
     });
     assert.equal(early.status, 200);
 
     const late = await request('/admin/attendance/groups', admin, 'POST', {
-      ...initialSettings, restDates: [], name: '晚班组', employeeIds: ['U010'],
+      startTime: '08:00', inEndTime: '10:00', endTime: '16:00', outEndTime: '16:30',
+      latitude: 23.1, longitude: 113.3, radius: 100,
+      name: '晚班组', calendarRuleId: lateCalendarId, employeeIds: ['U010'],
     });
     assert.equal(late.status, 200);
     const earlyId = early.payload.data.id as number;
@@ -75,6 +89,7 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
     const groups = await request('/admin/attendance/groups', admin);
     assert.equal(groups.payload.data.groups.length, 2);
     assert.deepEqual(groups.payload.data.groups.find((group: { id: number }) => group.id === earlyId).employeeIds, ['U001', 'U005']);
+    assert.equal(groups.payload.data.groups.find((group: { id: number }) => group.id === earlyId).calendarRuleName, '早班日历');
 
     const earlyEmployee = await request('/attendance/settings', employee('U001'));
     assert.equal(earlyEmployee.payload.data.startTime, '17:00');
@@ -118,7 +133,7 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
     assert.equal(payroll.get('U011')?.presentDays, 1);
 
     const updated = await request(`/admin/attendance/groups/${earlyId}`, admin, 'PUT', {
-      ...earlySettings, name: '早班组改', employeeIds: ['U001'],
+      ...earlyTimes, name: '早班组改', calendarRuleId: earlyCalendarId, employeeIds: ['U001'],
     });
     assert.equal(updated.status, 200);
     assert.deepEqual(updated.payload.data.employeeIds, ['U001']);
@@ -126,7 +141,9 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
     assert.equal(movedBack.payload.data.startTime, '17:00');
 
     const movedToLate = await request(`/admin/attendance/groups/${lateId}`, admin, 'PUT', {
-      ...initialSettings, restDates: [], name: '晚班组', employeeIds: ['U010', 'U005'],
+      startTime: '08:00', inEndTime: '10:00', endTime: '16:00', outEndTime: '16:30',
+      latitude: 23.1, longitude: 113.3, radius: 100,
+      name: '晚班组', calendarRuleId: lateCalendarId, employeeIds: ['U010', 'U005'],
     });
     assert.equal(movedToLate.status, 200);
     assert.deepEqual(movedToLate.payload.data.employeeIds, ['U005', 'U010']);
@@ -134,14 +151,18 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
     assert.equal(lateSettings.payload.data.startTime, '08:00');
 
     assert.equal((await request('/admin/attendance/groups', admin, 'POST', {
-      ...earlySettings, name: '早班组改', employeeIds: ['U001'],
+      ...earlyTimes, name: '早班组改', calendarRuleId: earlyCalendarId, employeeIds: ['U001'],
     })).status, 409);
     assert.equal((await request('/admin/attendance/groups', admin, 'POST', {
-      ...earlySettings, name: '不存在员工组', employeeIds: ['U999'],
+      ...earlyTimes, name: '不存在员工组', calendarRuleId: earlyCalendarId, employeeIds: ['U999'],
     })).status, 400);
     // 上班卡时间段与下班卡时间段重合时拒绝创建。
     assert.equal((await request('/admin/attendance/groups', admin, 'POST', {
-      ...earlySettings, inEndTime: '19:00', name: '重合时段组', employeeIds: [],
+      ...earlyTimes, inEndTime: '19:00', name: '重合时段组', calendarRuleId: earlyCalendarId, employeeIds: [],
+    })).status, 400);
+    // 必须选择有效的公司日历。
+    assert.equal((await request('/admin/attendance/groups', admin, 'POST', {
+      ...earlyTimes, name: '无日历组', employeeIds: [],
     })).status, 400);
 
     assert.equal((await request(`/admin/attendance/groups/${lateId}`, admin, 'DELETE')).status, 200);

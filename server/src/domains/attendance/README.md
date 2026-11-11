@@ -6,8 +6,9 @@
 
 ## 主要内容
 
-- 主要文件：`attendancePolicy.ts`、`attendanceService.ts`、`attendanceSettings.ts`、`attendanceGroups.ts`、`overtimeAttendanceService.ts`、`payrollAttendanceSource.ts`（按员工和工资月份读取考勤项目）。
-- 默认考勤设置保存在 `attendance_settings`，仅在没有任何考勤组时生效；各考勤组（不分类型）独立保存同一套时段、休息日期和打卡点，成员通过 `attendance_group_employees` 只归属一个组，未分配员工使用第一个考勤组（按创建顺序）。员工端、管理端及工资取数均按员工读取实际生效的组设置。
+- 主要文件：`attendancePolicy.ts`、`attendanceService.ts`、`attendanceSettings.ts`、`attendanceGroups.ts`、`companyCalendar.ts`、`overtimeAttendanceService.ts`、`payrollAttendanceSource.ts`（按员工和工资月份读取考勤项目）。
+- 默认考勤设置保存在 `attendance_settings`，仅在没有任何考勤组时生效；各考勤组（不分类型）独立保存时段、所选公司日历和打卡点，成员通过 `attendance_group_employees` 只归属一个组，未分配员工使用第一个考勤组（按创建顺序）。
+- 公司日历规则保存在 `company_calendar_rules`，支持每周固定、按周轮换及例外休息/上班日期；考勤组、工资取数和入职任务排期统一通过 `resolveConfiguredRestDates` 解析，避免口径分叉。员工端、管理端及工资取数均按员工读取实际生效的组设置。
 - 工资出勤统计仅计完整的普通上下班卡，单卡计 0 出勤天并参与缺勤绩效；考勤页面和小程序继续使用原来的单卡状态与汇总。
 
 ## 维护约束
