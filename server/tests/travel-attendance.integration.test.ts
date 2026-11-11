@@ -57,7 +57,7 @@ test('出差审批通过后按起止日期标记出差状态并计入出勤', as
     });
     assert.equal(groupId.status, 200);
 
-    // 已通过的出差审批：表单按小程序字段名保存。
+    // 已通过的出差审批：表单按小程序字段名保存；出差区间覆盖一个日历例外休息日（8-06）。
     const form = JSON.stringify([
       { label: '出差城市', value: '北京' },
       { label: '开始日期', value: '2026-08-05' },
@@ -69,6 +69,10 @@ test('出差审批通过后按起止日期标记出差状态并计入出勤', as
        VALUES ('TV1', 'travel', '出差', '出差申请 · 北京', 'approved', 0, 'U001', '陈亦然', '', '员工', '已通过', '2026-08-05 至 2026-08-07，目的地：北京', ?, NOW())`,
       [form]
     );
+    assert.equal((await request('/admin/models-formulas/calendar-rules/1', admin, 'PUT', {
+      name: '默认公司日历', mode: 'none', weeklyRestDays: [], cycleWeeks: null, cycleRestDays: [],
+      anchorDate: null, restDates: ['2026-08-06'], workDates: [],
+    })).status, 200);
 
     const today = await request('/attendance/today', employee);
     assert.equal(today.payload.data.status, 'travel');
@@ -112,6 +116,22 @@ test('出差审批通过后按起止日期标记出差状态并计入出勤', as
     ));
     // 出差 3 天 + 完整打卡 2 天 = 5 个出勤天；出差日不打卡不扣出勤。
     assert.equal(payroll.get('U001')?.presentDays, 5);
+
+    // 边界：出差日（8-06）落在日历例外休息日时计入应出勤，presentDays 不超过 workdays，算薪不报错。
+    assert.equal((await request('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'days_absence', calculation: 'unit', unitAdjustment: -10 })).status, 200);
+    const withRule = await poolModule.transaction((conn) => readPayrollAttendance(
+      conn,
+      [{ id: 'U001', name: '陈亦然' }],
+      '2026-08',
+      new Set<AttendanceMetric>(['presentDays']),
+      { attendanceRule: true }
+    ));
+    const calc = withRule.get('U001')?.attendanceCalculation;
+    // 8 月 31 天；8-06 虽为日历休息日但出差优先，计入应出勤。
+    assert.equal(calc?.workdays, 31);
+    assert.equal(calc?.presentDays, 5);
+    // 缺勤 26 天 × -10 元。
+    assert.equal(withRule.get('U001')?.attendanceAdjustment, -260);
 
     // 出差日无法补打卡，管理员更正显示出差状态。
     const monthlyDay = await request('/admin/attendance?date=2026-08-05&employeeId=U001', admin);

@@ -101,7 +101,8 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
         let workdays = 0;
         for (let day = 1; day <= lastDay; day++) {
           const key = `${month}-${String(day).padStart(2, '0')}`;
-          if (key >= periodStart && key <= periodEnd && !rest.has(key)) workdays++;
+          // 出差日优先于日历休息日：出差落在日历休息日时计入应出勤，保证 presentDays <= workdays。
+          if (key >= periodStart && key <= periodEnd && (!rest.has(key) || travelDates.has(key))) workdays++;
         }
         const actual = records.filter(record => record.date >= periodStart && record.date <= periodEnd && !rest.has(record.date));
         const actualTravel = new Set(Array.from(travelDates).filter(date => date >= periodStart && date <= periodEnd));
