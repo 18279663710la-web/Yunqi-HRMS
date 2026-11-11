@@ -12,6 +12,7 @@ Web 组件、模型、工具及工作区页签测试；当前 `package.json` 未
 - `employee-records-toolbar.test.tsx` 验证未选员工时档案按钮禁用及保存的可用范围。
 - `employee-record-fields.test.tsx` 验证合同和定薪表格字段及其输入与只读状态。
 - `attendance-map.test.ts` 验证打卡地图初始化、选点、坐标更新及资源释放。
+- `company-calendar-dates.test.ts` 验证例外日期起止范围展开、起止同日、跨月和连续日期合并。
 - `payroll-pagination.test.ts` 验证工资明细分页及末页记录删除后的页码回退。
 
 ## 维护约束

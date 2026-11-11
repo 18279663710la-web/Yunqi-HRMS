@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   App,
+  Button,
   Checkbox,
   DatePicker,
   Empty,
@@ -20,6 +21,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 
 import type { CompanyCalendarMode, CompanyCalendarRule, CompanyCalendarRuleInput } from '../../../types';
+import { expandDateRanges, mergeDatesToRanges, type DateRangeValue } from './calendarDates';
 import {
   createCompanyCalendarRule,
   deleteCompanyCalendarRule,
@@ -46,8 +48,8 @@ interface CalendarFormValues {
   cycleWeeks?: number;
   cycleRestDays?: number[][];
   anchorDate?: Dayjs;
-  restDates?: Dayjs[];
-  workDates?: Dayjs[];
+  restRanges?: DateRangeValue[];
+  workRanges?: DateRangeValue[];
 }
 
 function formatWeekdays(days: number[]): string {
@@ -121,8 +123,8 @@ export function CompanyCalendar() {
       cycleWeeks: 2,
       cycleRestDays: [[6, 0], [0]],
       anchorDate: currentMonday(),
-      restDates: [],
-      workDates: [],
+      restRanges: [],
+      workRanges: [],
     });
     setOpen(true);
   };
@@ -136,13 +138,19 @@ export function CompanyCalendar() {
       cycleWeeks: rule.cycleWeeks ?? 2,
       cycleRestDays: rule.cycleRestDays.length ? rule.cycleRestDays : [[6, 0], [0]],
       anchorDate: rule.anchorDate ? dayjs(rule.anchorDate) : currentMonday(),
-      restDates: rule.restDates.map((date) => dayjs(date)),
-      workDates: rule.workDates.map((date) => dayjs(date)),
+      restRanges: mergeDatesToRanges(rule.restDates),
+      workRanges: mergeDatesToRanges(rule.workDates),
     });
     setOpen(true);
   };
 
   const save = async (values: CalendarFormValues) => {
+    const restDates = expandDateRanges(values.restRanges);
+    const workDates = expandDateRanges(values.workRanges);
+    if (restDates.length > 1000 || workDates.length > 1000) {
+      message.warning('单类例外日期不能超过 1000 天');
+      return;
+    }
     const input: CompanyCalendarRuleInput = {
       name: values.name.trim(),
       mode: values.mode,
@@ -150,8 +158,8 @@ export function CompanyCalendar() {
       cycleWeeks: values.mode === 'cycle' ? Number(values.cycleWeeks) : null,
       cycleRestDays: values.mode === 'cycle' ? (values.cycleRestDays || []).map((days) => days || []) : [],
       anchorDate: values.mode === 'cycle' && values.anchorDate ? values.anchorDate.format('YYYY-MM-DD') : null,
-      restDates: (values.restDates || []).map((date) => date.format('YYYY-MM-DD')).sort(),
-      workDates: (values.workDates || []).map((date) => date.format('YYYY-MM-DD')).sort(),
+      restDates,
+      workDates,
     };
     setSaving(true);
     try {
@@ -265,11 +273,49 @@ export function CompanyCalendar() {
             </Form.Item>
           ))}
         </>}
-        <Form.Item name="restDates" label="例外休息日期">
-          <DatePicker multiple format="YYYY-MM-DD" placeholder="法定节假日、公司统一休假" style={{ width: '100%' }} />
+        <Form.Item label="例外休息日期">
+          <Form.List name="restRanges">
+            {(fields, { add, remove }) => (
+              <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                {fields.map(({ key, name }) => (
+                  <Space key={key} align="start" style={{ width: '100%' }} size={8}>
+                    <Form.Item name={name} style={{ flex: 1, marginBottom: 0 }} rules={[{ required: true, message: '请选择日期范围' }]}>
+                      <DatePicker.RangePicker
+                        allowEmpty={[false, false]}
+                        format="YYYY-MM-DD"
+                        placeholder={['开始日期', '结束日期']}
+                        style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                    <Button type="text" danger onClick={() => remove(name)}>删除</Button>
+                  </Space>
+                ))}
+                <Button type="dashed" block onClick={() => add()}>添加日期范围</Button>
+              </Space>
+            )}
+          </Form.List>
         </Form.Item>
-        <Form.Item name="workDates" label="例外上班日期">
-          <DatePicker multiple format="YYYY-MM-DD" placeholder="调休补班、临时上班日" style={{ width: '100%' }} />
+        <Form.Item label="例外上班日期">
+          <Form.List name="workRanges">
+            {(fields, { add, remove }) => (
+              <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                {fields.map(({ key, name }) => (
+                  <Space key={key} align="start" style={{ width: '100%' }} size={8}>
+                    <Form.Item name={name} style={{ flex: 1, marginBottom: 0 }} rules={[{ required: true, message: '请选择日期范围' }]}>
+                      <DatePicker.RangePicker
+                        allowEmpty={[false, false]}
+                        format="YYYY-MM-DD"
+                        placeholder={['开始日期', '结束日期']}
+                        style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                    <Button type="text" danger onClick={() => remove(name)}>删除</Button>
+                  </Space>
+                ))}
+                <Button type="dashed" block onClick={() => add()}>添加日期范围</Button>
+              </Space>
+            )}
+          </Form.List>
         </Form.Item>
       </Form>
     </Modal>
