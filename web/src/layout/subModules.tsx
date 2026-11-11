@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AuditOutlined, CalculatorOutlined, IdcardOutlined } from '@ant-design/icons';
+import { AuditOutlined, CalculatorOutlined, ClockCircleOutlined, IdcardOutlined } from '@ant-design/icons';
 
 export interface SubModuleItem {
   key: string;
@@ -30,6 +30,16 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/hr/payroll-disbursement', label: '工资发放' },
       { key: '/hr/payroll-records', label: '工资发放记录' },
       { key: '/hr/offboarding', label: '离职管理' },
+    ],
+  },
+  {
+    key: '/attendance',
+    title: '考勤管理',
+    icon: <ClockCircleOutlined />,
+    sidebarId: 'attendance-sidebar',
+    items: [
+      { key: '/attendance/groups', label: '考勤组' },
+      { key: '/attendance/records', label: '考勤明细' },
     ],
   },
   {
@@ -69,7 +79,6 @@ export function accessibleSubModules(role: string | undefined): SubModule[] {
 const STATIC_TITLES: Record<string, string> = {
   '/dashboard': '仪表盘',
   '/employees': '员工与账号',
-  '/attendance': '考勤管理',
   '/approvals': '审批管理',
   '/departments': '组织架构',
   '/admins': '管理员账号',

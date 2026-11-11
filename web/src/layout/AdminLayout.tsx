@@ -11,7 +11,6 @@ import {
   Modal,
 } from 'antd';
 import {
-  ClockCircleOutlined,
   DashboardOutlined,
   LockOutlined,
   LogoutOutlined,
@@ -143,6 +142,7 @@ export function AdminLayout() {
     label: <span ref={element => { triggerRefs.current[module.key] = element; }} className="sub-sidebar-trigger"><span>{module.title}</span><RightOutlined aria-hidden="true" className={openModuleKey === module.key ? 'is-open' : ''} /></span>,
   });
   const hrModule = SUB_MODULES.find(module => module.key === '/hr');
+  const attendanceModule = SUB_MODULES.find(module => module.key === '/attendance');
   const modelsModule = SUB_MODULES.find(module => module.key === '/models-formulas');
   const approvalsModule = SUB_MODULES.find(module => module.key === '/approvals');
 
@@ -150,7 +150,7 @@ export function AdminLayout() {
     { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
     { key: '/employees', icon: <TeamOutlined />, label: '员工与账号' },
     ...(admin?.role === 'super_admin' && hrModule ? [moduleItem(hrModule)] : []),
-    { key: '/attendance', icon: <ClockCircleOutlined />, label: '考勤管理' },
+    ...(attendanceModule ? [moduleItem(attendanceModule)] : []),
     ...(admin?.role === 'super_admin' && modelsModule ? [moduleItem(modelsModule)] : []),
     ...(approvalsModule ? [moduleItem(approvalsModule)] : []),
     { key: '/departments', icon: <TagsOutlined />, label: '组织架构' },

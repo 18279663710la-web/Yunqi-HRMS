@@ -3,7 +3,6 @@ import {
   App as AntApp,
   Avatar,
   Button,
-  Card,
   Col,
   DatePicker,
   Form,
@@ -19,17 +18,11 @@ import {
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  DownloadOutlined,
-  EditOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { EditOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 
 import { fetchAttendance, saveAttendancePunch } from './api';
 import { fetchEmployeeOptions } from '../employees/api';
-import { PageTitle } from '../../components/PageTitle';
-import { AttendanceGroupsCard } from './AttendanceGroupsCard';
 import { fetchJobTitles, type JobTitle } from '../organization/api';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type {
@@ -73,7 +66,7 @@ function toTimeValue(value: string): Dayjs | null {
 }
 const overtimeDuration = (seconds: number) => `${Math.floor(seconds / 3600)}小时${Math.floor(seconds % 3600 / 60)}分${seconds % 60}秒`;
 
-export function AttendancePage() {
+export function AttendanceRecordsPage() {
   const { message } = AntApp.useApp();
   const active = useWorkspaceActive();
   const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
@@ -313,25 +306,13 @@ export function AttendancePage() {
   const summary = data?.summary;
 
   return (
-    <div className="page-stack">
-      <PageTitle
-        title="考勤管理"
-        extra={
-          <Space>
-            <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!data?.list.length}>
-              导出明细
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => void load()}>
-              刷新
-            </Button>
-          </Space>
-        }
-      />
-
-      <AttendanceGroupsCard employeeOptions={employeeOptions} onChanged={load} />
-
-      <Card className="panel-card" bordered={false}>
-        <div className="filter-bar">
+    <section className="attendance-records-page" aria-label="考勤明细">
+      <div className="attendance-records-entries">
+        <button className="attendance-records-entry" type="button" disabled={!data?.list.length} onClick={exportCsv}>导出明细</button>
+        <button className="attendance-records-entry" type="button" disabled={loading} onClick={() => void load()}>刷新</button>
+      </div>
+      <div className="attendance-records-content">
+          <div className="filter-bar">
           {tab === 'daily' ? (
             <DatePicker
               aria-label="选择考勤日期"
@@ -460,7 +441,7 @@ export function AttendancePage() {
             },
           ]}
         />
-      </Card>
+      </div>
 
       <Modal
         title="考勤更正 / 补卡"
@@ -515,6 +496,6 @@ export function AttendancePage() {
           </div>
         </Form>
       </Modal>
-    </div>
+    </section>
   );
 }

@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes, type Location } from 'react-router-dom';
 import { AdminsPage } from '../modules/admin-accounts/Admins';
 import { ApprovalManagementPage } from '../modules/approvals/ApprovalManagement';
-import { AttendancePage } from '../modules/attendance/Attendance';
+import { AttendanceGroupsPage } from '../modules/attendance/AttendanceGroupsPage';
+import { AttendanceRecordsPage } from '../modules/attendance/AttendanceRecordsPage';
 import { DashboardPage } from '../modules/dashboard/Dashboard';
 import { DepartmentsPage } from '../modules/organization/Departments';
 import { EmployeesPage } from '../modules/employees/Employees';
@@ -25,7 +26,9 @@ export function AdminPageRoutes({ location }: { location: Location }) {
       <Route path="offboarding" element={<HrOffboardingPage />} />
       <Route path="*" element={<Navigate to="/hr/onboarding" replace />} />
     </Route>
-    <Route path="/attendance" element={<AttendancePage />} />
+    <Route path="/attendance" element={<Navigate to="/attendance/groups" replace />} />
+    <Route path="/attendance/groups" element={<AttendanceGroupsPage />} />
+    <Route path="/attendance/records" element={<AttendanceRecordsPage />} />
     <Route path="/models-formulas" element={<Navigate to="/models-formulas/attendance" replace />} />
     <Route path="/models-formulas/attendance" element={<ModelsFormulasPage section="attendance" />} />
     <Route path="/models-formulas/overtime" element={<ModelsFormulasPage section="overtime" />} />

@@ -38,6 +38,7 @@ import {
   fetchAttendanceGroups,
   updateAttendanceGroup,
 } from './api';
+import { fetchEmployeeOptions } from '../employees/api';
 import { fetchCompanyCalendarRules } from '../models-formulas/company-calendar/api';
 import { fetchDepartments } from '../organization/api';
 import { createAttendanceMap, type MapPoint, type MapSdk } from './attendanceMap';
@@ -52,11 +53,6 @@ interface GroupFormValues {
   latitude?: number;
   longitude?: number;
   radius: number;
-}
-
-interface AttendanceGroupsCardProps {
-  employeeOptions: EmployeeOption[];
-  onChanged?: () => void;
 }
 
 /** 新建考勤组时的表单初始值。 */
@@ -150,15 +146,18 @@ function MapPicker({ latitude, longitude, radius, onSelect }: {
   </>;
 }
 
-export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceGroupsCardProps) {
+export function AttendanceGroupsPage() {
   const { message } = App.useApp();
   const [form] = Form.useForm<GroupFormValues>();
   const [data, setData] = useState<AttendanceGroupsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AttendanceGroup | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSelection, setPickerSelection] = useState<string[]>([]);
@@ -176,9 +175,13 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     if (initial) setLoading(true);
     setLoadError('');
     try {
-      setData(await fetchAttendanceGroups());
+      const result = await fetchAttendanceGroups();
+      setData(result);
+      setFailed(false);
+      setSelectedId((current) => current && result.groups.some((group) => group.id === current) ? current : null);
     } catch (err) {
       setLoadError((err as Error).message);
+      setFailed(true);
     } finally {
       if (initial) setLoading(false);
     }
@@ -187,6 +190,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   useEffect(() => {
     void load(true);
     fetchCompanyCalendarRules().then(setCalendarRules).catch(() => setCalendarRules([]));
+    fetchEmployeeOptions().then(setEmployeeOptions).catch(() => setEmployeeOptions([]));
   }, []);
 
   useEffect(() => {
@@ -206,6 +210,7 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   }, []);
 
   const rows = useMemo(() => data?.groups ?? [], [data]);
+  const selected = rows.find((group) => group.id === selectedId) || null;
 
   const employeeGroupMap = useMemo(() => {
     const map = new Map<string, AttendanceGroup>();
@@ -322,7 +327,6 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       }
       setOpen(false);
       await load(false);
-      onChanged?.();
     } catch (err) {
       message.error((err as Error).message);
     } finally {
@@ -330,77 +334,70 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     }
   };
 
-  const remove = async (group: AttendanceGroup) => {
+  const remove = async () => {
+    if (!selected) return;
     try {
-      await deleteAttendanceGroup(group.id);
-      message.success('考勤组已删除');
+      await deleteAttendanceGroup(selected.id);
+      message.success('考勤组已删除，组内员工将改用第一个考勤组');
+      setSelectedId(null);
       await load(false);
-      onChanged?.();
     } catch (err) {
       message.error((err as Error).message);
     }
   };
 
   const columns: ColumnsType<AttendanceGroup> = [
-    { title: '考勤组', dataIndex: 'name', width: 150 },
+    { title: '考勤组', dataIndex: 'name', width: 180 },
     {
       title: '公司日历',
-      width: 160,
+      width: 180,
       render: (_value, group) => group.calendarRuleName || '—',
     },
     {
       title: '打卡时段',
-      width: 240,
+      width: 280,
       render: (_value, group) => `上班卡 ${group.startTime}–${group.inEndTime || '未设置'}；下班卡 ${group.endTime}–${group.outEndTime || '未设置'}`,
     },
-    {
-      title: '打卡半径',
-      width: 120,
-      render: (_value, group) => `${group.radius} 米`,
-    },
-    {
-      title: '员工',
-      width: 120,
-      render: (_value, group) => `${group.employeeCount} 人`,
-    },
-    {
-      title: '操作',
-      width: 140,
-      render: (_value, group) => (
-        <Space size={4}>
-          <Button size="small" onClick={() => showEdit(group)}>编辑</Button>
-          <Popconfirm
-            title="删除考勤组？"
-            description="组内员工将改用第一个考勤组。"
-            onConfirm={() => void remove(group)}
-            okText="删除"
-            cancelText="取消"
-          >
-            <Button size="small" danger>删除</Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    { title: '打卡半径', width: 130, render: (_value, group) => `${group.radius} 米` },
+    { title: '员工', width: 120, render: (_value, group) => `${group.employeeCount} 人` },
   ];
 
-  return <>
-    <Card
-      className="panel-card"
-      bordered={false}
-      loading={loading}
-      title="考勤组"
-      extra={<Button type="primary" onClick={showCreate}>新建考勤组</Button>}
-    >
-      {loadError && <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load(true)}>重试</Button>} style={{ marginBottom: 16 }} />}
-      <Table
-        rowKey={(group) => String(group.id)}
-        columns={columns}
-        dataSource={rows}
-        pagination={false}
-        size="small"
-        scroll={{ x: 800 }}
-      />
-    </Card>
+  return <section className="attendance-groups-page" aria-label="考勤组">
+    <div className="attendance-groups-entries">
+      <button className="attendance-groups-entry" type="button" disabled={loading || failed || saving} onClick={showCreate}>新建考勤组</button>
+      <button className="attendance-groups-entry" type="button" disabled={!selected || saving} onClick={() => selected && showEdit(selected)}>编辑</button>
+      <Popconfirm
+        title={`删除考勤组“${selected?.name ?? ''}”？`}
+        description="组内员工将改用第一个考勤组。"
+        okText="删除"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+        onConfirm={() => void remove()}
+        disabled={!selected || saving}
+      >
+        <button className="attendance-groups-entry attendance-groups-entry-danger" type="button" disabled={!selected || saving}>删除</button>
+      </Popconfirm>
+    </div>
+    <div className="attendance-groups-content">
+      <Spin spinning={loading}>
+        {loadError
+          ? <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load(true)}>重试</Button>} />
+          : <Table
+              rowKey={(group) => String(group.id)}
+              columns={columns}
+              dataSource={rows}
+              pagination={false}
+              size="small"
+              scroll={{ x: 860 }}
+              rowSelection={{
+                type: 'radio',
+                selectedRowKeys: selected ? [selected.id] : [],
+                onChange: (keys) => setSelectedId(Number(keys[0])),
+              }}
+              locale={{ emptyText: '暂无考勤组' }}
+            />}
+      </Spin>
+    </div>
 
     <Modal
       title={editing ? '编辑考勤组' : '新建考勤组'}
@@ -555,5 +552,5 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
         <Typography.Text type="secondary">已选择 {pickerSelection.length} 人；保存后所选员工将移入本考勤组。</Typography.Text>
       </Space>
     </Modal>
-  </>;
+  </section>;
 }
