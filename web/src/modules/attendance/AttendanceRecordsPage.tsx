@@ -184,6 +184,27 @@ export function AttendanceRecordsPage() {
 
   const exportCsv = () => {
     if (!data) return;
+    if (tab === 'summary') {
+      downloadCsv(`考勤月度汇总-${data.month}.csv`, [
+        ['员工', '工号', '职务', '正常', '未打上班卡', '未打下班卡', '缺卡', '请假', '休息', '加班天数', '加班时长', '出勤天数', '累计工时'],
+        ...data.employeeSummary.map((row) => [
+          row.employeeName,
+          row.employeeNo,
+          row.jobCategory,
+          row.normal,
+          row.missingIn,
+          row.missingOut,
+          row.absent,
+          row.leave,
+          row.rest,
+          row.overtime,
+          overtimeDuration(row.overtimeSeconds),
+          row.presentDays,
+          `${row.totalHours} h`,
+        ]),
+      ]);
+      return;
+    }
     downloadCsv(`考勤明细-${tab === 'daily' ? data.startDate : data.month}.csv`, [
       ['日期', '员工', '工号', '职务', '上班', '下班', '工时', '状态', '加班打卡', '加班时长', '备注'],
       ...data.list.map((row) => [
@@ -308,7 +329,7 @@ export function AttendanceRecordsPage() {
   return (
     <section className="attendance-records-page" aria-label="考勤明细">
       <div className="attendance-records-entries">
-        <button className="attendance-records-entry" type="button" disabled={!data?.list.length} onClick={exportCsv}>导出明细</button>
+        <button className="attendance-records-entry" type="button" disabled={!data || (tab === 'summary' ? !data.employeeSummary.length : !data.list.length)} onClick={exportCsv}>{tab === 'summary' ? '导出月度汇总' : '导出明细'}</button>
         <button className="attendance-records-entry" type="button" disabled={loading} onClick={() => void load()}>刷新</button>
       </div>
       <div className="attendance-records-content">
