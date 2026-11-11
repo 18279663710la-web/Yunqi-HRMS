@@ -13,6 +13,7 @@ import {
   Modal,
   Popconfirm,
   Row,
+  Select,
   Space,
   Spin,
   Table,
@@ -28,15 +29,18 @@ import type {
   AttendanceGroupInput,
   AttendanceGroupsResponse,
   AttendanceSettings,
+  DepartmentNode,
   EmployeeOption,
 } from '../../types';
 import {
   createAttendanceGroup,
   deleteAttendanceGroup,
   fetchAttendanceGroups,
+  renameAttendanceGroup,
   saveAttendanceSettings,
   updateAttendanceGroup,
 } from './api';
+import { fetchDepartments } from '../organization/api';
 import { createAttendanceMap, type MapPoint, type MapSdk } from './attendanceMap';
 
 interface GroupFormValues {
@@ -161,7 +165,14 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSelection, setPickerSelection] = useState<string[]>([]);
+  const [pickerOrgs, setPickerOrgs] = useState<string[]>([]);
+  const [pickerPositions, setPickerPositions] = useState<string[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameGroup, setRenameGroup] = useState<AttendanceGroup | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
 
   const latitude = Form.useWatch('latitude', form);
   const longitude = Form.useWatch('longitude', form);
@@ -185,6 +196,22 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     void load(true);
   }, []);
 
+  useEffect(() => {
+    fetchDepartments()
+      .then((nodes) => {
+        const list: Array<{ id: string; name: string }> = [];
+        const walk = (items: DepartmentNode[]) => {
+          items.forEach((node) => {
+            list.push({ id: node.id, name: node.name });
+            if (node.children?.length) walk(node.children);
+          });
+        };
+        walk(nodes);
+        setOrganizations(list);
+      })
+      .catch(() => setOrganizations([]));
+  }, []);
+
   const rows = useMemo(() => {
     if (!data) return [] as AttendanceGroup[];
     return [data.defaultGroup, ...data.groups].filter((group): group is AttendanceGroup => !!group);
@@ -196,14 +223,28 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     return map;
   }, [data]);
 
-  const filteredEmployees = useMemo(() => {
+  const positionOptions = useMemo(
+    () => Array.from(new Set(employeeOptions.map((employee) => employee.position).filter(Boolean))).sort(),
+    [employeeOptions]
+  );
+
+  const filteredPickerEmployees = useMemo(() => {
     const keyword = employeeSearch.trim().toLowerCase();
-    if (!keyword) return employeeOptions;
-    return employeeOptions.filter((employee) =>
-      [employee.name, employee.employeeNo, employee.position, employee.deptName]
-        .some((value) => String(value || '').toLowerCase().includes(keyword))
-    );
-  }, [employeeOptions, employeeSearch]);
+    return employeeOptions.filter((employee) => {
+      if (pickerOrgs.length && !pickerOrgs.includes(employee.deptName)) return false;
+      if (pickerPositions.length && !pickerPositions.includes(employee.position)) return false;
+      if (!keyword) return true;
+      return [employee.name, employee.employeeNo, employee.position, employee.deptName]
+        .some((value) => String(value || '').toLowerCase().includes(keyword));
+    });
+  }, [employeeOptions, pickerOrgs, pickerPositions, employeeSearch]);
+
+  const allOrgsSelected = organizations.length > 0 && pickerOrgs.length === organizations.length;
+  const allPositionsSelected = positionOptions.length > 0 && pickerPositions.length === positionOptions.length;
+  const filteredIds = filteredPickerEmployees.map((employee) => employee.id);
+  const checkedFilteredCount = filteredIds.filter((id) => pickerSelection.includes(id)).length;
+  const allFilteredChecked = filteredIds.length > 0 && checkedFilteredCount === filteredIds.length;
+  const someFilteredChecked = checkedFilteredCount > 0 && !allFilteredChecked;
 
   const showCreate = () => {
     const base = data?.defaultGroup ?? DEFAULT_GROUP;
@@ -222,6 +263,8 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
 
   const openPicker = () => {
     setPickerSelection(selectedEmployeeIds);
+    setPickerOrgs([]);
+    setPickerPositions([]);
     setEmployeeSearch('');
     setPickerOpen(true);
   };
@@ -230,6 +273,39 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
     setPickerSelection((current) => checked
       ? Array.from(new Set([...current, employeeId]))
       : current.filter((id) => id !== employeeId));
+  };
+
+  const toggleAllFiltered = (checked: boolean) => {
+    setPickerSelection((current) => checked
+      ? Array.from(new Set([...current, ...filteredIds]))
+      : current.filter((id) => !filteredIds.includes(id)));
+  };
+
+  const openRename = (group: AttendanceGroup) => {
+    setRenameGroup(group);
+    setRenameValue(group.name);
+    setRenameOpen(true);
+  };
+
+  const submitRename = async () => {
+    if (!renameGroup) return;
+    const name = renameValue.trim();
+    if (!name) {
+      message.warning('请输入考勤组名称');
+      return;
+    }
+    setRenameSaving(true);
+    try {
+      await renameAttendanceGroup(renameGroup.id, name);
+      message.success('考勤组名称已修改');
+      setRenameOpen(false);
+      await load(false);
+      onChanged?.();
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setRenameSaving(false);
+    }
   };
 
   const save = async (values: GroupFormValues) => {
@@ -297,7 +373,9 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       width: 150,
       render: (_value, group) => (
         <Space size={6}>
-          <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={() => showEdit(group)}>{group.name}</Button>
+          {group.isDefault
+            ? <span>{group.name}</span>
+            : <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={() => openRename(group)}>{group.name}</Button>}
           {group.isDefault && <Tag color="blue">默认</Tag>}
         </Space>
       ),
@@ -425,9 +503,29 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
         </Row>
         {!editing?.isDefault && (
           <Form.Item label="员工">
-            <Space wrap>
-              <Button onClick={openPicker}>选择员工</Button>
-              <Typography.Text type="secondary">已选择 {selectedEmployeeIds.length} 人</Typography.Text>
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <Space>
+                <Button onClick={openPicker}>选择员工</Button>
+                <Typography.Text type="secondary">已选择 {selectedEmployeeIds.length} 人</Typography.Text>
+              </Space>
+              {selectedEmployeeIds.length > 0 && (
+                <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+                  <Space wrap size={4}>
+                    {selectedEmployeeIds.map((id) => {
+                      const employee = employeeOptions.find((option) => option.id === id);
+                      return (
+                        <Tag
+                          key={id}
+                          closable
+                          onClose={() => togglePicker(id, false)}
+                        >
+                          {employee ? `${employee.name}（${employee.employeeNo}）` : id}
+                        </Tag>
+                      );
+                    })}
+                  </Space>
+                </div>
+              )}
             </Space>
           </Form.Item>
         )}
@@ -445,34 +543,105 @@ export function AttendanceGroupsCard({ employeeOptions, onChanged }: AttendanceG
       zIndex={1200}
       styles={{ body: { maxHeight: '60vh', overflowY: 'auto' } }}
     >
-      <Input.Search
-        allowClear
-        placeholder="搜索姓名、工号、职务或组织"
-        value={employeeSearch}
-        onChange={(event) => setEmployeeSearch(event.target.value)}
+      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+        <Row gutter={8} align="middle">
+          <Col flex="48px"><Typography.Text>组织</Typography.Text></Col>
+          <Col flex="auto">
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="不限组织"
+              style={{ width: '100%' }}
+              value={pickerOrgs}
+              onChange={setPickerOrgs}
+              options={organizations.map((org) => ({ value: org.name, label: org.name }))}
+              maxTagCount="responsive"
+            />
+          </Col>
+          <Col>
+            <Button size="small" onClick={() => setPickerOrgs(allOrgsSelected ? [] : organizations.map((org) => org.name))} disabled={!organizations.length}>
+              {allOrgsSelected ? '清空' : '全选'}
+            </Button>
+          </Col>
+        </Row>
+        <Row gutter={8} align="middle">
+          <Col flex="48px"><Typography.Text>职位</Typography.Text></Col>
+          <Col flex="auto">
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="不限职位"
+              style={{ width: '100%' }}
+              value={pickerPositions}
+              onChange={setPickerPositions}
+              options={positionOptions.map((position) => ({ value: position, label: position }))}
+              maxTagCount="responsive"
+            />
+          </Col>
+          <Col>
+            <Button size="small" onClick={() => setPickerPositions(allPositionsSelected ? [] : [...positionOptions])} disabled={!positionOptions.length}>
+              {allPositionsSelected ? '清空' : '全选'}
+            </Button>
+          </Col>
+        </Row>
+        <Input.Search
+          allowClear
+          placeholder="搜索姓名、工号"
+          value={employeeSearch}
+          onChange={(event) => setEmployeeSearch(event.target.value)}
+        />
+        <Checkbox
+          checked={allFilteredChecked}
+          indeterminate={someFilteredChecked}
+          onChange={(event) => toggleAllFiltered(event.target.checked)}
+          disabled={!filteredIds.length}
+        >
+          全选当前员工（{filteredIds.length} 人）
+        </Checkbox>
+        <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+          {filteredPickerEmployees.length ? filteredPickerEmployees.map((employee) => {
+            const otherGroup = employeeGroupMap.get(employee.id);
+            const showOtherGroup = otherGroup && (!editing || otherGroup.id !== editing.id);
+            return (
+              <div key={employee.id} style={{ padding: '6px 0' }}>
+                <Checkbox
+                  checked={pickerSelection.includes(employee.id)}
+                  onChange={(event) => togglePicker(employee.id, event.target.checked)}
+                >
+                  <Space size={6} wrap>
+                    <span>{employee.name}</span>
+                    <Typography.Text type="secondary">{employee.employeeNo}</Typography.Text>
+                    <Tag>{employee.position}</Tag>
+                    {showOtherGroup && <Tag color="orange">已在{otherGroup.name}</Tag>}
+                  </Space>
+                </Checkbox>
+              </div>
+            );
+          }) : <Typography.Text type="secondary">没有匹配的员工</Typography.Text>}
+        </div>
+        <Typography.Text type="secondary">已选择 {pickerSelection.length} 人；保存后所选员工将移入本考勤组。</Typography.Text>
+      </Space>
+    </Modal>
+
+    <Modal
+      title="修改考勤组名称"
+      open={renameOpen}
+      onCancel={() => setRenameOpen(false)}
+      onOk={() => void submitRename()}
+      confirmLoading={renameSaving}
+      okText="保存"
+      cancelText="取消"
+      width={420}
+      zIndex={1200}
+      destroyOnClose
+    >
+      <Input
+        value={renameValue}
+        maxLength={50}
+        placeholder="请输入考勤组名称"
+        onChange={(event) => setRenameValue(event.target.value)}
+        onPressEnter={() => void submitRename()}
       />
-      <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 12 }}>
-        {filteredEmployees.length ? filteredEmployees.map((employee) => {
-          const otherGroup = employeeGroupMap.get(employee.id);
-          const showOtherGroup = otherGroup && (!editing || otherGroup.id !== editing.id);
-          return (
-            <div key={employee.id} style={{ padding: '6px 0' }}>
-              <Checkbox
-                checked={pickerSelection.includes(employee.id)}
-                onChange={(event) => togglePicker(employee.id, event.target.checked)}
-              >
-                <Space size={6} wrap>
-                  <span>{employee.name}</span>
-                  <Typography.Text type="secondary">{employee.employeeNo}</Typography.Text>
-                  <Tag>{employee.position}</Tag>
-                  {showOtherGroup && <Tag color="orange">已在{otherGroup.name}</Tag>}
-                </Space>
-              </Checkbox>
-            </div>
-          );
-        }) : <Typography.Text type="secondary">没有匹配的员工</Typography.Text>}
-      </div>
-      <Typography.Text type="secondary">已选择 {pickerSelection.length} 人；保存后所选员工将移入本考勤组。</Typography.Text>
     </Modal>
   </>;
 }

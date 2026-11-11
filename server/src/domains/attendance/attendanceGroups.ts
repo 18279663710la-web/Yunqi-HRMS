@@ -19,6 +19,8 @@ export const attendanceGroupMetaSchema = z.object({
   employeeIds: z.array(z.string().min(1).max(10)).max(1000, '单个考勤组最多选择 1000 名员工'),
 });
 
+export const attendanceGroupNameSchema = z.string().trim().min(1, '考勤组名称不能为空').max(50, '考勤组名称不能超过 50 个字符');
+
 export type AttendanceGroupMeta = z.infer<typeof attendanceGroupMetaSchema>;
 export type AttendanceGroupInput = AttendanceSettingsInput & AttendanceGroupMeta;
 
@@ -266,6 +268,28 @@ export async function updateAttendanceGroup(
     name: group.name,
     employeeIds,
     settings,
+  });
+  return group;
+}
+
+export async function renameAttendanceGroup(
+  id: number,
+  name: string,
+  admin: AdminUser
+): Promise<AttendanceGroup> {
+  const existing = await getGroupById(id);
+  if (!existing) throw notFound('考勤组不存在');
+  const nextName = attendanceGroupNameSchema.parse(name);
+  await assertNameAvailable(nextName, id);
+
+  await transaction(async (conn) => {
+    await conn.query('UPDATE attendance_groups SET name = ?, updated_at = NOW() WHERE id = ?', [nextName, id]);
+  });
+  const group = await getGroupById(id);
+  if (!group) throw new Error('考勤组重命名失败');
+  await recordAdminLog(admin, '重命名考勤组', 'attendance_group', String(id), {
+    from: existing.name,
+    to: group.name,
   });
   return group;
 }

@@ -145,6 +145,12 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
       ...earlySettings, name: '不存在员工组', employeeIds: ['U999'],
     })).status, 400);
 
+    const renamed = await request(`/admin/attendance/groups/${earlyId}/name`, admin, 'PATCH', { name: '早班组改名' });
+    assert.equal(renamed.status, 200);
+    assert.equal(renamed.payload.data.name, '早班组改名');
+    assert.equal((await request(`/admin/attendance/groups/${earlyId}/name`, admin, 'PATCH', { name: '晚班组' })).status, 409);
+    assert.equal((await request(`/admin/attendance/groups/${earlyId}/name`, admin, 'PATCH', { name: '  ' })).status, 400);
+
     assert.equal((await request(`/admin/attendance/groups/${lateId}`, admin, 'DELETE')).status, 200);
     const lateFallback = await request('/attendance/settings', employee('U010'));
     assert.equal(lateFallback.payload.data.startTime, '08:00');
