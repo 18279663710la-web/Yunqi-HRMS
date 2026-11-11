@@ -391,7 +391,7 @@ export function AttendanceRecordsPage() {
 
         <Row gutter={[12, 12]} className="mini-stat-row">
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="正常" value={summary?.normal || 0} valueStyle={{ color: '#16B364' }} /></div>
+            <div className="mini-stat"><Statistic title="正常" value={(summary?.normal || 0) + (summary?.travel || 0)} valueStyle={{ color: '#16B364' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="异常" value={(summary?.missingIn ?? 0) + (summary?.missingOut ?? 0)} valueStyle={{ color: '#F79009' }} /></div>
@@ -404,9 +404,6 @@ export function AttendanceRecordsPage() {
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="休息" value={summary?.rest || 0} /></div>
-          </Col>
-          <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="出差" value={summary?.travel || 0} valueStyle={{ color: '#00A5BC' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="加班" value={summary?.overtime || 0} /></div>
