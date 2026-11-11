@@ -186,14 +186,13 @@ export function AttendanceRecordsPage() {
     if (!data) return;
     if (tab === 'summary') {
       downloadCsv(`考勤月度汇总-${data.month}.csv`, [
-        ['员工', '工号', '职务', '正常', '未打上班卡', '未打下班卡', '缺卡', '请假', '休息', '加班天数', '加班时长', '出勤天数', '累计工时'],
+        ['员工', '工号', '职务', '正常', '异常', '缺卡', '请假', '休息', '加班天数', '加班时长', '出勤天数', '累计工时'],
         ...data.employeeSummary.map((row) => [
           row.employeeName,
           row.employeeNo,
           row.jobCategory,
           row.normal,
-          row.missingIn,
-          row.missingOut,
+          row.missingIn + row.missingOut,
           row.absent,
           row.leave,
           row.rest,
@@ -313,8 +312,7 @@ export function AttendanceRecordsPage() {
     },
     { title: '职务', dataIndex: 'jobCategory', render: (category: JobCategoryName) => jobCategoryTag(category) },
     { title: '正常', dataIndex: 'normal' },
-    { title: '未打上班卡', dataIndex: 'missingIn' },
-    { title: '未打下班卡', dataIndex: 'missingOut' },
+    { title: '异常', key: 'abnormal', render: (_, row) => row.missingIn + row.missingOut },
     { title: '缺卡', dataIndex: 'absent' },
     { title: '请假', dataIndex: 'leave' },
     { title: '休息', dataIndex: 'rest' },
