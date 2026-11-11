@@ -8,7 +8,7 @@
 
 - `u9-business.integration.test.ts` 使用隔离 MySQL 和模拟 U9 校验绑定、身份隔离与 PDF 下载；`u9-money.test.ts` 校验金额精度。
 - `organizations.integration.test.ts` 在隔离数据库验证平级组织迁移、维护、员工归属及历史异动保护。
-- `attendance-groups.integration.test.ts` 在隔离数据库验证考勤组创建、编辑、删除、员工迁移与默认回退，以及组设置对打卡、今日状态、管理端休息日和工资出勤取数的影响。
+- `attendance-groups.integration.test.ts` 在隔离数据库验证考勤组创建、改名、编辑、删除、员工迁移，以及未分配员工回退第一个考勤组、无组回退初始设置对打卡、今日状态、管理端休息日和工资出勤取数的影响。
 - `onboarding-attachments.integration.test.ts` 在隔离数据库验证附件归属、权限和历史；`onboarding-attachment-mini.test.ts` 模拟小程序三种选择入口。
 
 - 子目录：[fixtures/](fixtures/README.md)。

@@ -27,7 +27,6 @@ export type AttendanceGroupInput = AttendanceSettingsInput & AttendanceGroupMeta
 export interface AttendanceGroup extends AttendanceSettings {
   id: number;
   name: string;
-  isDefault: boolean;
   employeeIds: string[];
   employeeCount: number;
   createdAt: string | null;
@@ -35,8 +34,11 @@ export interface AttendanceGroup extends AttendanceSettings {
 }
 
 export interface AttendanceGroupsResult {
-  defaultGroup: AttendanceGroup | null;
   groups: AttendanceGroup[];
+  /** 未分配员工的数量；这些员工按规则使用第一个考勤组。 */
+  unassignedCount: number;
+  /** 无考勤组时生效的初始考勤设置，供新建组预填。 */
+  initialSettings: AttendanceSettings | null;
 }
 
 interface GroupRow extends AttendanceSettingsRow {
@@ -46,13 +48,10 @@ interface GroupRow extends AttendanceSettingsRow {
   updated_at: string;
 }
 
-const DEFAULT_GROUP_NAME = '默认考勤组';
-
 function mapGroup(row: GroupRow, employeeIds: string[]): AttendanceGroup {
   return {
     id: Number(row.id),
     name: row.name,
-    isDefault: false,
     ...mapAttendanceSettingsRow(row),
     employeeIds,
     employeeCount: employeeIds.length,
@@ -108,8 +107,7 @@ async function replaceMembers(conn: PoolConnection, groupId: number, employeeIds
 }
 
 export async function listAttendanceGroups(): Promise<AttendanceGroupsResult> {
-  const [defaultSettings, rows, members, unassigned] = await Promise.all([
-    getAttendanceSettings(),
+  const [rows, members, unassigned, initialSettings] = await Promise.all([
     queryRows<GroupRow>('SELECT * FROM attendance_groups ORDER BY id ASC'),
     queryRows<{ group_id: number; employee_id: string }>(
       'SELECT group_id, employee_id FROM attendance_group_employees ORDER BY employee_id ASC'
@@ -118,6 +116,7 @@ export async function listAttendanceGroups(): Promise<AttendanceGroupsResult> {
       `SELECT COUNT(*) AS total FROM employees e
        WHERE NOT EXISTS (SELECT 1 FROM attendance_group_employees m WHERE m.employee_id = e.id)`
     ),
+    getAttendanceSettings(),
   ]);
 
   const memberMap = new Map<number, string[]>();
@@ -128,24 +127,17 @@ export async function listAttendanceGroups(): Promise<AttendanceGroupsResult> {
     memberMap.set(groupId, list);
   }
 
-  const groups = rows.map((row) => mapGroup(row, memberMap.get(Number(row.id)) ?? []));
-  const defaultGroup: AttendanceGroup | null = defaultSettings
-    ? {
-        id: 0,
-        name: DEFAULT_GROUP_NAME,
-        isDefault: true,
-        ...defaultSettings,
-        employeeIds: [],
-        employeeCount: Number(unassigned?.total || 0),
-        createdAt: null,
-        updatedAt: null,
-      }
-    : null;
-
-  return { defaultGroup, groups };
+  return {
+    groups: rows.map((row) => mapGroup(row, memberMap.get(Number(row.id)) ?? [])),
+    unassignedCount: Number(unassigned?.total || 0),
+    initialSettings,
+  };
 }
 
-/** 按员工读取考勤设置；已加入考勤组的员工使用组设置，其余员工使用默认设置。 */
+/**
+ * 按员工读取考勤设置：属于考勤组的员工使用组设置；
+ * 未分配员工使用第一个考勤组（按创建顺序），完全无组时回退初始考勤设置。
+ */
 export async function getAttendanceSettingsMap(
   employeeIds: string[]
 ): Promise<Map<string, AttendanceSettings | null>> {
@@ -154,7 +146,8 @@ export async function getAttendanceSettingsMap(
   if (!unique.length) return result;
 
   const placeholders = unique.map(() => '?').join(',');
-  const [defaultSettings, rows] = await Promise.all([
+  const [fallbackGroup, initialSettings, rows] = await Promise.all([
+    queryOne<GroupRow>('SELECT * FROM attendance_groups ORDER BY id ASC LIMIT 1'),
     getAttendanceSettings(),
     queryRows<GroupRow & { employee_id: string }>(
       `SELECT m.employee_id, g.*
@@ -169,8 +162,9 @@ export async function getAttendanceSettingsMap(
   for (const row of rows) {
     byEmployee.set(row.employee_id, mapAttendanceSettingsRow(row));
   }
+  const fallback = fallbackGroup ? mapAttendanceSettingsRow(fallbackGroup) : initialSettings;
   for (const employeeId of unique) {
-    result.set(employeeId, byEmployee.get(employeeId) ?? defaultSettings);
+    result.set(employeeId, byEmployee.get(employeeId) ?? fallback);
   }
   return result;
 }

@@ -260,7 +260,6 @@ export interface AttendanceSettings {
 export interface AttendanceGroup extends AttendanceSettings {
   id: number;
   name: string;
-  isDefault: boolean;
   employeeIds: string[];
   employeeCount: number;
   createdAt: string | null;
@@ -268,8 +267,9 @@ export interface AttendanceGroup extends AttendanceSettings {
 }
 
 export interface AttendanceGroupsResponse {
-  defaultGroup: AttendanceGroup | null;
   groups: AttendanceGroup[];
+  unassignedCount: number;
+  initialSettings: AttendanceSettings | null;
 }
 
 export interface AttendanceGroupInput extends AttendanceSettings {
