@@ -23,6 +23,8 @@ export interface U9ReceivableQuery {
 /** 应收单列表与详情共用的本人明细行，金额已按币种精度格式化。 */
 export interface U9ReceivableLine {
   lineNum: number;
+  srcShipNo: string;
+  srcLineNum: number;
   itemName: string;
   itemCode: string;
   uom: string;

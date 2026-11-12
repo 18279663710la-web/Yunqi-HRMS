@@ -29,7 +29,8 @@ test('仅绑定的业务员能访问对应 U9 数据，管理员绑定不可重�
       invoiceDate: '2026-11-10',
       invoiceNum: 'INV-001',
       lines: [{
-        lineNum: 10, itemName: '测试料品', itemCode: 'YK-5012', uom: 'KG', qty: '300.0000',
+        lineNum: 10, srcShipNo: 'SM2026080578', srcLineNum: 10,
+        itemName: '测试料品', itemCode: 'YK-5012', uom: 'KG', qty: '300.0000',
         nonTaxPrice: '25.6637', taxPrice: '29.0000', nonTaxAmount: '7699.12', taxAmount: '1000.88',
         taxIncludedTotal: '8700.00', totalAmount: '8700.00', totalBalance: '8700.00',
         bizOrg: '一部', maturity: '2026-09-30', lineStatus: '',
@@ -139,6 +140,8 @@ test('仅绑定的业务员能访问对应 U9 数据，管理员绑定不可重�
     assert.equal(receivables[0].lines[0].taxIncludedTotal, '8700.00');
     const receivableDetail = await call('/business/receivables/201', salesA);
     assert.equal(receivableDetail.status, 200);
+    assert.equal(receivableDetail.body.data.lines[0].srcShipNo, 'SM2026080578');
+    assert.equal(receivableDetail.body.data.lines[0].srcLineNum, 10);
     assert.equal(receivableDetail.body.data.lines[0].bizOrg, '一部');
     assert.equal((await call('/business/receivables/201', salesB)).status, 404);
     assert.equal((await call('/business/receivables/202', salesA)).status, 404);

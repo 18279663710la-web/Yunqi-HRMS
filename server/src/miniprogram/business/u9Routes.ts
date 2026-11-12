@@ -201,7 +201,7 @@ export function createU9BusinessRouter(u9: U9Gateway): Router {
     const operatorId = await operatorFor(req.user);
     const document = kind === 'receipts'
       ? await u9.getReceiptDocument(operatorId, id)
-      : await u9.getDocument(kind, operatorId, id);
+      : await u9.getReceivableDocument(operatorId, id);
     if (!document) throw notFound('单据不存在');
     const pdf = await documentPdf(kind, document);
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="document.pdf"', 'Cache-Control': 'no-store' }).send(pdf);

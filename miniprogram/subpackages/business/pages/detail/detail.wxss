@@ -12,26 +12,20 @@ page { background: #f5f7fb; color: #1d2940; }
 .field-value { color: #536179; font-size: 25rpx; line-height: 36rpx; word-break: break-all; }
 .section-title { font-size: 26rpx; font-weight: 600; margin: 8rpx 4rpx 14rpx; }
 .table-scroll { width: 100%; background: #fff; border-radius: 16rpx; margin-bottom: 24rpx; box-shadow: 0 6rpx 20rpx rgba(38, 59, 104, .04); }
-.table { width: 2100rpx; }
+.table { width: 1360rpx; }
 .table-row { display: flex; align-items: stretch; border-bottom: 1rpx solid #eef2f8; }
 .table-row:last-child { border-bottom: 0; }
 .table-head { background: #edf1f7; }
 .cell { display: block; flex: none; box-sizing: border-box; padding: 16rpx 12rpx; font-size: 22rpx; line-height: 32rpx; color: #536179; border-right: 1rpx solid #eef2f8; word-break: break-all; white-space: normal; }
 .table-head .cell { color: #27364e; font-weight: 600; }
 .table-row .cell:last-child { border-right: 0; }
-.col-line { width: 70rpx; text-align: center; }
+.col-srcno { width: 180rpx; }
+.col-srcline { width: 110rpx; text-align: center; }
 .col-item { width: 220rpx; }
 .col-code { width: 150rpx; }
 .col-uom { width: 90rpx; text-align: center; }
-.col-qty { width: 110rpx; text-align: right; }
-.col-price { width: 140rpx; text-align: right; }
-.col-taxprice { width: 140rpx; text-align: right; }
-.col-nontax { width: 150rpx; text-align: right; }
-.col-tax { width: 130rpx; text-align: right; }
-.col-total { width: 150rpx; text-align: right; }
-.col-fctotal { width: 140rpx; text-align: right; }
-.col-balance { width: 160rpx; text-align: right; }
-.col-status { width: 90rpx; text-align: center; }
-.col-org { width: 240rpx; }
-.col-maturity { width: 120rpx; text-align: center; }
+.col-qty { width: 130rpx; text-align: right; }
+.col-taxprice { width: 160rpx; text-align: right; }
+.col-total { width: 170rpx; text-align: right; }
+.col-maturity { width: 150rpx; text-align: center; }
 .primary-button { background: #486df3; color: #fff; border-radius: 14rpx; font-size: 28rpx; margin-top: 8rpx; }

@@ -9,10 +9,9 @@
       </view>
       <view class="field-grid">
         <view class="field"><text class="field-label">立账日期</text><text class="field-value">{{document.businessDate || '-'}}</text></view>
-        <view class="field"><text class="field-label">记账期间</text><text class="field-value">{{document.postPeriod || '-'}}</text></view>
         <view class="field"><text class="field-label">来源组织</text><text class="field-value">{{document.srcOrg || '-'}}</text></view>
         <view class="field"><text class="field-label">发票日期</text><text class="field-value">{{document.invoiceDate || '-'}}</text></view>
-        <view class="field field-wide"><text class="field-label">发票号</text><text class="field-value">{{document.invoiceNum || '-'}}</text></view>
+        <view class="field"><text class="field-label">发票号</text><text class="field-value">{{document.invoiceNum || '-'}}</text></view>
       </view>
     </view>
 
@@ -20,37 +19,25 @@
     <scroll-view class="table-scroll" scroll-x enhanced show-scrollbar="{{false}}">
       <view class="table">
         <view class="table-row table-head">
-          <text class="cell col-line">行号</text>
+          <text class="cell col-srcno">来源单号</text>
+          <text class="cell col-srcline">来源行号</text>
           <text class="cell col-item">料品</text>
           <text class="cell col-code">料号</text>
           <text class="cell col-uom">主单位</text>
           <text class="cell col-qty">数量</text>
-          <text class="cell col-price">未税单价</text>
           <text class="cell col-taxprice">含税单价</text>
-          <text class="cell col-nontax">未税金额</text>
-          <text class="cell col-tax">税额</text>
           <text class="cell col-total">价税合计</text>
-          <text class="cell col-fctotal">总金额</text>
-          <text class="cell col-balance">总金额余额</text>
-          <text class="cell col-status">状态</text>
-          <text class="cell col-org">业务组织</text>
           <text class="cell col-maturity">到期日</text>
         </view>
         <view wx:for="{{document.lines}}" wx:key="lineNum" class="table-row">
-          <text class="cell col-line">{{item.lineNum}}</text>
+          <text class="cell col-srcno">{{item.srcShipNo}}</text>
+          <text class="cell col-srcline">{{item.srcLineNum}}</text>
           <text class="cell col-item">{{item.itemName}}</text>
           <text class="cell col-code">{{item.itemCode}}</text>
           <text class="cell col-uom">{{item.uom}}</text>
           <text class="cell col-qty">{{item.qty}}</text>
-          <text class="cell col-price">{{item.nonTaxPrice}}</text>
           <text class="cell col-taxprice">{{item.taxPrice}}</text>
-          <text class="cell col-nontax">{{item.nonTaxAmount}}</text>
-          <text class="cell col-tax">{{item.taxAmount}}</text>
           <text class="cell col-total">{{item.taxIncludedTotal}}</text>
-          <text class="cell col-fctotal">{{item.totalAmount}}</text>
-          <text class="cell col-balance">{{item.totalBalance}}</text>
-          <text class="cell col-status">{{item.lineStatus}}</text>
-          <text class="cell col-org">{{item.bizOrg}}</text>
           <text class="cell col-maturity">{{item.maturity || '-'}}</text>
         </view>
       </view>

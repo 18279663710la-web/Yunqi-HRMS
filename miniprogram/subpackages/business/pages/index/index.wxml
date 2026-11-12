@@ -57,9 +57,6 @@
         <view class="receivable-grid">
           <view class="receivable-field"><text class="field-label">立账日期</text><text class="field-value">{{item.businessDate || '-'}}</text></view>
           <view class="receivable-field"><text class="field-label">记账期间</text><text class="field-value">{{item.postPeriod || '-'}}</text></view>
-          <view class="receivable-field"><text class="field-label">来源组织</text><text class="field-value">{{item.srcOrg || '-'}}</text></view>
-          <view class="receivable-field"><text class="field-label">发票日期</text><text class="field-value">{{item.invoiceDate || '-'}}</text></view>
-          <view class="receivable-field receivable-wide"><text class="field-label">发票号</text><text class="field-value">{{item.invoiceNum || '-'}}</text></view>
         </view>
       </view>
       <view wx:else class="document-card" data-id="{{item.id}}" bindtap="openDocument">

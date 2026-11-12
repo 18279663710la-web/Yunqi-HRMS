@@ -2,7 +2,8 @@ import { downloadBusinessPdf, get, getCachedUser } from '../../../../utils/reque
 import { getCurrentUser } from '../../../../services/auth/api';
 
 interface ReceivableLine {
-  lineNum: number; itemName: string; itemCode: string; uom: string; qty: string;
+  lineNum: number; srcShipNo: string; srcLineNum: number;
+  itemName: string; itemCode: string; uom: string; qty: string;
   nonTaxPrice: string; taxPrice: string; nonTaxAmount: string; taxAmount: string;
   taxIncludedTotal: string; totalAmount: string; totalBalance: string;
   bizOrg: string; maturity: string | null; lineStatus: string;

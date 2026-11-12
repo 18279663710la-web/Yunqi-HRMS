@@ -6,7 +6,8 @@ import type { InputEvent, PickerEvent, TapEvent } from '../../../../types/ui';
 type Kind = 'receivables' | 'receipts' | 'summary';
 interface ReceiptDocument { id: string; docNo: string; date: string; customer: string; amount: string; currency: string }
 interface ReceivableLine {
-  lineNum: number; itemName: string; itemCode: string; uom: string; qty: string;
+  lineNum: number; srcShipNo: string; srcLineNum: number;
+  itemName: string; itemCode: string; uom: string; qty: string;
   nonTaxPrice: string; taxPrice: string; nonTaxAmount: string; taxAmount: string;
   taxIncludedTotal: string; totalAmount: string; totalBalance: string;
   bizOrg: string; maturity: string | null; lineStatus: string;

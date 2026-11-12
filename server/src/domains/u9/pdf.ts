@@ -1,99 +1,170 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
-import type { U9Document, U9DocumentKind, U9ReceiptDocument } from './types';
+import type { U9DocumentKind, U9ReceiptDocument, U9ReceivableDocument } from './types';
 import { HttpError } from '../../shared/utils/errors';
 import { formatMoney } from './money';
 
 function fontPath(): string {
-  const candidates = [process.env.U9_PDF_FONT, process.env.WINDIR && path.join(process.env.WINDIR, 'Fonts', 'simhei.ttf'), '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'];
+  // 业务 PDF 统一使用宋体；pdfkit 无法嵌入 .ttc 集合字体（simsun.ttc 会报错），
+  // 因此使用独立的华文宋体 STSONG.TTF；U9_PDF_FONT 可覆盖，缺失时回退黑体/文泉驿
+  const candidates = [
+    process.env.U9_PDF_FONT,
+    process.env.WINDIR && path.join(process.env.WINDIR, 'Fonts', 'STSONG.TTF'),
+    process.env.WINDIR && path.join(process.env.WINDIR, 'Fonts', 'simhei.ttf'),
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+  ];
   const font = candidates.find((candidate): candidate is string => !!candidate && fs.existsSync(candidate));
   if (!font) throw new HttpError(503, 503, '未配置可用的中文字体');
   return font;
 }
 
-interface Column { title: string; width: number; align?: 'left' | 'right' }
-async function tablePdf(title: string, meta: string[], columns: Column[], rows: string[][]): Promise<Buffer> {
-  const pdf = new PDFDocument({ size: 'A4', margin: 40, info: { Title: title } });
+/**
+ * 业务模块 PDF 统一样式，与工资发放模块导出的工资表一致：
+ * 宋体 11pt、单元格水平垂直居中并自动换行、细黑框、白底、无行编号、无其他颜色；
+ * 页面 A4/A3 横向，左右边距 0.7 英寸、上下 0.75 英寸，列宽缩放到同一页宽。
+ */
+interface GridColumn { title: string; width: number }
+type GridSize = 'A4' | 'A3';
+const CELL_FONT = 11;
+const CELL_LINE = CELL_FONT * 1.2;
+const TITLE_FONT = 16;
+
+async function gridPdf(title: string, topRow: string, columns: GridColumn[], rows: string[][], size: GridSize): Promise<Buffer> {
+  const pdf = new PDFDocument({ size, layout: 'landscape', margin: 30, info: { Title: title } });
   const chunks: Buffer[] = [];
-  const result = new Promise<Buffer>((resolve, reject) => {
+  const done = new Promise<Buffer>((resolve, reject) => {
     pdf.on('data', (chunk: Buffer) => chunks.push(chunk));
     pdf.on('end', () => resolve(Buffer.concat(chunks)));
     pdf.on('error', reject);
   });
   pdf.font(fontPath());
-  const startX = 40;
-  const totalWidth = columns.reduce((sum, col) => sum + col.width, 0);
-  const header = () => {
-    pdf.fontSize(16).fillColor('#18243b').text(title, startX, 40, { width: totalWidth, align: 'center' });
-    pdf.fontSize(9).fillColor('#526174');
-    let y = 75;
-    for (const line of meta) { pdf.text(line, startX, y, { width: totalWidth }); y += 19; }
-    y += 4;
-    pdf.rect(startX, y, totalWidth, 27).fill('#edf1f7');
-    let x = startX;
-    pdf.fillColor('#27364e').fontSize(9);
-    for (const col of columns) { pdf.text(col.title, x + 6, y + 8, { width: col.width - 12, align: col.align || 'left' }); x += col.width; }
-    return y + 27;
+  // 工资表导出：pageSetup.margins 左右 0.7 英寸、上下 0.75 英寸（1in = 72pt）
+  const left = 50.4;
+  const top = 54;
+  const bottom = 54;
+  const contentWidth = pdf.page.width - left * 2;
+  // 列宽按比例缩放到整页宽（同 fitToWidth: 1）
+  const scale = contentWidth / columns.reduce((sum, col) => sum + col.width, 0);
+  const widths = columns.map(col => col.width * scale);
+
+  const wrappedLines = (text: string, width: number): number =>
+    Math.max(1, Math.ceil(pdf.heightOfString(text || '', { width: Math.max(1, width - 8) }) / CELL_LINE));
+  // 标题在工资表中加粗，宋体无粗体变体时以微偏移双绘模拟
+  const drawBoldCentered = (text: string, y: number, fontSize: number, height: number): void => {
+    pdf.fontSize(fontSize);
+    for (const offset of [0.4, 0]) {
+      pdf.text(text, left + offset, y + (height - fontSize * 1.2) / 2, { width: contentWidth, align: 'center', lineBreak: false, lineGap: 0 });
+    }
   };
-  let y = header();
-  for (const row of rows.length ? rows : [columns.map((_, index) => index === 0 ? '暂无数据' : '')]) {
-    pdf.fontSize(9);
-    const height = Math.max(28, ...columns.map((col, index) => pdf.heightOfString(row[index] || '', { width: col.width - 12 }) + 14));
-    if (y + height > pdf.page.height - 40) { pdf.addPage(); y = header(); }
-    let x = startX;
-    pdf.fillColor('#263449');
-    columns.forEach((col, index) => {
-      pdf.text(row[index] || '', x + 6, y + 7, { width: col.width - 12, align: col.align || 'left', lineBreak: true });
-      x += col.width;
+  const drawCellText = (text: string, x: number, y: number, width: number, height: number): void => {
+    const lines = wrappedLines(text, width);
+    pdf.fontSize(CELL_FONT).fillColor('#000000').text(text || '', x + 4, y + (height - lines * CELL_LINE) / 2, {
+      width: Math.max(1, width - 8),
+      align: 'center',
+      lineBreak: true,
+      lineGap: 0,
     });
-    pdf.moveTo(startX, y + height).lineTo(startX + totalWidth, y + height).lineWidth(0.5).strokeColor('#e2e8f0').stroke();
-    y += height;
+  };
+  const drawBand = (y: number, values: string[], kind: 'top' | 'head' | 'cell'): number => {
+    if (kind === 'top') {
+      pdf.lineWidth(0.75).rect(left, y, contentWidth, 28).fillAndStroke('#ffffff', '#000000');
+      drawCellText(values[0] || '', left, y, contentWidth, 28);
+      return y + 28;
+    }
+    const height = kind === 'head' ? 30 : Math.max(15, ...widths.map((width, index) => wrappedLines(values[index] || '', width) * 16 + 4));
+    let x = left;
+    columns.forEach((col, index) => {
+      pdf.lineWidth(0.75).rect(x, y, widths[index], height).fillAndStroke('#ffffff', '#000000');
+      drawCellText(values[index] || '', x, y, widths[index], height);
+      x += widths[index];
+    });
+    return y + height;
+  };
+  const drawPage = (y: number): number => {
+    drawBoldCentered(title, y, TITLE_FONT, 36);
+    let next = y + 36;
+    next = drawBand(next, [topRow], 'top');
+    next = drawBand(next, columns.map(col => col.title), 'head');
+    return next;
+  };
+
+  let y = drawPage(top);
+  for (const row of rows) {
+    const height = Math.max(15, ...widths.map((width, index) => wrappedLines(row[index] || '', width) * 16 + 4));
+    if (y + height > pdf.page.height - bottom) {
+      pdf.addPage();
+      y = drawPage(top);
+    }
+    y = drawBand(y, row, 'cell');
   }
+  if (!rows.length) y = drawBand(y, ['暂无数据'], 'cell');
   pdf.end();
-  return result;
+  return done;
 }
 
-function sumAmounts(values: Array<string | undefined>): string {
-  const scale = 1000000000n;
-  let sum = 0n;
-  for (const value of values) {
-    const match = /^(-?)(\d+)(?:\.(\d{0,9}))?$/.exec(value || '');
-    if (!match) throw new Error('U9 单据金额格式无效');
-    const amount = BigInt(match[2]) * scale + BigInt((match[3] || '').padEnd(9, '0'));
-    sum += match[1] ? -amount : amount;
-  }
-  const absolute = sum < 0 ? -sum : sum;
-  return `${sum < 0 ? '-' : ''}${absolute / scale}.${String(absolute % scale).padStart(9, '0')}`;
+function groupThousands(value: string): string {
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
+  if (!match) return value;
+  return `${match[1]}${match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${match[3] ? `.${match[3]}` : ''}`;
+}
+
+function money2(value: unknown): string {
+  return groupThousands(formatMoney(value, 2));
+}
+
+export function documentPdf(kind: U9DocumentKind, document: U9ReceivableDocument | U9ReceiptDocument): Promise<Buffer> {
+  return kind === 'receipts'
+    ? receiptPdf(document as U9ReceiptDocument)
+    : receivablePdf(document as U9ReceivableDocument);
+}
+
+function receivablePdf(document: U9ReceivableDocument): Promise<Buffer> {
+  return gridPdf('应收单列表', `${document.docNo} ${document.customer}应收单`, [
+    { title: '来源单号', width: 118 },
+    { title: '来源行号', width: 60 },
+    { title: '料品', width: 170 },
+    { title: '料号', width: 84 },
+    { title: '主单位', width: 58 },
+    { title: '数量', width: 72 },
+    { title: '含税单价', width: 82 },
+    { title: '价税合计', width: 92 },
+    { title: '到期日', width: 76 },
+  ], document.lines.map(line => [
+    line.srcShipNo || '-',
+    String(line.srcLineNum),
+    line.itemName || '-',
+    line.itemCode || '-',
+    line.uom || '-',
+    line.qty,
+    line.taxPrice,
+    line.taxIncludedTotal,
+    line.maturity || '-',
+  ]), 'A4');
 }
 
 function receiptPdf(document: U9ReceiptDocument): Promise<Buffer> {
-  return tablePdf('收款单', [
-    `单号：${document.docNo}    收款日期：${document.businessDate || '-'}`,
-    `客户：${document.customer || '-'}    总金额：${document.totalAmount || '-'} 元`,
-  ], [
-    { title: '行号', width: 40 },
-    { title: '结算方式', width: 60 },
-    { title: '流水号', width: 205 },
-    { title: '金额(元)', width: 75, align: 'right' },
-    { title: '银行账号', width: 135 },
+  return gridPdf('收款单列表', `${document.docNo} ${document.customer}收款单`, [
+    { title: '行号', width: 56 },
+    { title: '结算方式', width: 100 },
+    { title: '流水号', width: 380 },
+    { title: '金额(元)', width: 96 },
+    { title: '银行账号', width: 150 },
   ], document.lines.map(line => [
     String(line.lineNum),
     line.settlementMethod || '-',
     line.noteNo || '-',
-    line.amount,
+    money2(line.amount),
     line.bankAccount || '-',
-  ]));
+  ]), 'A4');
 }
 
-export function documentPdf(kind: U9DocumentKind, document: U9Document): Promise<Buffer> {
-  if (kind === 'receipts') return receiptPdf(document as U9ReceiptDocument);
-  const lines = Array.isArray(document.lines) ? document.lines as Array<{ shipNo?: string; amount?: string }> : [];
-  return tablePdf('应收单', [
-    `单号：${document.docNo}    日期：${document.date || '-'}`,
-    `客户：${document.customer || '-'}    币种：${document.currency || '-'}    归属合计：${formatMoney(sumAmounts(lines.map(line => line.amount)), document.currencyPrecision ?? 2)}`,
-  ], [{ title: '出货单号', width: 300 }, { title: '归属金额', width: 215, align: 'right' }],
-  lines.map(line => [line.shipNo || '-', formatMoney(line.amount, document.currencyPrecision ?? 2)]));
+interface SummaryGroup {
+  code: string;
+  name: string;
+  saleser: string;
+  carry: string | null;
+  months: Map<string, string | null>;
 }
 
 function summaryMonths(from: string, to: string): string[] {
@@ -110,25 +181,6 @@ function summaryMonths(from: string, to: string): string[] {
   return months;
 }
 
-function groupThousands(value: string): string {
-  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
-  if (!match) return value;
-  return `${match[1]}${match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${match[3] ? `.${match[3]}` : ''}`;
-}
-
-function summaryMoney(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '';
-  return groupThousands(formatMoney(value, 2));
-}
-
-interface SummaryGroup {
-  code: string;
-  name: string;
-  saleser: string;
-  carry: string | null;
-  months: Map<string, string | null>;
-}
-
 export function summaryPdf(from: string, to: string, rows: Record<string, unknown>[]): Promise<Buffer> {
   const months = summaryMonths(from, to);
   const groups = new Map<string, SummaryGroup>();
@@ -137,13 +189,7 @@ export function summaryPdf(from: string, to: string, rows: Record<string, unknow
     if (!code) continue;
     let group = groups.get(code);
     if (!group) {
-      group = {
-        code,
-        name: String(row.CustomerName || '-'),
-        saleser: String(row.Saleser || '-'),
-        carry: null,
-        months: new Map(),
-      };
+      group = { code, name: String(row.CustomerName || '-'), saleser: String(row.Saleser || '-'), carry: null, months: new Map() };
       groups.set(code, group);
     }
     const display = String(row.DisplayName || '');
@@ -152,60 +198,38 @@ export function summaryPdf(from: string, to: string, rows: Record<string, unknow
     else if (/^\d{4}-\d{2}$/.test(display)) group.months.set(display, value);
   }
 
-  const pdf = new PDFDocument({ size: 'A3', layout: 'landscape', margin: 30, info: { Title: '应收款汇总表' } });
-  const chunks: Buffer[] = [];
-  const result = new Promise<Buffer>((resolve, reject) => {
-    pdf.on('data', (chunk: Buffer) => chunks.push(chunk));
-    pdf.on('end', () => resolve(Buffer.concat(chunks)));
-    pdf.on('error', reject);
+  const lines = [...groups.values()].map(group => {
+    const amounts = [group.carry, ...months.map(month => group.months.get(month))].filter((value): value is string => !!value);
+    return [
+      group.name,
+      group.code,
+      group.saleser,
+      group.carry === null ? '' : money2(group.carry),
+      ...months.map(month => (group.months.get(month) === null || group.months.get(month) === undefined ? '' : money2(group.months.get(month)))),
+      amounts.length ? money2(sumLines(amounts)) : '',
+    ];
   });
-  pdf.font(fontPath());
+  const columns: GridColumn[] = [
+    { title: '客户', width: 210 },
+    { title: '客户代码', width: 60 },
+    { title: '业务员', width: 70 },
+    { title: '承上', width: 85 },
+    ...months.map(month => ({ title: month, width: 85 })),
+    { title: '合计', width: 85 },
+  ];
+  return gridPdf('应收款汇总表', `${from} 到 ${to}`, columns, lines, 'A3');
+}
 
-  const margin = 30;
-  const contentWidth = pdf.page.width - margin * 2;
-  const fixedWidths = [210, 60, 70, 85, 85];
-  const monthWidth = months.length ? (contentWidth - fixedWidths.reduce((sum, width) => sum + width, 0)) / months.length : 0;
-  const widths = [fixedWidths[0], fixedWidths[1], fixedWidths[2], fixedWidths[3], ...months.map(() => monthWidth), fixedWidths[4]];
-  const headers = ['客户', '客户代码', '业务员', '承上', ...months, '合计'];
-  const aligns: Array<'left' | 'right'> = ['left', 'left', 'left', 'right', ...months.map(() => 'right' as const), 'right'];
-
-  const rowHeight = (values: string[], header: boolean): number => {
-    pdf.fontSize(header ? 8.5 : 8);
-    return Math.max(header ? 24 : 22, ...values.map((text, index) => pdf.heightOfString(text || '', { width: widths[index] - 6, align: aligns[index] }) + 8));
-  };
-  const drawRow = (y: number, values: string[], header: boolean): number => {
-    const height = rowHeight(values, header);
-    let x = margin;
-    pdf.fontSize(header ? 8.5 : 8);
-    for (let index = 0; index < values.length; index += 1) {
-      pdf.lineWidth(0.6).rect(x, y, widths[index], height).fillAndStroke(header ? '#ffff00' : '#ffffff', '#000000');
-      pdf.fillColor('#000000').text(values[index] || '', x + 3, y + 4, { width: widths[index] - 6, align: aligns[index], lineBreak: true });
-      x += widths[index];
-    }
-    return y + height;
-  };
-
-  pdf.fontSize(18).fillColor('#000000').text('应收款汇总表', margin, margin, { width: contentWidth, align: 'left' });
-  pdf.fontSize(9).text(`${from} 到 ${to}`, margin, margin + 30, { width: contentWidth, align: 'left' });
-  let y = drawRow(margin + 55, headers, true);
-  if (!groups.size) {
-    y = drawRow(y, ['暂无数据', '', '', '', ...months.map(() => ''), ''], false);
-  } else {
-    for (const group of groups.values()) {
-      const values = [
-        group.name, group.code, group.saleser, summaryMoney(group.carry),
-        ...months.map(month => summaryMoney(group.months.get(month))),
-      ];
-      const amounts = [group.carry, ...months.map(month => group.months.get(month))].filter((value): value is string => !!value);
-      values.push(amounts.length ? groupThousands(formatMoney(sumAmounts(amounts), 2)) : '');
-      const height = rowHeight(values, false);
-      if (y + height > pdf.page.height - margin) {
-        pdf.addPage();
-        y = drawRow(margin, headers, true);
-      }
-      y = drawRow(y, values, false);
-    }
+function sumLines(values: string[]): string {
+  const scale = 1000000000n;
+  let sum = 0n;
+  for (const value of values) {
+    const match = /^(-?)(\d+)(?:\.(\d{0,9}))?$/.exec(value || '');
+    if (!match) throw new Error('U9 金额格式无效');
+    sum += BigInt(match[1] ? -match[2] : match[2]) * scale + BigInt((match[3] || '').padEnd(9, '0'));
   }
-  pdf.end();
-  return result;
+  const negative = sum < 0n;
+  const absolute = (negative ? -sum : sum).toString();
+  const padded = absolute.padStart(10, '0');
+  return `${negative ? '-' : ''}${padded.slice(0, -9)}.${padded.slice(-9)}`;
 }

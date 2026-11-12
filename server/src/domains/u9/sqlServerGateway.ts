@@ -111,7 +111,8 @@ function likePattern(value: string): string {
 function receivableLineSql(count: number): string {
   const ids = Array.from({ length: count }, () => '?').join(',');
   return `SELECT CONVERT(varchar(20),h.ID) docId,
-    a.LineNum lineNum, a.Item_ItemName itemName, a.Item_ItemCode itemCode,
+    a.LineNum lineNum, s.DocNo srcShipNo, sl.DocLineNo srcLineNo,
+    a.Item_ItemName itemName, a.Item_ItemCode itemCode,
     u.Name uom, CONVERT(varchar(50),a.PUAmount) qty,
     CONVERT(varchar(50),a.NonTaxPrice) nonTaxPrice, CONVERT(varchar(50),a.TaxPrice) taxPrice,
     CONVERT(varchar(60),a.AROCMoney_NonTax) nonTaxAmount, CONVERT(varchar(60),a.AROCMoney_Tax) taxAmount,
@@ -134,6 +135,8 @@ function receivableLineSql(count: number): string {
 function receivableLine(row: Record<string, unknown>): U9ReceivableLine {
   return {
     lineNum: Number(row.lineNum),
+    srcShipNo: String(row.srcShipNo || '-'),
+    srcLineNum: Number(row.srcLineNo),
     itemName: String(row.itemName || '-'),
     itemCode: String(row.itemCode || '-'),
     uom: String(row.uom || '-'),
