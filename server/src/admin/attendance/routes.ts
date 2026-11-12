@@ -17,6 +17,7 @@ import {
 getAdminAttendance,
 updateAttendancePunch
 } from './adminAttendanceService';
+import { getVisitPhoto, listAdminVisits } from '../../domains/attendance/visitService';
 import { adminOf } from '../adminContext';
 
 const router = Router();
@@ -55,6 +56,30 @@ router.delete('/attendance/groups/:id', asyncHandler(async (req, res) => {
   const id = parse(groupIdSchema, req.params.id);
   await deleteAttendanceGroup(id, adminOf(req));
   success(res, null);
+}));
+
+router.get('/attendance/visits/photos/:id', asyncHandler(async (req, res) => {
+  const id = parse(z.string().uuid(), req.params.id);
+  const photo = await getVisitPhoto(id);
+  res.set({
+    'Content-Type': photo.mimeType,
+    'Content-Disposition': `inline; filename="visit-photo"; filename*=UTF-8''${encodeURIComponent(photo.fileName)}`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.send(photo.data);
+}));
+
+router.get('/attendance/visits', asyncHandler(async (req, res) => {
+  const page = Number(req.query.page || 1);
+  const pageSize = Number(req.query.pageSize || 20);
+  success(res, await listAdminVisits({
+    month: String(req.query.month || ''),
+    employeeId: String(req.query.employeeId || ''),
+    keyword: String(req.query.keyword || ''),
+    page: Number.isFinite(page) ? page : 1,
+    pageSize: Number.isFinite(pageSize) ? pageSize : 20,
+  }));
 }));
 
 router.get(

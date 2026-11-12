@@ -1,0 +1,101 @@
+<view class="page">
+  <view class="page-body">
+    <view class="section-head">
+      <view class="section-title">拜访登记</view>
+    </view>
+
+    <view class="card visit-form-card">
+      <view class="visit-field">
+        <view class="visit-label">客户名称</view>
+        <input
+          class="visit-input"
+          value="{{customerName}}"
+          placeholder="请输入客户名称"
+          placeholder-class="visit-placeholder"
+          maxlength="100"
+          bindinput="onCustomerInput"
+        />
+      </view>
+
+      <view class="visit-field">
+        <view class="visit-label">拜访目的</view>
+        <input
+          class="visit-input"
+          value="{{purpose}}"
+          placeholder="请输入拜访目的"
+          placeholder-class="visit-placeholder"
+          maxlength="200"
+          bindinput="onPurposeInput"
+        />
+      </view>
+
+      <view class="visit-field">
+        <view class="visit-label">拜访地点</view>
+        <view class="visit-location {{address ? 'is-set' : ''}}" bindtap="locateCurrent" hover-class="visit-location-hover">
+          <view class="visit-location-icon"></view>
+          <view class="flex-1 visit-location-main">
+            <view class="visit-location-title ellipsis">{{addressName || (locating ? '定位中…' : '获取当前位置')}}</view>
+            <view class="visit-location-sub ellipsis">{{locationSub}}</view>
+          </view>
+          <view class="tag {{address ? 'tag-green' : 'tag-blue'}}">{{address ? '重新定位' : '定位'}}</view>
+        </view>
+      </view>
+
+      <view class="visit-field">
+        <view class="flex-between">
+          <view class="visit-label">现场照片</view>
+          <view class="visit-photo-count">{{photos.length}} / 3</view>
+        </view>
+        <view class="visit-photos">
+          <view class="visit-photo" wx:for="{{photos}}" wx:key="tempPath">
+            <image class="visit-photo-image" src="{{item.tempPath}}" mode="aspectFill" data-index="{{index}}" bindtap="previewLocalPhoto"></image>
+            <view class="visit-photo-remove" data-index="{{index}}" catchtap="removePhoto">×</view>
+          </view>
+          <view class="visit-photo-add" wx:if="{{photos.length < 3}}" bindtap="choosePhotos" hover-class="visit-photo-add-hover">
+            <view class="visit-photo-add-icon"></view>
+            <view class="visit-photo-add-text">拍照</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="visit-field">
+        <view class="visit-label">备注</view>
+        <textarea
+          class="visit-textarea"
+          value="{{remark}}"
+          placeholder="选填"
+          placeholder-class="visit-placeholder"
+          maxlength="500"
+          bindinput="onRemarkInput"
+        ></textarea>
+      </view>
+
+      <button class="btn btn-primary visit-submit {{submitting || locating ? 'btn-disabled' : ''}}" disabled="{{submitting || locating}}" bindtap="submit">{{locating ? '正在获取位置…' : '提交拜访'}}</button>
+    </view>
+
+    <view class="section-head">
+      <view class="section-title">我的拜访</view>
+      <view class="section-more">本月 {{records.length}} 次</view>
+    </view>
+
+    <view class="card visit-record" wx:for="{{records}}" wx:key="id">
+      <view class="flex-between visit-record-head">
+        <view class="visit-record-customer ellipsis">{{item.customerName}}</view>
+        <view class="visit-record-time">{{item.timeText}}</view>
+      </view>
+      <view class="visit-record-purpose ellipsis">{{item.purpose}}</view>
+      <view class="visit-record-address ellipsis">{{item.addressText}}</view>
+      <view class="visit-record-foot">
+        <view class="tag tag-blue" wx:if="{{item.photoCount}}" data-id="{{item.id}}" bindtap="previewRecordPhotos">照片 {{item.photoCount}} 张</view>
+        <view class="visit-record-remark ellipsis" wx:if="{{item.remark}}">{{item.remark}}</view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{ready && !records.length}}">
+      <view class="empty-icon">📍</view>
+      <view class="empty-text">本月还没有拜访记录</view>
+    </view>
+
+    <view class="tabbar-holder"></view>
+  </view>
+</view>

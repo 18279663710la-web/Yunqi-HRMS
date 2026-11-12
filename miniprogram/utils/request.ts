@@ -7,22 +7,16 @@
  *   · 管理员账号与员工账号完全隔离：employee token 只能访问员工接口
  *   · 无 token 时直接跳转登录页；401 先尝试 refresh，失败后清登录态并跳转登录
  *
- * 注意：真机调试时 127.0.0.1 指向手机自身，需把 DEVICE_ORIGIN 改成电脑局域网 IP，
- * 并在微信开发者工具中保持「不校验合法域名」。
+ * 注意：真机调试时 127.0.0.1 指向手机自身，后端地址由 utils/apiOrigin.ts 自动探测，
+ * 也可在登录页长按底部手动指定；并在微信开发者工具中保持「不校验合法域名」。
  */
 
 import type { CurrentUser, LoginResponse } from '../types/models';
 import { AiStreamDecoder } from './expense-ai-stream';
 import type { AiStreamEvent } from './expense-ai-stream';
 import { toast } from './util';
-import { apiOriginForPlatform } from './apiOrigin';
+import { ensureApiOrigin, getApiOrigin, invalidateApiOrigin, isApiOriginReachable, noteRequestSuccess, noteRequestTimeout } from './apiOrigin';
 import { isOnboardingRoute } from '../services/onboarding/onboardingRoutes';
-
-const DEVICE_ORIGIN = 'http://172.20.10.14:3100';
-let platform = '';
-try { platform = wx.getSystemInfoSync().platform; } catch { /* 真机配置作为回退 */ }
-export const STATIC_BASE = apiOriginForPlatform(platform, DEVICE_ORIGIN);
-export const BASE_URL = `${STATIC_BASE}/api`;
 
 const LOGIN_PAGE = '/pages/login/login';
 const TIMEOUT = 15000;
@@ -60,14 +54,47 @@ let redirectingToOnboarding = false;
 
 function buildUrl(url: string): string {
   if (/^https?:\/\//.test(url)) return url;
-  return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  return `${getApiOrigin()}/api${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+/** 当前后端根地址；上传/下载等需要同步 URL 的场景使用。 */
+export function getBaseUrl(): string {
+  return `${getApiOrigin()}/api`;
+}
+
+/** 当前后端静态资源根地址。 */
+export function getStaticBase(): string {
+  return getApiOrigin();
+}
+
+function isNetworkError(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as ApiError).code === -1;
+}
+
+function unreachableError(silent = false): ApiError {
+  const err: ApiError = { code: -1, message: '无法连接后端，请确认手机与电脑在同一网络且后端已启动' };
+  if (!silent) toastError(err.message);
+  return err;
+}
+
+/** 网络失败时重新探测后端地址；地址发生变化才自动重试一次。 */
+async function withOriginRetry<T>(run: () => Promise<T>): Promise<T> {
+  const previous = getApiOrigin();
+  try {
+    return await run();
+  } catch (error) {
+    if (!isNetworkError(error) || !isApiOriginReachable()) throw error;
+    const next = await ensureApiOrigin(true);
+    if (next === previous) throw error;
+    return run();
+  }
 }
 
 export function resolveFileUrl(path: string): string {
   if (!path) return '';
   if (/^https?:\/\//.test(path)) return path;
   if (path.startsWith('wxfile://') || path.startsWith('file://')) return path;
-  return `${STATIC_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  return `${getApiOrigin()}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
 export function getToken(): string {
@@ -151,7 +178,15 @@ function unwrap<T>(statusCode: number, raw: unknown, silent = false): T {
   throw err;
 }
 
-function wxRequest(options: RequestOptions): Promise<WechatMiniprogram.RequestSuccessCallbackResult> {
+/** 网络层失败：超时说明地址可达但服务端慢，不应清掉地址缓存重新探测。 */
+function isTimeoutFailure(e: unknown): boolean {
+  const message = String((e as { errMsg?: string } | undefined)?.errMsg || '');
+  return message.includes('timeout');
+}
+
+async function wxRequest(options: RequestOptions): Promise<WechatMiniprogram.RequestSuccessCallbackResult> {
+  await ensureApiOrigin();
+  if (!isApiOriginReachable()) throw unreachableError(options.silent);
   const token = options.auth === false ? '' : getToken();
   return new Promise((resolve, reject) => {
     wx.request({
@@ -164,11 +199,17 @@ function wxRequest(options: RequestOptions): Promise<WechatMiniprogram.RequestSu
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.header || {}),
       },
-      success: resolve,
+      success: (res) => {
+        noteRequestSuccess();
+        resolve(res);
+      },
       fail: (e) => {
+        const timeout = isTimeoutFailure(e);
+        if (timeout) noteRequestTimeout(); else invalidateApiOrigin();
+        console.warn('[api] 网络连接失败', buildUrl(options.url), e);
         const err: ApiError = {
           code: -1,
-          message: '网络连接失败，请检查后端服务是否已启动',
+          message: timeout ? '请求超时，请稍后重试' : '网络连接失败，请确认手机与电脑在同一网络且后端已启动',
           detail: e,
         };
         if (!options.silent) toastError(err.message);
@@ -179,7 +220,7 @@ function wxRequest(options: RequestOptions): Promise<WechatMiniprogram.RequestSu
 }
 
 async function rawRequest<T>(options: RequestOptions): Promise<T> {
-  const res = await wxRequest(options);
+  const res = await withOriginRetry(() => wxRequest(options));
   return unwrap<T>(res.statusCode, res.data, options.silent);
 }
 
@@ -223,7 +264,7 @@ function authExpired(options: RequestOptions, message = '登录已过期，请�
 }
 
 async function send<T>(options: RequestOptions, retried = false): Promise<T> {
-  const res = await wxRequest({ ...options, auth: true });
+  const res = await withOriginRetry(() => wxRequest({ ...options, auth: true }));
 
   const body = parseBody(res.data) as { code?: number } | null;
   const onboardingBlocked = res.statusCode === 403 && body?.code === 40301;
@@ -269,12 +310,17 @@ export function post<T>(url: string, data?: unknown, options: Partial<RequestOpt
 /** 下载受员工鉴权保护的文件，不将令牌写入地址。 */
 export async function downloadAuthenticatedFile(url: string): Promise<string> {
   if (!url.startsWith('/payslips/') || !/^\/payslips\/\d+\/pdf$/.test(url)) throw { code: 400, message: '下载地址无效' } as ApiError;
+  await ensureApiOrigin();
+  if (!isApiOriginReachable()) throw unreachableError();
   const downloadOnce = () => new Promise<WechatMiniprogram.DownloadFileSuccessCallbackResult>((resolve, reject) => {
     wx.downloadFile({ url: buildUrl(url), header: { Authorization: `Bearer ${getToken()}` }, timeout: TIMEOUT, success: resolve,
-      fail: () => reject({ code: -1, message: '下载失败，请检查网络后重试' } as ApiError) });
+      fail: (e) => {
+        if (!isTimeoutFailure(e)) invalidateApiOrigin();
+        reject({ code: -1, message: isTimeoutFailure(e) ? '下载超时，请稍后重试' : '下载失败，请检查网络后重试' } as ApiError);
+      } });
   });
   if (!getToken()) { redirectToLogin(); throw { code: 401, message: '请先登录' } as ApiError; }
-  let result = await downloadOnce();
+  let result = await withOriginRetry(downloadOnce);
   if (result.statusCode === 401) {
     try { await refreshTokens(); } catch { throw authExpired({ url }); }
     result = await downloadOnce();
@@ -286,13 +332,18 @@ export async function downloadAuthenticatedFile(url: string): Promise<string> {
 
 /** 业务单据下载使用独立路径白名单，不修改工资条下载规则。 */
 export async function downloadBusinessPdf(url: string): Promise<string> {
-  if (!/^\/business\/(?:receivables|receipts)\/\d+\/pdf$/.test(url) && !/^\/business\/summary\/pdf\?from=\d{4}-\d{2}&to=\d{4}-\d{2}$/.test(url)) throw { code: 400, message: '下载地址无效' } as ApiError;
+  if (!/^\/business\/(?:receivables|receipts)\/\d+\/pdf$/.test(url) && !/^\/business\/summary\/pdf\?from=\d{4}-\d{2}$/.test(url)) throw { code: 400, message: '下载地址无效' } as ApiError;
+  await ensureApiOrigin();
+  if (!isApiOriginReachable()) throw unreachableError();
   const downloadOnce = () => new Promise<WechatMiniprogram.DownloadFileSuccessCallbackResult>((resolve, reject) => {
     wx.downloadFile({ url: buildUrl(url), header: { Authorization: `Bearer ${getToken()}` }, timeout: 60000, success: resolve,
-      fail: () => reject({ code: -1, message: '下载失败，请检查网络后重试' } as ApiError) });
+      fail: (e) => {
+        if (!isTimeoutFailure(e)) invalidateApiOrigin();
+        reject({ code: -1, message: isTimeoutFailure(e) ? '下载超时，请稍后重试' : '下载失败，请检查网络后重试' } as ApiError);
+      } });
   });
   if (!getToken()) { redirectToLogin(); throw { code: 401, message: '请先登录' } as ApiError; }
-  let result = await downloadOnce();
+  let result = await withOriginRetry(downloadOnce);
   if (result.statusCode === 401) {
     try { await refreshTokens(); } catch { throw authExpired({ url }); }
     result = await downloadOnce();
@@ -306,8 +357,10 @@ export async function downloadBusinessPdf(url: string): Promise<string> {
 export function streamPost(url: string, data: unknown, timeout: number, onEvent: (event: AiStreamEvent) => void): { promise: Promise<void>; abort: () => void } {
   let task: WechatMiniprogram.RequestTask | undefined;
   let cancelled = false;
-  const promise = new Promise<void>((resolve, reject) => {
+  const promise = ensureApiOrigin().then(() => new Promise<void>((resolve, reject) => {
     const start = (retried: boolean): void => {
+      if (cancelled) { reject({ code: -1, message: '预审已取消' }); return; }
+      if (!isApiOriginReachable()) { reject(unreachableError()); return; }
       const token = getToken();
       if (!token) { redirectToLogin(); reject({ code: 401, message: '请先登录' }); return; }
       let receivedResult = false;
@@ -330,13 +383,16 @@ export function streamPost(url: string, data: unknown, timeout: number, onEvent:
           if (!receivedChunk && res.data instanceof ArrayBuffer) decoder.push(res.data);
           if (receivedResult) resolve(); else reject({ code: -1, message: '预审连接中断，请重试' });
         },
-        fail: () => reject({ code: -1, message: cancelled ? '预审已取消' : '预审连接失败，请重试' }),
+        fail: (e) => {
+          if (!isTimeoutFailure(e)) invalidateApiOrigin();
+          reject({ code: -1, message: cancelled ? '预审已取消' : isTimeoutFailure(e) ? '预审响应超时，请重试' : '预审连接失败，请重试' });
+        },
       });
       if (typeof task.onChunkReceived !== 'function') { task.abort(); reject({ code: -1, message: '当前微信版本不支持流式预审' }); return; }
       task.onChunkReceived((event) => { receivedChunk = true; decoder.push(event.data); });
     };
     start(false);
-  });
+  }));
   return { promise, abort: () => { cancelled = true; task?.abort(); } };
 }
 
@@ -358,6 +414,8 @@ export interface UploadOptions {
 }
 
 async function uploadOnce(options: UploadOptions): Promise<WechatMiniprogram.UploadFileSuccessCallbackResult> {
+  await ensureApiOrigin();
+  if (!isApiOriginReachable()) throw unreachableError(options.silent);
   return new Promise((resolve, reject) => {
     wx.uploadFile({
       url: buildUrl(options.url),
@@ -369,8 +427,11 @@ async function uploadOnce(options: UploadOptions): Promise<WechatMiniprogram.Upl
         ...(options.header || {}),
       },
       success: resolve,
-      fail: () => {
-        const err: ApiError = { code: -1, message: '网络连接失败，请检查网络后重试' };
+      fail: (e) => {
+        const timeout = isTimeoutFailure(e);
+        if (!timeout) invalidateApiOrigin();
+        console.warn('[api] 上传失败', buildUrl(options.url));
+        const err: ApiError = { code: -1, message: timeout ? '上传超时，请稍后重试' : '网络连接失败，请确认手机与电脑在同一网络' };
         if (!options.silent) toastError(err.message);
         reject(err);
       },
@@ -385,7 +446,7 @@ export async function upload<T>(options: UploadOptions): Promise<T> {
     throw { code: 401, message: '请先登录' } as ApiError;
   }
 
-  let res = await uploadOnce(options);
+  let res = await withOriginRetry(() => uploadOnce(options));
   if (res.statusCode === 401) {
     try {
       await refreshTokens();

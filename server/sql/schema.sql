@@ -70,6 +70,37 @@ CREATE TABLE IF NOT EXISTS `u9_employee_bindings` (
   UNIQUE KEY `uk_u9_operator` (`operator_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- U9 回款通知轮询起点；首次启动写入，避免补发历史收款单
+CREATE TABLE IF NOT EXISTS `u9_receipt_sync` (
+  `id` TINYINT NOT NULL PRIMARY KEY,
+  `started_at` DATE NOT NULL,
+  `last_poll_at` DATETIME NULL,
+  `updated_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 业务员回款留单；明细保存 U9 邮件模板所需的快照字段
+CREATE TABLE IF NOT EXISTS `receipt_notifications` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `u9_receipt_id` VARCHAR(32) NOT NULL,
+  `employee_id` VARCHAR(10) NOT NULL,
+  `operator_id` VARCHAR(32) NOT NULL,
+  `doc_no` VARCHAR(50) NOT NULL,
+  `customer_name` VARCHAR(255) NOT NULL,
+  `business_date` DATE NOT NULL,
+  `total_amount` VARCHAR(60) NOT NULL,
+  `org_name` VARCHAR(100) NOT NULL,
+  `lines_json` JSON NOT NULL,
+  `line_count` INT NOT NULL DEFAULT 0,
+  `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+  `read_at` DATETIME NULL,
+  `push_status` ENUM('pending','pushed','skipped','failed') NOT NULL DEFAULT 'pending',
+  `pushed_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL,
+  UNIQUE KEY `uk_receipt_notification` (`u9_receipt_id`, `employee_id`),
+  KEY `idx_receipt_notification_employee` (`employee_id`, `is_read`, `business_date`),
+  KEY `idx_receipt_notification_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `approval_types` (
   `key` VARCHAR(20) PRIMARY KEY,
   `name` VARCHAR(50) NOT NULL,
@@ -598,6 +629,40 @@ CREATE TABLE IF NOT EXISTS `attendance_overtime_punches` (
   `check_in` DATETIME NOT NULL,
   `check_out` DATETIME NULL,
   KEY `idx_overtime_employee_start` (`employee_id`, `check_in`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 拜访记录：员工在客户现场单次签到，仅用于记录和统计，不改变考勤状态。
+CREATE TABLE IF NOT EXISTS `attendance_visits` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `employee_id` VARCHAR(10) NOT NULL,
+  `visit_time` DATETIME NOT NULL,
+  `customer_name` VARCHAR(100) NOT NULL,
+  `purpose` VARCHAR(200) NOT NULL,
+  `address_name` VARCHAR(100) NOT NULL DEFAULT '',
+  `address` VARCHAR(255) NOT NULL,
+  `latitude` DECIMAL(10,7) NOT NULL,
+  `longitude` DECIMAL(10,7) NOT NULL,
+  `accuracy` INT NULL,
+  `remark` VARCHAR(500) NOT NULL DEFAULT '',
+  `photo_count` TINYINT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_attendance_visits_employee_time` (`employee_id`, `visit_time`),
+  KEY `idx_attendance_visits_time` (`visit_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 拜访现场照片：visit_id 为空表示已上传但尚未提交的临时照片。
+CREATE TABLE IF NOT EXISTS `attendance_visit_photos` (
+  `id` CHAR(36) NOT NULL PRIMARY KEY,
+  `employee_id` VARCHAR(10) NOT NULL,
+  `visit_id` BIGINT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `mime_type` VARCHAR(50) NOT NULL,
+  `file_size` INT NOT NULL,
+  `file_data` LONGBLOB NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  KEY `idx_attendance_visit_photos_visit` (`visit_id`),
+  KEY `idx_attendance_visit_photos_employee` (`employee_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- start_time/end_time 分别是上班卡、下班卡时间段的开始，均可自由设置。

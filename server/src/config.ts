@@ -44,6 +44,18 @@ export const config = {
     secretKey: str(process.env.TENCENTCLOUD_SECRET_KEY, ''),
     region: str(process.env.TENCENTCLOUD_REGION, 'ap-guangzhou'),
   },
+  map: {
+    /** 腾讯位置服务 WebServiceAPI Key，用于拜访地址逆解析；未配置时回退“当前位置”。 */
+    tencentKey: str(process.env.TENCENT_MAP_KEY ?? process.env.VITE_TENCENT_MAP_KEY, ''),
+  },
+  u9ReceiptNotify: {
+    /** 与 U9 邮件模板一致，默认只处理江西优科账套。 */
+    orgCode: str(process.env.U9_RECEIPT_NOTIFY_ORG_CODE, '001'),
+    /** 首次轮询起点，YYYY-MM-DD；留空时使用首次启动当天。 */
+    since: str(process.env.U9_RECEIPT_NOTIFY_SINCE, ''),
+    lookbackDays: int(process.env.U9_RECEIPT_NOTIFY_LOOKBACK_DAYS, 2),
+    pollMs: int(process.env.U9_RECEIPT_NOTIFY_POLL_MS, 60000),
+  },
   corsOrigin: str(process.env.CORS_ORIGIN, '*'),
   admin: {
     username: str(process.env.ADMIN_USERNAME, 'admin'),

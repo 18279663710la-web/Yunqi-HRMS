@@ -4,11 +4,11 @@
 
 MySQL 连接池、事务、增量迁移、种子、演示数据和建库入口。
 
-初始化先补齐旧员工分类，再调用职务及平级组织迁移；迁移标记保证重复启动不覆盖管理员后续维护的职务和组织。演示员工不再预设部门。审批测试及发布表由幂等建表创建，旧测试哈希缺失时自动使结果失效；旧发布数据若缺少表单快照则阻止迁移，避免猜测历史表单。
+初始化先补齐旧员工分类，再调用职务及平级组织迁移；迁移标记保证重复启动不覆盖管理员后续维护的职务和组织。演示员工不再预设部门。审批测试及发布表由幂等建表创建，旧测试哈希缺失时自动使结果失效；旧发布数据若缺少表单快照则阻止迁移，避免猜测历史表单。`quickActionMigration.ts` 将旧工作台“公告通知”快捷入口替换为“拜访登记”，公告数据保留。
 
 ## 主要内容
 
-- 主要文件：`attendanceSeed.ts`、`invoiceSamples.ts`、`pool.ts`、`seed.ts`、`seedApprovalCleanup.ts`、`seedData.ts`、`setup.ts`。
+- 主要文件：`attendanceSeed.ts`、`invoiceSamples.ts`、`pool.ts`、`quickActionMigration.ts`、`seed.ts`、`seedApprovalCleanup.ts`、`seedData.ts`、`setup.ts`。
 
 ## 维护约束
 

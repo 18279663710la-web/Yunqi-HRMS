@@ -40,6 +40,7 @@ export const SUB_MODULES: SubModule[] = [
     items: [
       { key: '/attendance/groups', label: '考勤组' },
       { key: '/attendance/records', label: '考勤明细' },
+      { key: '/attendance/visits', label: '拜访记录' },
     ],
   },
   {

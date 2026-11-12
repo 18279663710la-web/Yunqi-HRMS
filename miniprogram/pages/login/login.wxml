@@ -45,7 +45,7 @@
 
   </view>
 
-  <view class="login-foot">云启科技 · 企业办公</view>
+  <view class="login-foot" bindlongpress="onServerSetting">云启科技 · 企业办公</view>
 
   <view class="login-checking" wx:if="{{checking}}">
     <view class="login-checking-box">正在检查登录状态…</view>

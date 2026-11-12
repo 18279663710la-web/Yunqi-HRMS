@@ -1,0 +1,20 @@
+page { background: #f5f7fb; color: #1d2940; }
+.detail-page { padding: 24rpx 24rpx 150rpx; }
+.state { text-align: center; color: #9aa5b5; font-size: 26rpx; padding: 80rpx 20rpx; }
+.mail-card { background: #fff; border-radius: 22rpx; padding: 30rpx 24rpx; box-shadow: 0 6rpx 20rpx rgba(38, 59, 104, .04); }
+.mail-title { font-size: 34rpx; font-weight: 600; line-height: 48rpx; margin-bottom: 26rpx; word-break: break-all; }
+.mail-copy { margin-bottom: 22rpx; }
+.mail-line { font-size: 28rpx; line-height: 48rpx; color: #1d2940; word-break: break-all; }
+.strong { font-weight: 600; }
+.mail-value { margin-left: 16rpx; }
+.table { width: 100%; border-top: 2rpx solid #666; border-left: 2rpx solid #666; }
+.tr { display: flex; align-items: stretch; }
+.th { background: #edf1f7; font-weight: 600; }
+.td { display: block; flex: none; box-sizing: border-box; padding: 12rpx 8rpx; border-right: 2rpx solid #666; border-bottom: 2rpx solid #666; font-size: 21rpx; line-height: 30rpx; word-break: break-all; }
+.col-line { width: 50rpx; text-align: center; }
+.col-method { width: 96rpx; }
+.col-note { width: 250rpx; }
+.col-amount { width: 106rpx; text-align: right; }
+.col-bank { width: 140rpx; }
+.mail-note { color: #536179; font-size: 24rpx; line-height: 40rpx; margin-top: 26rpx; word-break: break-all; }
+.mail-footer { color: #9aa5b5; font-size: 22rpx; line-height: 34rpx; text-align: center; margin-top: 26rpx; word-break: break-all; }

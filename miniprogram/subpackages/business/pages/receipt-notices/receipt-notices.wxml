@@ -1,0 +1,18 @@
+<view class="notices-page">
+  <view wx:if="{{error}}" class="empty" bindtap="retry">{{error}}，点击重试</view>
+  <view wx:elif="{{loading && items.length === 0}}" class="empty">加载中...</view>
+  <view wx:elif="{{items.length === 0}}" class="empty">暂无回款通知</view>
+  <view wx:for="{{items}}" wx:key="id" class="notice-card" data-id="{{item.id}}" bindtap="open">
+    <view class="notice-top">
+      <text class="notice-customer">{{item.customerName}}</text>
+      <text wx:if="{{!item.isRead}}" class="unread-dot"></text>
+    </view>
+    <view class="notice-doc">{{item.docNo}}</view>
+    <view class="notice-bottom">
+      <text>{{item.businessDate}}</text>
+      <text class="notice-amount">{{item.totalAmount}} 元</text>
+    </view>
+    <view class="notice-meta">{{item.lineCount}} 条明细</view>
+  </view>
+  <view wx:if="{{more}}" class="load-more" bindtap="loadMore">{{loading ? '加载中...' : '加载更多'}}</view>
+</view>

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
-import type { U9Document, U9DocumentKind } from './types';
+import type { U9Document, U9DocumentKind, U9ReceiptDocument } from './types';
 import { HttpError } from '../../shared/utils/errors';
 import { formatMoney } from './money';
 
@@ -67,18 +67,145 @@ function sumAmounts(values: Array<string | undefined>): string {
   return `${sum < 0 ? '-' : ''}${absolute / scale}.${String(absolute % scale).padStart(9, '0')}`;
 }
 
+function receiptPdf(document: U9ReceiptDocument): Promise<Buffer> {
+  return tablePdf('收款单', [
+    `单号：${document.docNo}    收款日期：${document.businessDate || '-'}`,
+    `客户：${document.customer || '-'}    总金额：${document.totalAmount || '-'} 元`,
+  ], [
+    { title: '行号', width: 40 },
+    { title: '结算方式', width: 60 },
+    { title: '流水号', width: 205 },
+    { title: '金额(元)', width: 75, align: 'right' },
+    { title: '银行账号', width: 135 },
+  ], document.lines.map(line => [
+    String(line.lineNum),
+    line.settlementMethod || '-',
+    line.noteNo || '-',
+    line.amount,
+    line.bankAccount || '-',
+  ]));
+}
+
 export function documentPdf(kind: U9DocumentKind, document: U9Document): Promise<Buffer> {
+  if (kind === 'receipts') return receiptPdf(document as U9ReceiptDocument);
   const lines = Array.isArray(document.lines) ? document.lines as Array<{ shipNo?: string; amount?: string }> : [];
-  return tablePdf(kind === 'receivables' ? '应收单' : '收款单', [
+  return tablePdf('应收单', [
     `单号：${document.docNo}    日期：${document.date || '-'}`,
     `客户：${document.customer || '-'}    币种：${document.currency || '-'}    归属合计：${formatMoney(sumAmounts(lines.map(line => line.amount)), document.currencyPrecision ?? 2)}`,
   ], [{ title: '出货单号', width: 300 }, { title: '归属金额', width: 215, align: 'right' }],
   lines.map(line => [line.shipNo || '-', formatMoney(line.amount, document.currencyPrecision ?? 2)]));
 }
 
+function summaryMonths(from: string, to: string): string[] {
+  const [fromYear, fromMonth] = from.split('-').map(Number);
+  const [toYear, toMonth] = to.split('-').map(Number);
+  const months: string[] = [];
+  let year = fromYear;
+  let month = fromMonth;
+  while (year < toYear || (year === toYear && month <= toMonth)) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`);
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return months;
+}
+
+function groupThousands(value: string): string {
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
+  if (!match) return value;
+  return `${match[1]}${match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${match[3] ? `.${match[3]}` : ''}`;
+}
+
+function summaryMoney(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  return groupThousands(formatMoney(value, 2));
+}
+
+interface SummaryGroup {
+  code: string;
+  name: string;
+  saleser: string;
+  carry: string | null;
+  months: Map<string, string | null>;
+}
+
 export function summaryPdf(from: string, to: string, rows: Record<string, unknown>[]): Promise<Buffer> {
-  return tablePdf('应收款汇总表', [`会计期间：${from} 至 ${to}`, `业务员：${rows[0]?.Saleser || '-'}`], [
-    { title: '客户编码', width: 65 }, { title: '客户名称', width: 130 }, { title: '账期', width: 65 }, { title: '期间', width: 60 },
-    { title: '应收金额', width: 125, align: 'right' }, { title: '币种', width: 70 },
-  ], rows.map(row => [String(row.CustomerCode || '-'), String(row.CustomerName || '-'), String(row.ARTerm || '-'), String(row.DisplayName || '-'), formatMoney(row.UnRecMoney, row.MoneyPrecision), String(row.CurrencyName || '-')]));
+  const months = summaryMonths(from, to);
+  const groups = new Map<string, SummaryGroup>();
+  for (const row of rows) {
+    const code = String(row.CustomerCode ?? '');
+    if (!code) continue;
+    let group = groups.get(code);
+    if (!group) {
+      group = {
+        code,
+        name: String(row.CustomerName || '-'),
+        saleser: String(row.Saleser || '-'),
+        carry: null,
+        months: new Map(),
+      };
+      groups.set(code, group);
+    }
+    const display = String(row.DisplayName || '');
+    const value = row.UnRecMoney === null || row.UnRecMoney === undefined || row.UnRecMoney === '' ? null : String(row.UnRecMoney);
+    if (display === '承上' || Number(row.RowNum) === 0) group.carry = value;
+    else if (/^\d{4}-\d{2}$/.test(display)) group.months.set(display, value);
+  }
+
+  const pdf = new PDFDocument({ size: 'A3', layout: 'landscape', margin: 30, info: { Title: '应收款汇总表' } });
+  const chunks: Buffer[] = [];
+  const result = new Promise<Buffer>((resolve, reject) => {
+    pdf.on('data', (chunk: Buffer) => chunks.push(chunk));
+    pdf.on('end', () => resolve(Buffer.concat(chunks)));
+    pdf.on('error', reject);
+  });
+  pdf.font(fontPath());
+
+  const margin = 30;
+  const contentWidth = pdf.page.width - margin * 2;
+  const fixedWidths = [210, 60, 70, 85, 85];
+  const monthWidth = months.length ? (contentWidth - fixedWidths.reduce((sum, width) => sum + width, 0)) / months.length : 0;
+  const widths = [fixedWidths[0], fixedWidths[1], fixedWidths[2], fixedWidths[3], ...months.map(() => monthWidth), fixedWidths[4]];
+  const headers = ['客户', '客户代码', '业务员', '承上', ...months, '合计'];
+  const aligns: Array<'left' | 'right'> = ['left', 'left', 'left', 'right', ...months.map(() => 'right' as const), 'right'];
+
+  const rowHeight = (values: string[], header: boolean): number => {
+    pdf.fontSize(header ? 8.5 : 8);
+    return Math.max(header ? 24 : 22, ...values.map((text, index) => pdf.heightOfString(text || '', { width: widths[index] - 6, align: aligns[index] }) + 8));
+  };
+  const drawRow = (y: number, values: string[], header: boolean): number => {
+    const height = rowHeight(values, header);
+    let x = margin;
+    pdf.fontSize(header ? 8.5 : 8);
+    for (let index = 0; index < values.length; index += 1) {
+      pdf.lineWidth(0.6).rect(x, y, widths[index], height).fillAndStroke(header ? '#ffff00' : '#ffffff', '#000000');
+      pdf.fillColor('#000000').text(values[index] || '', x + 3, y + 4, { width: widths[index] - 6, align: aligns[index], lineBreak: true });
+      x += widths[index];
+    }
+    return y + height;
+  };
+
+  pdf.fontSize(18).fillColor('#000000').text('应收款汇总表', margin, margin, { width: contentWidth, align: 'left' });
+  pdf.fontSize(9).text(`${from} 到 ${to}`, margin, margin + 30, { width: contentWidth, align: 'left' });
+  let y = drawRow(margin + 55, headers, true);
+  if (!groups.size) {
+    y = drawRow(y, ['暂无数据', '', '', '', ...months.map(() => ''), ''], false);
+  } else {
+    for (const group of groups.values()) {
+      const values = [
+        group.name, group.code, group.saleser, summaryMoney(group.carry),
+        ...months.map(month => summaryMoney(group.months.get(month))),
+      ];
+      const amounts = [group.carry, ...months.map(month => group.months.get(month))].filter((value): value is string => !!value);
+      values.push(amounts.length ? groupThousands(formatMoney(sumAmounts(amounts), 2)) : '');
+      const height = rowHeight(values, false);
+      if (y + height > pdf.page.height - margin) {
+        pdf.addPage();
+        y = drawRow(margin, headers, true);
+      }
+      y = drawRow(y, values, false);
+    }
+  }
+  pdf.end();
+  return result;
 }

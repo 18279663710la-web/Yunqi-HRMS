@@ -3,6 +3,7 @@ import { AdminsPage } from '../modules/admin-accounts/Admins';
 import { ApprovalManagementPage } from '../modules/approvals/ApprovalManagement';
 import { AttendanceGroupsPage } from '../modules/attendance/AttendanceGroupsPage';
 import { AttendanceRecordsPage } from '../modules/attendance/AttendanceRecordsPage';
+import { AttendanceVisitsPage } from '../modules/attendance/AttendanceVisitsPage';
 import { DashboardPage } from '../modules/dashboard/Dashboard';
 import { DepartmentsPage } from '../modules/organization/Departments';
 import { EmployeesPage } from '../modules/employees/Employees';
@@ -29,6 +30,7 @@ export function AdminPageRoutes({ location }: { location: Location }) {
     <Route path="/attendance" element={<Navigate to="/attendance/groups" replace />} />
     <Route path="/attendance/groups" element={<AttendanceGroupsPage />} />
     <Route path="/attendance/records" element={<AttendanceRecordsPage />} />
+    <Route path="/attendance/visits" element={<AttendanceVisitsPage />} />
     <Route path="/models-formulas" element={<Navigate to="/models-formulas/attendance" replace />} />
     <Route path="/models-formulas/attendance" element={<ModelsFormulasPage section="attendance" />} />
     <Route path="/models-formulas/overtime" element={<ModelsFormulasPage section="overtime" />} />

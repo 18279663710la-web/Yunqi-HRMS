@@ -1,0 +1,12 @@
+page { background: #f5f7fb; color: #1d2940; }
+.notices-page { padding: 24rpx 24rpx 150rpx; }
+.notice-card { background: #fff; border-radius: 22rpx; padding: 26rpx 28rpx; margin-bottom: 18rpx; box-shadow: 0 6rpx 20rpx rgba(38, 59, 104, .04); }
+.notice-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16rpx; }
+.notice-customer { flex: 1; font-size: 29rpx; font-weight: 600; line-height: 40rpx; word-break: break-all; }
+.unread-dot { flex: none; width: 14rpx; height: 14rpx; margin-top: 12rpx; border-radius: 50%; background: #f04b4b; }
+.notice-doc { color: #536179; font-size: 25rpx; margin-top: 10rpx; }
+.notice-bottom { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; color: #929eae; font-size: 23rpx; margin-top: 20rpx; }
+.notice-amount { color: #1d2940; font-size: 27rpx; font-weight: 600; white-space: nowrap; }
+.notice-meta { color: #9aa5b5; font-size: 22rpx; margin-top: 8rpx; }
+.empty, .load-more { text-align: center; color: #9aa5b5; font-size: 26rpx; padding: 58rpx 20rpx; }
+.load-more { padding: 24rpx; color: #416df3; }

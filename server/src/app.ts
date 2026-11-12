@@ -42,6 +42,16 @@ export function createApp(): express.Express {
     res.json({ ok: true, service: 'yunqi-office-server', time: new Date().toISOString() });
   });
 
+  // 请求日志：排查真机访问业务接口超时时，确认请求是否到达服务端及耗时
+  app.use((req, res, next) => {
+    const startedAt = Date.now();
+    res.on('finish', () => {
+      if (!req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/api/health')) return;
+      console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - startedAt}ms`);
+    });
+    next();
+  });
+
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin/u9', requireAdmin, createU9AdminRouter(sqlServerU9));
   app.use('/api/business', createU9BusinessRouter(sqlServerU9));

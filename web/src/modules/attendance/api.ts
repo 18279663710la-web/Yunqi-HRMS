@@ -1,13 +1,15 @@
-import { buildQuery,request } from '../../api/client';
+import { buildQuery,fetchProtectedObjectUrl,request } from '../../api/client';
 import type {
 AdminAttendanceRecord,
+AdminVisitResponse,
 AttendanceGroup,
 AttendanceGroupInput,
 AttendanceGroupsResponse,
 AttendanceQuery,
 AttendanceResponse,
 AttendanceSettings,
-ManualPunchInput
+ManualPunchInput,
+VisitQuery
 } from '../../types';
 
 export function fetchAttendance(params: AttendanceQuery): Promise<AttendanceResponse> {
@@ -42,4 +44,12 @@ export function deleteAttendanceGroup(id: number): Promise<null> {
 
 export function saveAttendancePunch(input: ManualPunchInput): Promise<AdminAttendanceRecord> {
   return request<AdminAttendanceRecord>('/admin/attendance/punch', { method: 'POST', body: input });
+}
+
+export function fetchVisits(params: VisitQuery): Promise<AdminVisitResponse> {
+  return request<AdminVisitResponse>(`/admin/attendance/visits${buildQuery(params as Record<string, string | number | undefined>)}`);
+}
+
+export function fetchVisitPhotoUrl(id: string): Promise<string> {
+  return fetchProtectedObjectUrl(`/admin/attendance/visits/photos/${id}`);
 }

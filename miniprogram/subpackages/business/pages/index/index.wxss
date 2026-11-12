@@ -1,5 +1,28 @@
 page { background: #f5f7fb; color: #1d2940; }
 .business-page { padding: 24rpx 24rpx 150rpx; }
+.notice-entry { display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 18rpx; padding: 22rpx 24rpx; margin-bottom: 18rpx; box-shadow: 0 6rpx 20rpx rgba(38, 59, 104, .04); }
+.notice-entry-left { display: flex; align-items: center; gap: 12rpx; }
+.notice-entry-title { font-size: 27rpx; font-weight: 600; }
+.notice-entry-badge { min-width: 32rpx; height: 32rpx; line-height: 32rpx; padding: 0 8rpx; border-radius: 16rpx; background: #f04b4b; color: #fff; font-size: 20rpx; text-align: center; }
+.notice-entry-more { color: #416df3; font-size: 24rpx; }
+.query-wrap { position: relative; z-index: 20; margin-bottom: 18rpx; }
+.query-bar { display: flex; align-items: center; gap: 12rpx; }
+.query-field { position: relative; display: flex; align-items: center; height: 72rpx; padding: 0 16rpx; box-sizing: border-box; background: #fff; border-radius: 12rpx; }
+.customer-field { flex: 1.2; min-width: 0; }
+.period-field { flex: 0.9; min-width: 0; }
+.query-input { flex: 1; height: 68rpx; min-width: 0; font-size: 26rpx; color: #1d2940; }
+.query-placeholder { color: #9aa5b5; font-size: 26rpx; }
+.query-clear { flex: none; color: #9aa5b5; font-size: 30rpx; padding: 0 2rpx; }
+.period-picker { flex: 1; min-width: 0; }
+.period-value { display: flex; align-items: center; justify-content: space-between; gap: 8rpx; padding-right: 28rpx; font-size: 26rpx; color: #1d2940; }
+.query-caret { color: #9aa5b5; }
+.period-clear { position: absolute; right: 12rpx; top: 50%; transform: translateY(-50%); color: #9aa5b5; font-size: 30rpx; padding: 4rpx; z-index: 2; }
+.query-button { flex: none; width: 120rpx; height: 72rpx; line-height: 72rpx; padding: 0; margin: 0; background: #486df3; color: #fff; border-radius: 12rpx; font-size: 26rpx; }
+/* 联想悬浮层：绝对定位覆盖在列表上方，不占用页面布局空间 */
+.suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 10rpx); z-index: 30; background: #fff; border-radius: 16rpx; box-shadow: 0 12rpx 32rpx rgba(38, 59, 104, .16); overflow: hidden; }
+.suggestions-scroll { max-height: 420rpx; }
+.suggestion { padding: 20rpx 24rpx; font-size: 25rpx; color: #536179; border-bottom: 1rpx solid #eef2f8; word-break: break-all; }
+.suggestion:last-child { border-bottom: 0; }
 .segment { display: flex; padding: 8rpx; background: #e9eef8; border-radius: 20rpx; margin-bottom: 24rpx; }
 .segment-item { flex: 1; text-align: center; font-size: 25rpx; color: #7d899e; line-height: 68rpx; border-radius: 15rpx; white-space: nowrap; }
 .segment-item.selected { background: #fff; color: #416df3; font-weight: 600; box-shadow: 0 3rpx 12rpx rgba(50, 75, 125, .08); }
@@ -9,10 +32,17 @@ page { background: #f5f7fb; color: #1d2940; }
 .download { color: #416df3; font-size: 24rpx; white-space: nowrap; }
 .document-customer { font-size: 26rpx; color: #536179; margin: 20rpx 0; }
 .document-bottom { color: #929eae; font-size: 23rpx; }
+.receivable-grid { display: flex; flex-wrap: wrap; margin: 0 -10rpx; padding-top: 18rpx; border-top: 1rpx solid #eef2f8; }
+.receivable-field { display: flex; flex-direction: column; width: 50%; box-sizing: border-box; padding: 0 10rpx 14rpx; min-width: 0; }
+.receivable-field.receivable-wide { width: 100%; }
+.field-label { color: #929eae; font-size: 22rpx; line-height: 32rpx; }
+.field-value { color: #536179; font-size: 25rpx; line-height: 36rpx; word-break: break-all; }
 .empty, .load-more { text-align: center; color: #9aa5b5; font-size: 26rpx; padding: 58rpx 20rpx; }
 .load-more { padding: 24rpx; color: #416df3; }
 .periods { display: flex; align-items: center; gap: 18rpx; margin: 24rpx 0 32rpx; }
-.periods picker { flex: 1; }
+.periods picker { flex: 1; min-width: 0; }
+.periods .period { flex: 1; min-width: 0; box-sizing: border-box; }
 .period { display: flex; justify-content: space-between; padding: 20rpx; background: #f5f7fb; border-radius: 12rpx; font-size: 28rpx; }
+.period.fixed { color: #536179; background: #eef2f8; }
 .separator { color: #9aa5b5; font-size: 25rpx; }
 .primary-button { background: #486df3; color: white; border-radius: 14rpx; font-size: 28rpx; }

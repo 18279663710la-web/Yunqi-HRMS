@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "拜访登记",
+  "navigationBarBackgroundColor": "#F5F7FB",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#F5F7FB",
+  "backgroundTextStyle": "dark",
+  "enablePullDownRefresh": true,
+  "usingComponents": {}
+}

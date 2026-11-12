@@ -87,6 +87,8 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'notice_reads',
     'invoices',
     'approval_timeline',
+    'attendance_visit_photos',
+    'attendance_visits',
     'attendance_overtime_punches',
     'approvals',
     'notices',

@@ -122,7 +122,7 @@ const approvalTypes = [
 const quickActions = [
   { key: 'attendance', name: '考勤打卡', icon: 'clock', color: '#3D6EF7', url: '/pages/attendance/attendance' },
   { key: 'approval', name: '发起审批', icon: 'doc', color: '#16B364', url: '/pages/approval-create/approval-create' },
-  { key: 'notice', name: '公告通知', icon: 'bell', color: '#F79009', url: '/pages/notice/notice' },
+  { key: 'visit', name: '拜访登记', icon: 'visit', color: '#0BA5EC', url: '/pages/visit/visit' },
   { key: 'contacts', name: '通讯录', icon: 'users', color: '#7A5AF8', url: '/pages/contacts/contacts', tab: true },
   { key: 'leave', name: '请假', icon: 'calendar', color: '#00B8D9', url: '/pages/approval-create/approval-create?type=leave' },
   { key: 'expense', name: '报销', icon: 'money', color: '#F04438', url: '/pages/approval-create/approval-create?type=expense' },

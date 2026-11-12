@@ -103,3 +103,17 @@ export async function downloadFile(path: string, filename: string): Promise<void
   const anchor = document.createElement('a'); anchor.href = objectUrl; anchor.download = filename.replace(/[\\/\x00-\x1f\x7f]/g, '_');
   document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
+
+/** 读取受管理员认证保护的图片，返回可直接展示的 blob 地址；调用方负责 revoke。 */
+export async function fetchProtectedObjectUrl(path: string): Promise<string> {
+  const token = getToken();
+  let response: Response;
+  try { response = await fetch(`${API_BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); }
+  catch { throw new ApiError(0, -1, '无法连接后端服务'); }
+  if (!response.ok) {
+    if (response.status === 401) { clearToken(); if (window.location.pathname !== '/login') window.location.replace('/login'); }
+    const body = await response.json().catch(() => null) as { code?: number; message?: string } | null;
+    throw new ApiError(response.status, body?.code ?? response.status, body?.message || `图片加载失败 (${response.status})`);
+  }
+  return URL.createObjectURL(await response.blob());
+}

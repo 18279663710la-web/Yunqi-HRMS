@@ -9,19 +9,65 @@
     <view class="periods">
       <picker mode="date" fields="month" value="{{from}}" bindchange="changeFrom"><view class="period">{{from}} <text>⌄</text></view></picker>
       <text class="separator">至</text>
-      <picker mode="date" fields="month" value="{{to}}" bindchange="changeTo"><view class="period">{{to}} <text>⌄</text></view></picker>
+      <view class="period fixed">{{to}}</view>
     </view>
-    <button class="primary-button" loading="{{opening}}" disabled="{{opening}}" bindtap="openSummary">下载 PDF</button>
+    <button class="primary-button" loading="{{opening}}" disabled="{{opening}}" bindtap="openSummary">查询</button>
   </view>
   <view wx:else>
+    <view class="query-wrap">
+      <view class="query-bar">
+        <view class="query-field customer-field">
+          <input class="query-input" value="{{customerKeyword}}" maxlength="50" placeholder="客户名称" placeholder-class="query-placeholder" bindinput="onCustomerInput" bindfocus="onCustomerFocus" bindblur="onCustomerBlur" />
+          <text wx:if="{{customerKeyword}}" class="query-clear" catchtap="clearCustomer">×</text>
+        </view>
+        <view class="query-field period-field">
+          <picker class="period-picker" mode="date" fields="month" value="{{receivablePeriod}}" bindchange="changeReceivablePeriod">
+            <view class="period-value">
+              <text wx:if="{{receivablePeriod}}">{{receivablePeriod}}</text>
+              <text wx:else class="query-placeholder">记账期间</text>
+              <text wx:if="{{!receivablePeriod}}" class="query-caret">⌄</text>
+            </view>
+          </picker>
+          <text wx:if="{{receivablePeriod}}" class="period-clear" catchtap="clearReceivablePeriod">×</text>
+        </view>
+        <button class="query-button" loading="{{loading}}" disabled="{{loading}}" bindtap="queryDocuments">查询</button>
+      </view>
+      <view wx:if="{{suggestionOpen && suggestions.length}}" class="suggestions">
+        <scroll-view class="suggestions-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+          <view wx:for="{{suggestions}}" wx:key="id" class="suggestion" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="selectCustomer">{{item.name}}</view>
+        </scroll-view>
+      </view>
+    </view>
+    <view wx:if="{{kind === 'receipts'}}" class="notice-entry" bindtap="openNotifications">
+      <view class="notice-entry-left">
+        <text class="notice-entry-title">回款通知</text>
+        <text wx:if="{{unread > 0}}" class="notice-entry-badge">{{unread > 99 ? '99+' : unread}}</text>
+      </view>
+      <text class="notice-entry-more">查看 ›</text>
+    </view>
     <view wx:if="{{error}}" class="empty" bindtap="load">{{error}}，点击重试</view>
     <view wx:elif="{{loading && items.length === 0}}" class="empty">加载中...</view>
+    <view wx:elif="{{kind === 'receivables' && !queried}}" class="empty">点击查询查看应收单</view>
+    <view wx:elif="{{kind === 'receipts' && !queried}}" class="empty">点击查询查看收款单</view>
     <view wx:elif="{{items.length === 0}}" class="empty">暂无单据</view>
-    <view wx:for="{{items}}" wx:key="id" class="document-card" data-id="{{item.id}}" bindtap="openDocument">
-      <view class="document-top"><text class="document-no">{{item.docNo}}</text><text class="download">下载 PDF ›</text></view>
-      <view class="document-customer">{{item.customer || '未填写客户'}}</view>
-      <view class="document-bottom"><text>{{item.date || '-'}}</text><text>归属金额 {{item.amount}} {{item.currency}}</text></view>
-    </view>
+    <block wx:for="{{items}}" wx:key="id">
+      <view wx:if="{{kind === 'receivables'}}" class="document-card" data-id="{{item.id}}" bindtap="openDocument">
+        <view class="document-top"><text class="document-no">{{item.docNo}}</text><text class="download">明细 ›</text></view>
+        <view class="document-customer">{{item.customer || '未填写客户'}}</view>
+        <view class="receivable-grid">
+          <view class="receivable-field"><text class="field-label">立账日期</text><text class="field-value">{{item.businessDate || '-'}}</text></view>
+          <view class="receivable-field"><text class="field-label">记账期间</text><text class="field-value">{{item.postPeriod || '-'}}</text></view>
+          <view class="receivable-field"><text class="field-label">来源组织</text><text class="field-value">{{item.srcOrg || '-'}}</text></view>
+          <view class="receivable-field"><text class="field-label">发票日期</text><text class="field-value">{{item.invoiceDate || '-'}}</text></view>
+          <view class="receivable-field receivable-wide"><text class="field-label">发票号</text><text class="field-value">{{item.invoiceNum || '-'}}</text></view>
+        </view>
+      </view>
+      <view wx:else class="document-card" data-id="{{item.id}}" bindtap="openDocument">
+        <view class="document-top"><text class="document-no">{{item.docNo}}</text><text class="download">下载 PDF ›</text></view>
+        <view class="document-customer">{{item.customer || '未填写客户'}}</view>
+        <view class="document-bottom"><text>{{item.date || '-'}}</text><text>归属金额 {{item.amount}} {{item.currency}}</text></view>
+      </view>
+    </block>
     <view wx:if="{{more}}" class="load-more" bindtap="loadMore">{{loading ? '加载中...' : '加载更多'}}</view>
   </view>
 </view>

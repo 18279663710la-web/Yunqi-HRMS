@@ -157,6 +157,43 @@ export interface AttendanceResponse {
   employeeSummary: EmployeeAttendanceSummary[];
 }
 
+export interface AdminVisitRecord {
+  id: number;
+  employeeId: string;
+  employeeName: string;
+  employeeNo: string;
+  position: string;
+  visitTime: string;
+  customerName: string;
+  purpose: string;
+  addressName: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  remark: string;
+  photoCount: number;
+  photoIds: string[];
+}
+
+export interface AdminVisitResponse {
+  month: string;
+  startDate: string;
+  endDate: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  list: AdminVisitRecord[];
+}
+
+export interface VisitQuery {
+  month?: string;
+  employeeId?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface DashboardData {
   employeeCount: number;
   activeAccountCount: number;

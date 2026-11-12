@@ -2,11 +2,17 @@ import type {
 AttendanceRecord,
 AttendanceStats,
 PunchResult,
-TodayAttendance
+TodayAttendance,
+VisitLocation,
+VisitPhotoRef,
+VisitRecord
 } from '../../types/models';
 import {
+getBaseUrl,
 get,
-post
+getToken,
+post,
+upload
 } from '../../utils/request';
 
 export function getTodayAttendance(): Promise<TodayAttendance> {
@@ -31,4 +37,49 @@ export function getAttendanceRecords(days = 14): Promise<AttendanceRecord[]> {
 
 export function getAttendanceStats(): Promise<AttendanceStats> {
   return get<AttendanceStats>('/attendance/stats');
+}
+
+export interface VisitInput {
+  customerName: string;
+  purpose: string;
+  addressName?: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  remark?: string;
+  photoIds: string[];
+}
+
+export function reverseVisitLocation(latitude: number, longitude: number): Promise<VisitLocation> {
+  return get<VisitLocation>('/attendance/visits/location', { latitude, longitude }, { silent: true });
+}
+
+export function uploadVisitPhoto(filePath: string): Promise<VisitPhotoRef> {
+  return upload<VisitPhotoRef>({ url: '/attendance/visits/photos', filePath, name: 'file' });
+}
+
+export function createVisit(input: VisitInput): Promise<VisitRecord> {
+  return post<VisitRecord>('/attendance/visits', input);
+}
+
+export function getMyVisits(month?: string): Promise<{ month: string; list: VisitRecord[] }> {
+  return get<{ month: string; list: VisitRecord[] }>('/attendance/visits', month ? { month } : {});
+}
+
+export function downloadVisitPhoto(id: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const token = getToken();
+    if (!token) { reject({ code: 401, message: '请先登录' }); return; }
+    wx.downloadFile({
+      url: `${getBaseUrl()}/attendance/visits/photos/${id}`,
+      header: { Authorization: `Bearer ${token}` },
+      timeout: 15000,
+      success: (result) => {
+        if (result.statusCode === 200 && result.tempFilePath) resolve(result.tempFilePath);
+        else reject({ code: result.statusCode, message: '照片加载失败，请重试' });
+      },
+      fail: () => reject({ code: -1, message: '照片加载失败，请检查网络' }),
+    });
+  });
 }

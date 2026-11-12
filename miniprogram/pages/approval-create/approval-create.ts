@@ -12,7 +12,7 @@ import type {
 import type { CustomEvent, InputEvent, PickerEvent, SwitchEvent, TapEvent } from '../../types/ui';
 import { formatTime, toast } from '../../utils/util';
 import { calculateLeaveDays } from '../../utils/leave-duration';
-import { upload, resolveFileUrl, STATIC_BASE } from '../../utils/request';
+import { upload, resolveFileUrl, getStaticBase } from '../../utils/request';
 
 /** OCR 自动填写涉及的字段，用于删除发票时回滚 */
 const AUTO_FILL_KEYS = ['amount', 'date', 'expenseType', 'reason'] as const;
@@ -515,7 +515,8 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
   buildPayload(): CreateApprovalPayload {
     const { type, fields, values, urgent } = this.data;
     const form = fields.map((f) => ({ label: f.label, value: this.formatValue(f, values[f.key]) }));
-    const invoices = type.key === 'expense' ? this.data.recognized.map((item) => ({ ...item, fileID: item.fileID?.startsWith(`${STATIC_BASE}/uploads/`) ? item.fileID.slice(STATIC_BASE.length) : item.fileID })) : [];
+    const staticBase = getStaticBase();
+    const invoices = type.key === 'expense' ? this.data.recognized.map((item) => ({ ...item, fileID: item.fileID?.startsWith(`${staticBase}/uploads/`) ? item.fileID.slice(staticBase.length) : item.fileID })) : [];
     if (invoices.length) form.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${this.data.invoiceSummary?.totalAmountText || '0.00'}` });
     return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], urgent, ...(type.workflowPublicationVersion ? { workflowPublicationVersion: type.workflowPublicationVersion, workflowValues: { ...values } } : {}) };
   },

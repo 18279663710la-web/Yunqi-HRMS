@@ -16,10 +16,11 @@
     "pages/notice/notice",
     "pages/notice-detail/notice-detail",
     "pages/contact-detail/contact-detail",
-    "pages/invoice-tool/invoice-tool"
+    "pages/invoice-tool/invoice-tool",
+    "pages/visit/visit"
   ],
   "subPackages": [
-    { "root": "subpackages/business", "pages": ["pages/index/index"] }
+    { "root": "subpackages/business", "pages": ["pages/index/index", "pages/detail/detail", "pages/receipt-notices/receipt-notices", "pages/receipt-notice-detail/receipt-notice-detail"] }
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -56,7 +57,7 @@
   },
   "permission": {
     "scope.userLocation": {
-      "desc": "用于考勤打卡时校验您是否在办公区域内"
+      "desc": "用于考勤打卡和拜访登记时获取当前位置"
     }
   },
   "requiredPrivateInfos": [

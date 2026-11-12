@@ -319,6 +319,37 @@ export interface AttendanceSettings {
   radius: number;
 }
 
+export interface VisitPhotoRef {
+  id: string;
+  name: string;
+  size: number;
+}
+
+export interface VisitLocation {
+  name: string;
+  address: string;
+  resolved: boolean;
+}
+
+export interface VisitRecord {
+  id: number;
+  employeeId: string;
+  employeeName: string;
+  employeeNo: string;
+  position: string;
+  visitTime: string;
+  customerName: string;
+  purpose: string;
+  addressName: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  remark: string;
+  photoCount: number;
+  photoIds: string[];
+}
+
 export interface NoticeBlock {
   type: 'p' | 'h' | 'list' | 'quote';
   text?: string;
