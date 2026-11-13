@@ -258,6 +258,18 @@ async function runMigrations(conn: Connection): Promise<void> {
     await conn.commit();
   } catch (error) { await conn.rollback(); throw error; }
 
+  // U9 镜像：发票号可能含多张票号拼接，需加长。
+  if (await hasColumn('u9_mirror_ar_heads', 'invoice_num')) {
+    const [invoiceCols] = await conn.query<mysql.RowDataPacket[]>(
+      `SELECT CHARACTER_MAXIMUM_LENGTH AS len FROM information_schema.columns
+       WHERE table_schema = ? AND table_name = 'u9_mirror_ar_heads' AND column_name = 'invoice_num' LIMIT 1`,
+      [database]
+    );
+    if (invoiceCols.length && Number(invoiceCols[0].len) < 500) {
+      await conn.query('ALTER TABLE `u9_mirror_ar_heads` MODIFY COLUMN `invoice_num` VARCHAR(500) NOT NULL DEFAULT \'\'');
+    }
+  }
+
 }
 
 export async function queryRows<T = Record<string, unknown>>(

@@ -6,6 +6,13 @@ function int(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? Math.trunc(n) : fallback;
 }
 
+/** 允许 0（如维护起始小时）；非法则回退。 */
+function hour(value: string | undefined, fallback: number): number {
+  if (value === undefined || value.trim() === '') return fallback;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 && n <= 23 ? n : fallback;
+}
+
 function str(value: string | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback;
 }
@@ -78,6 +85,19 @@ export const config = {
     queryCacheTtlMs: int(process.env.U9_QUERY_CACHE_TTL_MS, 120000),
     /** 增量回看天数（与水位配合，避免边界漏数）。 */
     lookbackDays: int(process.env.U9_ETL_LOOKBACK_DAYS, 3),
+    /**
+     * 部署全量 / 夜间校对的起点 YYYY-MM-DD；
+     * 留空则自动取 U9 应收/收款头表最早业务日期。
+     */
+    fullSince: str(process.env.U9_ETL_FULL_SINCE, ''),
+    /** 启动时若尚无成功同步，是否自动跑一次部署全量。 */
+    bootstrapOnStart: str(process.env.U9_ETL_BOOTSTRAP_ON_START, 'true') !== 'false',
+    /**
+     * 业务模块维护窗（本地小时，半开区间 start <= hour < end）。
+     * 默认 0–2：此间 /api/business/* 返回 503；汇总在 nightlyHour 落库。
+     */
+    businessMaintenanceStartHour: hour(process.env.U9_BUSINESS_MAINTENANCE_START_HOUR, 0),
+    businessMaintenanceEndHour: hour(process.env.U9_BUSINESS_MAINTENANCE_END_HOUR, 2),
   },
   corsOrigin: str(process.env.CORS_ORIGIN, '*'),
   admin: {

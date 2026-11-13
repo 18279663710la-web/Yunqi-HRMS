@@ -151,6 +151,14 @@ export async function replaceSummaryRows(
   });
 }
 
+/** 删除该业务员下 to_period 不是当月快照的旧汇总行（换月残留）。 */
+export async function deleteSummaryRowsExceptTo(operatorId: string, toPeriod: string): Promise<void> {
+  await execute(
+    'DELETE FROM u9_mirror_summary_rows WHERE operator_id=? AND to_period<>?',
+    [operatorId, toPeriod]
+  );
+}
+
 export async function getSyncWatermark(): Promise<string | null> {
   const row = await queryOne<{ watermark_date: string | null }>(
     "SELECT DATE_FORMAT(watermark_date,'%Y-%m-%d') watermark_date FROM u9_mirror_sync_state WHERE id=1"

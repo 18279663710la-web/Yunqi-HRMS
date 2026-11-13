@@ -163,4 +163,68 @@ export function incrementalRange(watermark: string | null, today: string): { sta
   return { start, endExclusive: nextDay(today) };
 }
 
+function addMonths(isoDate: string, months: number): string {
+  const [y, m] = isoDate.split('-').map(Number);
+  const idx = y * 12 + (m - 1) + months;
+  const ny = Math.floor(idx / 12);
+  const nm = (idx % 12) + 1;
+  return `${ny}-${String(nm).padStart(2, '0')}-01`;
+}
+
+function emptyStats(): ExtractStats {
+  return { arHeads: 0, arLines: 0, recHeads: 0, recLines: 0, recSellers: 0, operators: 0 };
+}
+
+function addStats(a: ExtractStats, b: ExtractStats): ExtractStats {
+  return {
+    arHeads: a.arHeads + b.arHeads,
+    arLines: a.arLines + b.arLines,
+    recHeads: a.recHeads + b.recHeads,
+    recLines: a.recLines + b.recLines,
+    recSellers: a.recSellers + b.recSellers,
+    operators: a.operators + b.operators,
+  };
+}
+
+/**
+ * 部署全量 / 夜间校对的日期范围：
+ * - 优先 U9_ETL_FULL_SINCE
+ * - 否则取 U9 应收/收款头表最早 BusinessDate（单表 MIN）
+ */
+export async function fullSyncRange(today: string): Promise<{ start: string; endExclusive: string }> {
+  const configured = config.u9Mirror.fullSince;
+  let start = configured;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+    const [arMin, recMin] = await Promise.all([
+      raw.fetchMinArBusinessDate(),
+      raw.fetchMinRecBusinessDate(),
+    ]);
+    const candidates = [arMin, recMin].filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+    start = candidates.sort()[0] || addDays(today, -365);
+  }
+  return { start, endExclusive: nextDay(today) };
+}
+
+/** 按自然月切片抽取，避免一次载入多年数据。 */
+export async function extractDateRangeChunked(
+  start: string,
+  endExclusive: string
+): Promise<ExtractStats> {
+  let cursor = start.slice(0, 7) + '-01';
+  if (cursor < start) cursor = start;
+  let totals = emptyStats();
+  let chunks = 0;
+  while (cursor < endExclusive) {
+    const monthEnd = addMonths(cursor.slice(0, 7) + '-01', 1);
+    const chunkEnd = monthEnd < endExclusive ? monthEnd : endExclusive;
+    const part = await extractBusinessDateWindow(cursor, chunkEnd);
+    totals = addStats(totals, part);
+    chunks += 1;
+    console.log(`[u9-mirror] 全量切片 ${cursor} ~ ${chunkEnd}`, part);
+    cursor = chunkEnd;
+  }
+  console.log(`[u9-mirror] 全量切片完成 chunks=${chunks}`, totals);
+  return totals;
+}
+
 export { nextDay, addDays };

@@ -180,6 +180,25 @@ export async function fetchBankAccountTrlByIds(ids: string[]): Promise<RawRow[]>
   return rows;
 }
 
+/** 单表取最早业务日期，供部署全量起点（无关联）。 */
+export async function fetchMinArBusinessDate(): Promise<string | null> {
+  const rows = await u9Sql<{ minDate: string | null }>(
+    `SELECT CONVERT(varchar(10), MIN(BusinessDate), 23) minDate
+     FROM AR_ARBillHead
+     WHERE Cancel_Canceled=0 AND DocStatus>1 AND BusinessDate IS NOT NULL`
+  );
+  return rows[0]?.minDate || null;
+}
+
+export async function fetchMinRecBusinessDate(): Promise<string | null> {
+  const rows = await u9Sql<{ minDate: string | null }>(
+    `SELECT CONVERT(varchar(10), MIN(BusinessDate), 23) minDate
+     FROM AR_RecBillHead
+     WHERE Cancel_Canceled=0 AND DocStatus>1 AND BusinessDate IS NOT NULL`
+  );
+  return rows[0]?.minDate || null;
+}
+
 export async function fetchArHeadsByBusinessDateRange(start: string, endExclusive: string): Promise<RawRow[]> {
   return u9Sql<RawRow>(
     `SELECT CONVERT(varchar(20),ID) id, DocNo docNo,

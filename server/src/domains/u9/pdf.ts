@@ -22,16 +22,40 @@ function fontPath(): string {
 /**
  * 业务模块 PDF 统一样式，与工资发放模块导出的工资表一致：
  * 宋体 11pt、单元格水平垂直居中并自动换行、细黑框、白底、无行编号、无其他颜色；
- * 页面 A4/A3 横向，左右边距 0.7 英寸、上下 0.75 英寸，列宽缩放到同一页宽。
+ * 页面 A4/A3 横向，左右边距 0.7 英寸、上下 0.75 英寸。
+ * fitWidth：列宽同比缩放到页宽（单据列表）；minWidth：列宽不低于声明值，页宽不够则加宽页面（汇总多月）。
  */
 interface GridColumn { title: string; width: number }
 type GridSize = 'A4' | 'A3';
+type GridFit = 'fitWidth' | 'minWidth';
 const CELL_FONT = 11;
 const CELL_LINE = CELL_FONT * 1.2;
 const TITLE_FONT = 16;
+/** PDFKit A3 横向点数 */
+const A3_LANDSCAPE: [number, number] = [1190.55, 841.89];
+const A4_LANDSCAPE: [number, number] = [841.89, 595.28];
 
-async function gridPdf(title: string, topRow: string, columns: GridColumn[], rows: string[][], size: GridSize): Promise<Buffer> {
-  const pdf = new PDFDocument({ size, layout: 'landscape', margin: 30, info: { Title: title } });
+async function gridPdf(
+  title: string,
+  topRow: string,
+  columns: GridColumn[],
+  rows: string[][],
+  size: GridSize,
+  fit: GridFit = 'fitWidth'
+): Promise<Buffer> {
+  const left = 50.4;
+  const top = 54;
+  const bottom = 54;
+  const naturalWidth = columns.reduce((sum, col) => sum + col.width, 0);
+  const basePage = size === 'A3' ? A3_LANDSCAPE : A4_LANDSCAPE;
+  const pageWidth =
+    fit === 'minWidth' ? Math.max(basePage[0], naturalWidth + left * 2) : basePage[0];
+  const pageHeight = basePage[1];
+  const pdf = new PDFDocument({
+    size: [pageWidth, pageHeight],
+    margin: 30,
+    info: { Title: title },
+  });
   const chunks: Buffer[] = [];
   const done = new Promise<Buffer>((resolve, reject) => {
     pdf.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -39,14 +63,16 @@ async function gridPdf(title: string, topRow: string, columns: GridColumn[], row
     pdf.on('error', reject);
   });
   pdf.font(fontPath());
-  // 工资表导出：pageSetup.margins 左右 0.7 英寸、上下 0.75 英寸（1in = 72pt）
-  const left = 50.4;
-  const top = 54;
-  const bottom = 54;
   const contentWidth = pdf.page.width - left * 2;
-  // 列宽按比例缩放到整页宽（同 fitToWidth: 1）
-  const scale = contentWidth / columns.reduce((sum, col) => sum + col.width, 0);
-  const widths = columns.map(col => col.width * scale);
+  let widths: number[];
+  if (fit === 'minWidth') {
+    // 声明宽度为下限；总宽小于页内容区时同比放大填满，绝不压窄
+    const scaleUp = contentWidth > naturalWidth ? contentWidth / naturalWidth : 1;
+    widths = columns.map((col) => col.width * scaleUp);
+  } else {
+    const scale = contentWidth / Math.max(naturalWidth, 1);
+    widths = columns.map((col) => col.width * scale);
+  }
 
   const wrappedLines = (text: string, width: number): number =>
     Math.max(1, Math.ceil(pdf.heightOfString(text || '', { width: Math.max(1, width - 8) }) / CELL_LINE));
@@ -98,7 +124,10 @@ async function gridPdf(title: string, topRow: string, columns: GridColumn[], row
     }
     y = drawBand(y, row, 'cell');
   }
-  if (!rows.length) y = drawBand(y, ['暂无数据'], 'cell');
+  if (!rows.length) {
+    pdf.lineWidth(0.75).rect(left, y, contentWidth, 28).fillAndStroke('#ffffff', '#000000');
+    drawCellText('暂无数据', left, y, contentWidth, 28);
+  }
   pdf.end();
   return done;
 }
@@ -193,13 +222,20 @@ export function summaryPdf(from: string, to: string, rows: Record<string, unknow
       groups.set(code, group);
     }
     const display = String(row.DisplayName || '');
-    const value = row.UnRecMoney === null || row.UnRecMoney === undefined || row.UnRecMoney === '' ? null : String(row.UnRecMoney);
+    // 空月为 null；镜像误存的 '-' 与空串同等视为无金额
+    const raw = row.UnRecMoney;
+    const value =
+      raw === null || raw === undefined || raw === '' || raw === '-'
+        ? null
+        : String(raw);
     if (display === '承上' || Number(row.RowNum) === 0) group.carry = value;
     else if (/^\d{4}-\d{2}$/.test(display)) group.months.set(display, value);
   }
 
   const lines = [...groups.values()].map(group => {
-    const amounts = [group.carry, ...months.map(month => group.months.get(month))].filter((value): value is string => !!value);
+    const amounts = [group.carry, ...months.map(month => group.months.get(month))].filter(
+      (value): value is string => typeof value === 'string' && !!value && value !== '-'
+    );
     return [
       group.name,
       group.code,
@@ -209,15 +245,17 @@ export function summaryPdf(from: string, to: string, rows: Record<string, unknow
       amounts.length ? money2(sumLines(amounts)) : '',
     ];
   });
+  // 金额列宽度保证「99,999.00」与「2025-01」单行显示；月数多时加宽页面而非压窄列
+  const moneyWidth = 78;
   const columns: GridColumn[] = [
-    { title: '客户', width: 210 },
-    { title: '客户代码', width: 60 },
-    { title: '业务员', width: 70 },
-    { title: '承上', width: 85 },
-    ...months.map(month => ({ title: month, width: 85 })),
-    { title: '合计', width: 85 },
+    { title: '客户', width: 168 },
+    { title: '客户代码', width: 56 },
+    { title: '业务员', width: 56 },
+    { title: '承上', width: moneyWidth },
+    ...months.map((month) => ({ title: month, width: moneyWidth })),
+    { title: '合计', width: moneyWidth },
   ];
-  return gridPdf('应收款汇总表', `${from} 到 ${to}`, columns, lines, 'A3');
+  return gridPdf('应收款汇总表', `${from} 到 ${to}`, columns, lines, 'A3', 'minWidth');
 }
 
 function sumLines(values: string[]): string {

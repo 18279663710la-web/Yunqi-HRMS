@@ -837,7 +837,7 @@ CREATE TABLE IF NOT EXISTS `u9_mirror_ar_heads` (
   `post_period` VARCHAR(20) NOT NULL DEFAULT '',
   `src_org` VARCHAR(100) NOT NULL DEFAULT '',
   `invoice_date` DATE NULL,
-  `invoice_num` VARCHAR(50) NOT NULL DEFAULT '',
+  `invoice_num` VARCHAR(500) NOT NULL DEFAULT '',
   `currency_name` VARCHAR(50) NOT NULL DEFAULT '',
   `currency_precision` INT NOT NULL DEFAULT 2,
   `doc_status` INT NOT NULL DEFAULT 0,

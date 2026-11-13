@@ -1,5 +1,5 @@
 import { config } from '../../../config';
-import { runMirrorSync } from './syncJob';
+import { runBootstrapIfNeeded, runMirrorSync } from './syncJob';
 
 let incrementalTimer: NodeJS.Timeout | undefined;
 let nightlyTimer: NodeJS.Timeout | undefined;
@@ -19,12 +19,14 @@ export function startU9MirrorScheduler(): void {
     return;
   }
 
-  const runIncremental = (): void => {
-    void runMirrorSync('incremental').catch(() => undefined);
+  const startIncrementalLoop = (): void => {
+    const runIncremental = (): void => {
+      void runMirrorSync('incremental').catch(() => undefined);
+    };
+    runIncremental();
+    incrementalTimer = setInterval(runIncremental, Math.max(60000, config.u9Mirror.incrementalMs));
+    incrementalTimer.unref();
   };
-  runIncremental();
-  incrementalTimer = setInterval(runIncremental, Math.max(60000, config.u9Mirror.incrementalMs));
-  incrementalTimer.unref();
 
   const armNightly = (): void => {
     nightlyTimer = setTimeout(() => {
@@ -37,8 +39,23 @@ export function startU9MirrorScheduler(): void {
     }, msUntilNextHour(config.u9Mirror.nightlyHour));
     nightlyTimer.unref();
   };
-  armNightly();
-  console.log(
-    `[u9-mirror] 调度已启动 incrementalMs=${config.u9Mirror.incrementalMs} nightlyHour=${config.u9Mirror.nightlyHour}`
-  );
+
+  // 部署：无成功同步时先全量，再进入增量；已有同步则直接增量。
+  void (async () => {
+    try {
+      if (config.u9Mirror.bootstrapOnStart) {
+        await runBootstrapIfNeeded();
+      }
+    } catch (error) {
+      console.error(
+        '[u9-mirror] 启动全量失败，仍启动增量调度',
+        error instanceof Error ? error.message : error
+      );
+    }
+    startIncrementalLoop();
+    armNightly();
+    console.log(
+      `[u9-mirror] 调度已启动 incrementalMs=${config.u9Mirror.incrementalMs} nightlyHour=${config.u9Mirror.nightlyHour} bootstrapOnStart=${config.u9Mirror.bootstrapOnStart}`
+    );
+  })();
 }

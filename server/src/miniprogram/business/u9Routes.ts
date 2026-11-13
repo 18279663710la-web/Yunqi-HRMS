@@ -1,14 +1,35 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { pinyin } from 'pinyin-pro';
+import { config } from '../../config';
 import type { U9DocumentKind, U9Gateway } from '../../domains/u9/types';
 import { requireAuth } from '../auth/authMiddleware';
 import { execute, queryOne, queryRows } from '../../shared/db/pool';
 import { parse } from '../../shared/middleware/validate';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
-import { badRequest, forbidden, notFound } from '../../shared/utils/errors';
+import { badRequest, forbidden, HttpError, notFound } from '../../shared/utils/errors';
 import { success } from '../../shared/utils/response';
 import { documentPdf, summaryPdf } from '../../domains/u9/pdf';
+
+const BUSINESS_MAINTENANCE_MESSAGE = '系统维护中，请 2 点后再试';
+
+function isBusinessMaintenanceNow(): boolean {
+  const start = config.u9Mirror.businessMaintenanceStartHour;
+  const end = config.u9Mirror.businessMaintenanceEndHour;
+  if (start === end) return false;
+  const hour = new Date().getHours();
+  if (start < end) return hour >= start && hour < end;
+  // 跨日窗口（如 22–2）：hour >= start 或 hour < end
+  return hour >= start || hour < end;
+}
+
+function rejectDuringBusinessMaintenance(_req: Request, _res: Response, next: NextFunction): void {
+  if (isBusinessMaintenanceNow()) {
+    next(new HttpError(503, 503, BUSINESS_MAINTENANCE_MESSAGE));
+    return;
+  }
+  next();
+}
 
 interface NotificationRow {
   id: number;
@@ -43,6 +64,7 @@ function currentMonth(): string {
 
 export function createU9BusinessRouter(u9: U9Gateway): Router {
   const router = Router();
+  router.use(rejectDuringBusinessMaintenance);
   router.use(requireAuth);
   const kindSchema = z.enum(['receivables', 'receipts']);
   async function operatorFor(user: Express.Request['user']): Promise<string> {

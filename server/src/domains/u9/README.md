@@ -10,8 +10,15 @@
 
 - `etl/u9RawQueries.ts`：**单表**参数化查询，禁止 SQL 表关联；`IN` 按 `U9_ETL_IN_CHUNK` 分批；仅传入可安全 `CONVERT(bigint)` 的数字 ID。
 - `etl/assemble.ts`：按 ID 在应用层拼接，过滤口径与现网一致（出货业务员归属、未取消、DocStatus）。
-- `etl/extractWindow.ts` / `writer.ts` / `syncJob.ts` / `scheduler.ts`：按业务日期窗口增量或夜间校对写入镜像；失败不前移水位；成功后失效进程缓存并触发镜像回款留单。
-- `etl/summaryPrecompute.ts`：抽取窗口内按绑定业务员调用 U9 原汇总过程写入 `u9_mirror_summary_rows`，员工查询不再 `EXEC` 过程。
+- `etl/extractWindow.ts` / `writer.ts` / `syncJob.ts` / `scheduler.ts`：
+  - **部署全量 `bootstrap`**：自 U9 最早业务日（或 `U9_ETL_FULL_SINCE`）至今天，按月切片写入；启动时若无成功同步且 `U9_ETL_BOOTSTRAP_ON_START=true` 自动执行；并刷汇总矩阵。
+  - **白天增量 `incremental`**：按水位回看 `U9_ETL_LOOKBACK_DAYS`；**不**刷新汇总。
+  - **夜间全量校对 `nightly`**（默认 2 点）：单据全量重抽 + 汇总矩阵（每绑定业务员 × 每个 `from` × `to=当月` 调原汇总过程写入镜像）。
+  - 失败不前移水位；成功后失效进程缓存并触发镜像回款留单。
+- `etl/summaryPrecompute.ts`：仅 nightly / bootstrap 调用；`from` 从全量起点年份的 `YYYY-01` 起至当月；空月金额存空串；写完清理非当月 `to` 旧键。员工查询只读镜像，不再 `EXEC` 过程。
+- 汇总 PDF：列宽保底、月数过多时加宽页面（`minWidth`），避免金额与表头被压窄折行。
+- 业务维护窗：本地 `U9_BUSINESS_MAINTENANCE_START_HOUR`～`END_HOUR`（默认 0–2）内 `/api/business/*` 返回 503。
+- 强制全量：`npx tsx scripts/u9-mirror-bootstrap.ts`
 
 ### 同步状态
 
@@ -26,12 +33,11 @@
 
 ## 切换与回滚
 
-1. `U9_ETL_ENABLED=true`，必要时先 `U9_QUERY_SOURCE=sqlserver` 双跑。
+1. 部署：启用 ETL 后先全量（自动或 `u9-mirror-bootstrap.ts`），`U9_QUERY_SOURCE=mysql`。
 2. `npx tsx scripts/u9-mirror-parity.ts <operatorId> <period>` 对照应收列表。
-3. 对照通过后 `U9_QUERY_SOURCE=mysql` 并重启；启动日志应出现 `querySource=mysql`。
-4. 回滚：`U9_QUERY_SOURCE=sqlserver` 重启。
+3. 回滚：`U9_QUERY_SOURCE=sqlserver` 重启。
 
-本机验收（2026-11-13）：宽窗口抽取后，业务员 `1002501150010071` 在 2026-08/09 应收 `docNo`/行数与详情金额与直连一致，已切 mysql。
+本机说明：早期仅抽 2026 年窗口会导致 2024–2025 历史偏少；应使用部署全量覆盖 U9 最早业务日至今。
 
 ## 其它
 

@@ -1,13 +1,19 @@
 import { config } from '../../../config';
 import { invalidateU9QueryCache } from '../queryCache';
 import { syncReceiptNotificationsFromMirror } from '../receiptNotificationService';
-import { extractBusinessDateWindow, incrementalRange } from './extractWindow';
+import {
+  extractBusinessDateWindow,
+  extractDateRangeChunked,
+  fullSyncRange,
+  incrementalRange,
+} from './extractWindow';
 import { precomputeSummariesForBoundOperators } from './summaryPrecompute';
 import {
   advanceWatermark,
   beginSyncRun,
   ensureSyncState,
   finishSyncRun,
+  getLastSuccessAt,
   getSyncWatermark,
 } from './writer';
 
@@ -25,12 +31,14 @@ function currentHourLocal(): number {
   return new Date().getHours();
 }
 
-function defaultSummaryRange(today: string): { from: string; to: string } {
-  const [y] = today.split('-').map(Number);
-  return { from: `${y}-01`, to: today.slice(0, 7) };
-}
+export type MirrorSyncMode = 'bootstrap' | 'incremental' | 'nightly';
 
-export async function runMirrorSync(mode: 'incremental' | 'nightly'): Promise<void> {
+/**
+ * - bootstrap：部署全量（U9 最早业务日 → 今天），按月切片；并刷汇总矩阵
+ * - incremental：按水位回看增量；不刷汇总
+ * - nightly：全量校对 + 汇总矩阵（每业务员 × 每个 from × to=当月）
+ */
+export async function runMirrorSync(mode: MirrorSyncMode): Promise<void> {
   if (running) {
     console.log('[u9-mirror] 已有同步在运行，跳过');
     return;
@@ -45,21 +53,29 @@ export async function runMirrorSync(mode: 'incremental' | 'nightly'): Promise<vo
   const runId = await beginSyncRun(mode);
   const today = todayLocal();
   try {
-    const watermark = await getSyncWatermark();
-    const range =
-      mode === 'nightly'
-        ? incrementalRange(null, today)
-        : incrementalRange(watermark, today);
-    const stats = await extractBusinessDateWindow(range.start, range.endExclusive);
-    const summaryRange = defaultSummaryRange(today);
-    const summaryRows = await precomputeSummariesForBoundOperators(
-      summaryRange.from,
-      summaryRange.to
-    );
-    const notices = await syncReceiptNotificationsFromMirror();
+    let stats;
+    let noticeSince: string;
+    let summaryRows = 0;
+    if (mode === 'incremental') {
+      const watermark = await getSyncWatermark();
+      const range = incrementalRange(watermark, today);
+      stats = await extractBusinessDateWindow(range.start, range.endExclusive);
+      noticeSince = range.start.slice(0, 7) + '-01';
+    } else {
+      const range = await fullSyncRange(today);
+      console.log(`[u9-mirror] ${mode} 全量范围`, range);
+      stats = await extractDateRangeChunked(range.start, range.endExclusive);
+      noticeSince = range.start.slice(0, 7) + '-01';
+      // 汇总 from 从全量起点所在年的 1 月起，避免选「2024-01」时因单据起点在年中而空表
+      const summaryFrom = `${range.start.slice(0, 4)}-01`;
+      const summaryTo = today.slice(0, 7);
+      console.log(`[u9-mirror] ${mode} 汇总矩阵`, { summaryFrom, summaryTo, docFrom: range.start.slice(0, 7) });
+      summaryRows = await precomputeSummariesForBoundOperators(summaryFrom, summaryTo);
+    }
+    const notices = await syncReceiptNotificationsFromMirror({ since: noticeSince });
     await advanceWatermark(today, mode);
     invalidateU9QueryCache();
-    await finishSyncRun(runId, true, undefined, { ...stats, summaryRows, notices });
+    await finishSyncRun(runId, true, undefined, { ...stats, summaryRows, notices, mode });
     console.log('[u9-mirror] 同步成功', mode, { ...stats, summaryRows, notices });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -69,4 +85,17 @@ export async function runMirrorSync(mode: 'incremental' | 'nightly'): Promise<vo
   } finally {
     running = false;
   }
+}
+
+/** 尚无成功同步时执行部署全量；已有数据则跳过。 */
+export async function runBootstrapIfNeeded(): Promise<boolean> {
+  await ensureSyncState();
+  const last = await getLastSuccessAt();
+  if (last) {
+    console.log('[u9-mirror] 已有成功同步，跳过启动全量', last);
+    return false;
+  }
+  console.log('[u9-mirror] 无成功同步记录，开始部署全量');
+  await runMirrorSync('bootstrap');
+  return true;
 }

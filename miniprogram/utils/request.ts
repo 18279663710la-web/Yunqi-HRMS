@@ -349,7 +349,12 @@ export async function downloadBusinessPdf(url: string): Promise<string> {
     result = await downloadOnce();
     if (result.statusCode === 401) throw authExpired({ url });
   }
-  if (result.statusCode !== 200 || !result.tempFilePath) throw { code: result.statusCode, message: '下载失败，请检查业务员绑定或重试' } as ApiError;
+  if (result.statusCode === 503) {
+    throw { code: 503, message: '系统维护中，请 2 点后再试' } as ApiError;
+  }
+  if (result.statusCode !== 200 || !result.tempFilePath) {
+    throw { code: result.statusCode, message: '下载失败，请检查业务员绑定或重试' } as ApiError;
+  }
   return result.tempFilePath;
 }
 
