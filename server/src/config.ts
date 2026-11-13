@@ -57,10 +57,10 @@ export const config = {
     pollMs: int(process.env.U9_RECEIPT_NOTIFY_POLL_MS, 60000),
   },
   u9Mirror: {
-    /** 员工查询数据源：mysql=镜像；sqlserver=直连（对照/回滚）。 */
-    querySource: str(process.env.U9_QUERY_SOURCE, 'sqlserver') === 'mysql' ? 'mysql' : 'sqlserver',
+    /** 员工查询数据源：mysql=镜像；sqlserver=直连（对照/回滚）。本机对照通过后默认 mysql。 */
+    querySource: str(process.env.U9_QUERY_SOURCE, 'mysql') === 'sqlserver' ? 'sqlserver' : 'mysql',
     /** 是否启用镜像抽取调度；关闭时不访问 U9 做 ETL。 */
-    etlEnabled: str(process.env.U9_ETL_ENABLED, 'false') === 'true',
+    etlEnabled: str(process.env.U9_ETL_ENABLED, 'true') !== 'false',
     /** 白天增量间隔（毫秒），默认 1 小时。 */
     incrementalMs: int(process.env.U9_ETL_INCREMENTAL_MS, 3600000),
     /** 夜间全量校对起始小时（本地 0–23）。 */

@@ -12,9 +12,14 @@ function inChunk(): number {
   return config.u9Mirror.inChunk;
 }
 
+/** 只保留可安全 CONVERT(bigint) 的 ID，避免空串/非数字打崩抽取。 */
+function numericIds(ids: string[]): string[] {
+  return [...new Set(ids.map((id) => String(id || '').trim()).filter((id) => /^\d{1,19}$/.test(id)))];
+}
+
 async function byIds(tableSql: string, ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -32,8 +37,8 @@ export async function fetchOperatorsByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchOperatorTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -49,8 +54,8 @@ export async function fetchOperatorTrlByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchOrgTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -77,8 +82,8 @@ export async function fetchOrganizationsByCode(code: string): Promise<RawRow[]> 
 }
 
 export async function fetchCustomerTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -101,8 +106,8 @@ export async function fetchCurrencyByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchCurrencyTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -125,8 +130,8 @@ export async function fetchPeriodsByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchUomTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -142,8 +147,8 @@ export async function fetchUomTrlByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchSettlementMethodTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -159,8 +164,8 @@ export async function fetchSettlementMethodTrlByIds(ids: string[]): Promise<RawR
 }
 
 export async function fetchBankAccountTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -194,8 +199,8 @@ export async function fetchArHeadsByBusinessDateRange(start: string, endExclusiv
 }
 
 export async function fetchArHeadsByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -241,8 +246,8 @@ const arLineSelect = `SELECT CONVERT(varchar(20),ID) id,
  FROM AR_ARBillLine`;
 
 export async function fetchArLinesByHeadIds(headIds: string[]): Promise<RawRow[]> {
-  if (!headIds.length) return [];
-  const unique = [...new Set(headIds.filter(Boolean))];
+  const unique = numericIds(headIds);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -254,8 +259,8 @@ export async function fetchArLinesByHeadIds(headIds: string[]): Promise<RawRow[]
 }
 
 export async function fetchArLinesByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -265,8 +270,8 @@ export async function fetchArLinesByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchShipLinesByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -285,8 +290,8 @@ export async function fetchShipLinesByIds(ids: string[]): Promise<RawRow[]> {
 }
 
 export async function fetchShipsByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -321,8 +326,8 @@ export async function fetchRecHeadsByBusinessDateRange(start: string, endExclusi
 }
 
 export async function fetchRecLinesByHeadIds(headIds: string[]): Promise<RawRow[]> {
-  if (!headIds.length) return [];
-  const unique = [...new Set(headIds.filter(Boolean))];
+  const unique = numericIds(headIds);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -344,8 +349,8 @@ export async function fetchRecLinesByHeadIds(headIds: string[]): Promise<RawRow[
 }
 
 export async function fetchRecLineTrlByIds(ids: string[]): Promise<RawRow[]> {
-  if (!ids.length) return [];
-  const unique = [...new Set(ids.filter(Boolean))];
+  const unique = numericIds(ids);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
@@ -362,8 +367,8 @@ export async function fetchRecLineTrlByIds(ids: string[]): Promise<RawRow[]> {
 
 /** 核销行：CRBillTag=收款单，DRBillTag/DRBillLineTag=应收 */
 export async function fetchApplyLinesByRecHeadIds(recHeadIds: string[]): Promise<RawRow[]> {
-  if (!recHeadIds.length) return [];
-  const unique = [...new Set(recHeadIds.filter(Boolean))];
+  const unique = numericIds(recHeadIds);
+  if (!unique.length) return [];
   const rows: RawRow[] = [];
   for (const chunk of chunkIds(unique, inChunk())) {
     const placeholders = chunk.map(() => 'CONVERT(bigint,?)').join(',');
