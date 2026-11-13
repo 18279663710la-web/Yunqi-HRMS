@@ -15,9 +15,10 @@
 - `leave-attendance.integration.test.ts` 在隔离数据库验证请假审批通过后覆盖即整天标记请假、日历休息日与出差优先于请假、免打卡及工资缺勤口径。
 - `attendance-visits.integration.test.ts` 在隔离数据库验证拜访照片上传、员工隔离、照片必填、管理端按员工/关键字查询、逆地址回退及旧快捷入口迁移；`visit-geocode.test.ts` 验证腾讯地图逆地址结果解析和失败回退。
 - `onboarding-attachments.integration.test.ts` 在隔离数据库验证附件归属、权限和历史；`onboarding-attachment-mini.test.ts` 模拟小程序三种选择入口。
+- `hr-departure-register.integration.test.ts` 在隔离数据库验证登记离职：未来日期为已申请、到期自动锁定为已离职并吊销会话、当日登记直接锁定。
 
 - 子目录：[fixtures/](fixtures/README.md)。
-- 主要文件：`approval-approvers.integration.test.ts`、`approval-type-approver-page.test.ts`、`attendance-api.integration.test.ts`、`attendance-policy.test.ts`、`attendance-windows.test.ts`、`employee-session-revocation.integration.test.ts`、`expense-ai-stream-client.test.ts`、`expense-ai-stream.test.ts`等。
+- 主要文件：`approval-approvers.integration.test.ts`、`approval-type-approver-page.test.ts`、`attendance-api.integration.test.ts`、`attendance-policy.test.ts`、`attendance-windows.test.ts`、`employee-session-revocation.integration.test.ts`、`expense-ai-stream-client.test.ts`、`expense-ai-stream.test.ts`、`hr-departure-register.integration.test.ts`等。
 
 ## 维护约束
 

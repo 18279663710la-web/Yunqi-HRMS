@@ -13,7 +13,17 @@ import { addAutoPayrollItems, previewAutoPayrollItems, lockPayrollMonth } from '
 import { success } from '../../shared/utils/response';
 import { taskSchema, completionSchema } from './hrOnboardingService';
 import { cancelTransition, listTransitions, submitTransition, transitionSchema } from './hrTransitionService';
-import { cancelDeparture, finalizeDeparture } from './hrDepartureService';
+import multer from 'multer';
+import type { RequestHandler } from 'express';
+import {
+  cancelDeparture,
+  cancelDepartureRecord,
+  finalizeDeparture,
+  getDepartureFile,
+  listDepartureFiles,
+  listDepartures,
+  registerDeparture,
+} from './hrDepartureService';
 import { overtimeRuleConfigSchema, overtimeRulesKey, overtimeRulesSchema } from '../../domains/payroll/overtimePayrollService';
 import { OVERTIME_RULE_CONFIG_KEY, readOvertimeRuleConfig, saveOvertimeRuleConfig } from '../../domains/payroll/overtimeRuleConfigRepository';
 import { attendanceRangeRuleConfigSchema, attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
@@ -356,6 +366,55 @@ router.post('/payroll-batches/:id/review', asyncHandler(async (req, res) => {
   });
   await recordAdminLog(req.admin!, '复核工资批次', 'hr_payroll_batches', req.params.id, {}); success(res, {});
 }));
+const departureUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 5 }, defParamCharset: 'utf8' }).array('files', 5);
+const uploadDepartureFiles: RequestHandler = (req, res, next) => departureUpload(req, res, (error) => {
+  if (error instanceof multer.MulterError) {
+    next(badRequest(error.code === 'LIMIT_FILE_SIZE' ? '单个附件不能超过 10MB' : error.code === 'LIMIT_FILE_COUNT' ? '最多上传 5 个附件' : '附件上传失败'));
+    return;
+  }
+  next(error);
+});
+
+router.get('/departures', asyncHandler(async (_req, res) => {
+  success(res, await listDepartures());
+}));
+router.post('/departures', uploadDepartureFiles, asyncHandler(async (req, res) => {
+  const input = parse(exitSchema, typeof req.body?.payload === 'string' ? JSON.parse(req.body.payload) : req.body);
+  const uploaded = Array.isArray(req.files) ? req.files as Express.Multer.File[] : [];
+  const result = await registerDeparture({
+    employeeId: input.employeeId,
+    lastDate: input.lastDate,
+    note: input.note,
+    adminId: req.admin!.id,
+    files: uploaded.map((file) => ({
+      fileName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
+      mimeType: file.mimetype || 'application/octet-stream',
+      size: file.size,
+      data: file.buffer,
+    })),
+  });
+  await recordAdminLog(req.admin!, '登记员工离职', 'hr_employee_departures', String(result.id), { employeeId: result.employeeId, status: result.status });
+  success(res, result);
+}));
+router.post('/departures/:id/cancel', asyncHandler(async (req, res) => {
+  const id = parse(z.coerce.number().int().positive(), req.params.id);
+  await cancelDepartureRecord(id, req.admin!.id);
+  await recordAdminLog(req.admin!, '撤销员工离职', 'hr_employee_departures', String(id), {});
+  success(res, {});
+}));
+router.get('/departures/:id/files', asyncHandler(async (req, res) => {
+  const id = parse(z.coerce.number().int().positive(), req.params.id);
+  success(res, await listDepartureFiles(id));
+}));
+router.get('/departures/:id/files/:fileId', asyncHandler(async (req, res) => {
+  const id = parse(z.coerce.number().int().positive(), req.params.id);
+  const fileId = parse(z.coerce.number().int().positive(), req.params.fileId);
+  const file = await getDepartureFile(id, fileId);
+  const encoded = encodeURIComponent(file.file_name).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  res.set({ 'Content-Type': file.mime_type || 'application/octet-stream', 'Content-Disposition': `attachment; filename="attachment"; filename*=UTF-8''${encoded}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.send(file.file_data);
+}));
+
 router.get('/offboarding', asyncHandler(async (_req, res) => {
   const rows = await queryRows<{ taskCount: number; completedCount: number }>('SELECT o.id, o.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, o.last_date AS lastDate, o.note, o.status, o.created_at AS createdAt, d.status AS departureStatus, (SELECT COUNT(*) FROM hr_offboarding_tasks t WHERE t.offboarding_id = o.id) AS taskCount, (SELECT COUNT(*) FROM hr_offboarding_tasks t WHERE t.offboarding_id = o.id AND t.completed = 1) AS completedCount FROM hr_offboarding o JOIN employees e ON e.id = o.employee_id LEFT JOIN hr_employee_departures d ON d.offboarding_id = o.id ORDER BY o.id DESC LIMIT 200');
   success(res, rows.map((row) => ({ ...row, taskCount: Number(row.taskCount), completedCount: Number(row.completedCount), taskStatus: Number(row.completedCount) === 0 ? 'pending' : Number(row.completedCount) === Number(row.taskCount) ? 'completed' : 'in_progress' })));
@@ -366,8 +425,8 @@ router.post('/offboarding', asyncHandler(async (req, res) => {
     const [employees] = await conn.query<RowDataPacket[]>("SELECT id, DATE_FORMAT(join_date, '%Y-%m-%d') AS joinDate FROM employees WHERE id = ? FOR UPDATE", [input.employeeId]);
     if (!employees.length) throw notFound('员工不存在');
     if (input.lastDate < String(employees[0].joinDate)) throw badRequest('最后工作日不能早于入职日期');
-    const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [input.employeeId]);
-    if (departures.length) throw badRequest('该员工已确认离职');
+    const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status IN ('applied', 'departed') LIMIT 1", [input.employeeId]);
+    if (departures.length) throw badRequest('该员工已有离职记录');
     const [openCases] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_offboarding WHERE employee_id = ? AND status = 'open' LIMIT 1", [input.employeeId]);
     if (openCases.length) throw badRequest('该员工已有办理中的离职清单');
     const [result] = await conn.execute<ResultSetHeader>("INSERT INTO hr_offboarding (employee_id, last_date, note, status, created_at) VALUES (?, ?, ?, 'open', NOW())", [input.employeeId, input.lastDate, input.note]); return result.insertId;

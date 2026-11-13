@@ -1,10 +1,168 @@
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
-import { transaction } from '../../shared/db/pool';
+import type { PoolConnection } from 'mysql2/promise';
+import { queryRows, transaction } from '../../shared/db/pool';
 import { dateKey } from '../../shared/utils/datetime';
 import { badRequest, notFound } from '../../shared/utils/errors';
 import { revokeEmployeeSessions } from '../../domains/accounts/employeeSessionService';
 
-/** 显式确认离职；清单完成与正式离职分别记录。 */
+const LOCKED_PASSWORD_PREFIX = 'locked$';
+
+export type DepartureStatus = 'applied' | 'departed' | 'cancelled';
+
+export interface DepartureFileInput {
+  fileName: string;
+  mimeType: string;
+  size: number;
+  data: Buffer;
+}
+
+async function assertDepartureClearance(conn: PoolConnection, employeeId: string): Promise<void> {
+  const [configured] = await conn.query<RowDataPacket[]>('SELECT type FROM approval_approvers WHERE employee_id = ? LIMIT 1 FOR UPDATE', [employeeId]);
+  if (configured.length) throw badRequest('该员工仍是指定审批人，请先更换审批人');
+  const [published] = await conn.query<RowDataPacket[]>('SELECT graph_json FROM custom_approval_publications ORDER BY approval_type FOR UPDATE');
+  for (const row of published) {
+    const graph = typeof row.graph_json === 'string' ? JSON.parse(row.graph_json) : row.graph_json;
+    if (!graph || !Array.isArray(graph.nodes)) throw new Error('已发布审批流程格式无效');
+    if (graph.nodes.some((node: { kind?: string; config?: { approverIds?: string[] } }) => node.kind === 'approver' && node.config?.approverIds?.includes(employeeId))) {
+      throw badRequest('该员工仍是已发布流程的审批人，请先调整并发布流程');
+    }
+  }
+  const [pending] = await conn.query<RowDataPacket[]>(
+    "SELECT a.id FROM approvals a LEFT JOIN approval_timeline t ON t.approval_id = a.id AND t.approver_id = ? AND t.state IN ('current', 'wait') WHERE a.status = 'pending' AND (a.applicant_id = ? OR t.id IS NOT NULL) LIMIT 1 FOR UPDATE",
+    [employeeId, employeeId]
+  );
+  if (pending.length) throw badRequest('该员工仍有待处理的申请或审批，请先处理');
+}
+
+async function lockEmployeeAccount(conn: PoolConnection, employeeId: string): Promise<void> {
+  const [accounts] = await conn.query<RowDataPacket[]>('SELECT password_hash FROM employee_accounts WHERE employee_id = ? FOR UPDATE', [employeeId]);
+  if (accounts.length) {
+    const hash = String(accounts[0].password_hash || '');
+    const nextHash = hash.startsWith(LOCKED_PASSWORD_PREFIX) ? hash : `${LOCKED_PASSWORD_PREFIX}${hash}`;
+    await conn.execute("UPDATE employee_accounts SET password_hash = ?, status = 'disabled', updated_at = NOW() WHERE employee_id = ?", [nextHash, employeeId]);
+  }
+  await revokeEmployeeSessions(conn, employeeId);
+}
+
+async function activateDueDepartureRows(conn: PoolConnection, employeeId?: string): Promise<void> {
+  const today = dateKey();
+  const params: unknown[] = [today];
+  let sql = "SELECT id, employee_id FROM hr_employee_departures WHERE status = 'applied' AND last_date <= ?";
+  if (employeeId) {
+    sql += ' AND employee_id = ?';
+    params.push(employeeId);
+  }
+  sql += ' FOR UPDATE';
+  const [rows] = await conn.query<RowDataPacket[]>(sql, params);
+  for (const row of rows) {
+    const id = Number(row.id);
+    const targetEmployeeId = String(row.employee_id);
+    await lockEmployeeAccount(conn, targetEmployeeId);
+    await conn.execute("UPDATE hr_employee_departures SET status = 'departed' WHERE id = ? AND status = 'applied'", [id]);
+  }
+}
+
+/** 将到期的「已申请」转为「已离职」并锁定账号。 */
+export async function activateDueDepartures(employeeId?: string): Promise<void> {
+  await transaction(async (conn) => {
+    await activateDueDepartureRows(conn, employeeId);
+  });
+}
+
+/** 管理员登记离职：未到离职日为已申请，已到则为已离职并锁定。 */
+export async function registerDeparture(input: {
+  employeeId: string;
+  lastDate: string;
+  note?: string;
+  files?: DepartureFileInput[];
+  adminId: number;
+}): Promise<{ id: number; employeeId: string; status: 'applied' | 'departed' }> {
+  const files = input.files || [];
+  if (files.length > 5) throw badRequest('最多上传 5 个附件');
+  for (const file of files) {
+    if (file.size <= 0 || file.size > 10 * 1024 * 1024) throw badRequest('单个附件不能超过 10MB');
+    if (!file.fileName.trim()) throw badRequest('附件名称无效');
+  }
+  return transaction(async (conn) => {
+    const [employees] = await conn.query<RowDataPacket[]>("SELECT id, DATE_FORMAT(join_date, '%Y-%m-%d') AS joinDate FROM employees WHERE id = ? FOR UPDATE", [input.employeeId]);
+    if (!employees.length) throw notFound('员工不存在');
+    if (input.lastDate < String(employees[0].joinDate)) throw badRequest('离职日期不能早于入职日期');
+    await activateDueDepartureRows(conn, input.employeeId);
+    const [existing] = await conn.query<RowDataPacket[]>(
+      "SELECT id, status FROM hr_employee_departures WHERE employee_id = ? AND status IN ('applied', 'departed') LIMIT 1 FOR UPDATE",
+      [input.employeeId]
+    );
+    if (existing.length) throw badRequest(existing[0].status === 'applied' ? '该员工已有离职申请' : '该员工已经离职');
+    await assertDepartureClearance(conn, input.employeeId);
+    const status: 'applied' | 'departed' = input.lastDate <= dateKey() ? 'departed' : 'applied';
+    const [result] = await conn.execute<ResultSetHeader>(
+      'INSERT INTO hr_employee_departures (offboarding_id, employee_id, last_date, note, status, created_by, created_at) VALUES (NULL, ?, ?, ?, ?, ?, NOW())',
+      [input.employeeId, input.lastDate, input.note || '', status, input.adminId]
+    );
+    const departureId = result.insertId;
+    for (const file of files) {
+      await conn.execute(
+        'INSERT INTO hr_departure_files (departure_id, employee_id, file_name, mime_type, file_size, file_data, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
+        [departureId, input.employeeId, file.fileName, file.mimeType, file.size, file.data, input.adminId]
+      );
+    }
+    if (status === 'departed') await lockEmployeeAccount(conn, input.employeeId);
+    return { id: departureId, employeeId: input.employeeId, status };
+  });
+}
+
+export async function listDepartures() {
+  await activateDueDepartures();
+  return queryRows<{
+    id: number;
+    employeeId: string;
+    name: string;
+    employeeNo: string;
+    position: string;
+    lastDate: string;
+    note: string;
+    status: 'applied' | 'departed';
+    createdAt: unknown;
+    fileCount: number;
+  }>(
+    `SELECT d.id, d.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, e.position,
+            DATE_FORMAT(d.last_date, '%Y-%m-%d') AS lastDate, d.note, d.status, d.created_at AS createdAt,
+            (SELECT COUNT(*) FROM hr_departure_files f WHERE f.departure_id = d.id) AS fileCount
+     FROM hr_employee_departures d
+     JOIN employees e ON e.id = d.employee_id
+     WHERE d.status IN ('applied', 'departed')
+     ORDER BY d.id DESC
+     LIMIT 200`
+  ).then((rows) => rows.map((row) => ({ ...row, fileCount: Number(row.fileCount) })));
+}
+
+export async function cancelDepartureRecord(departureId: number, adminId: number): Promise<void> {
+  await transaction(async (conn) => {
+    const [rows] = await conn.query<RowDataPacket[]>("SELECT id, status FROM hr_employee_departures WHERE id = ? FOR UPDATE", [departureId]);
+    if (!rows.length) throw notFound('离职记录不存在');
+    if (rows[0].status === 'cancelled') throw badRequest('该离职记录已撤销');
+    if (rows[0].status !== 'applied' && rows[0].status !== 'departed') throw badRequest('该离职记录不可撤销');
+    await conn.execute("UPDATE hr_employee_departures SET status = 'cancelled', cancelled_by = ?, cancelled_at = NOW() WHERE id = ?", [adminId, departureId]);
+  });
+}
+
+export async function listDepartureFiles(departureId: number) {
+  return queryRows<{ id: number; name: string; size: number; mimeType: string; createdAt: unknown }>(
+    'SELECT id, file_name AS name, file_size AS size, mime_type AS mimeType, created_at AS createdAt FROM hr_departure_files WHERE departure_id = ? ORDER BY id',
+    [departureId]
+  );
+}
+
+export async function getDepartureFile(departureId: number, fileId: number) {
+  const row = await queryRows<{ file_name: string; mime_type: string; file_data: Buffer }>(
+    'SELECT file_name, mime_type, file_data FROM hr_departure_files WHERE departure_id = ? AND id = ? LIMIT 1',
+    [departureId, fileId]
+  );
+  if (!row.length) throw notFound('附件不存在');
+  return row[0];
+}
+
+/** 显式确认离职；清单完成与正式离职分别记录（兼容旧流程）。 */
 export async function finalizeDeparture(caseId: string, adminId: number) {
   return transaction(async (conn) => {
     const [cases] = await conn.query<RowDataPacket[]>('SELECT employee_id FROM hr_offboarding WHERE id = ?', [caseId]);
@@ -17,23 +175,17 @@ export async function finalizeDeparture(caseId: string, adminId: number) {
     const lastDate = locked[0].last_date instanceof Date ? dateKey(locked[0].last_date) : String(locked[0].last_date).slice(0, 10);
     if (lastDate < String(employees[0].joinDate)) throw badRequest('最后工作日不能早于入职日期');
     if (lastDate > dateKey()) throw badRequest('最后工作日尚未到，不能确认离职');
-    const [existing] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1 FOR UPDATE", [employeeId]);
+    await activateDueDepartureRows(conn, employeeId);
+    const [existing] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status IN ('applied', 'departed') LIMIT 1 FOR UPDATE", [employeeId]);
     if (existing.length) throw badRequest('该员工已经确认离职');
     const [usedCase] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_employee_departures WHERE offboarding_id = ? FOR UPDATE', [caseId]);
     if (usedCase.length) throw badRequest('该清单已经办理过离职，如需再次办理请新建清单');
-    const [configured] = await conn.query<RowDataPacket[]>('SELECT type FROM approval_approvers WHERE employee_id = ? LIMIT 1 FOR UPDATE', [employeeId]);
-    if (configured.length) throw badRequest('该员工仍是指定审批人，请先更换审批人');
-    const [published] = await conn.query<RowDataPacket[]>('SELECT graph_json FROM custom_approval_publications ORDER BY approval_type FOR UPDATE');
-    for (const row of published) {
-      const graph = typeof row.graph_json === 'string' ? JSON.parse(row.graph_json) : row.graph_json;
-      if (!graph || !Array.isArray(graph.nodes)) throw new Error('已发布审批流程格式无效');
-      if (graph.nodes.some((node: { kind?: string; config?: { approverIds?: string[] } }) => node.kind === 'approver' && node.config?.approverIds?.includes(employeeId))) throw badRequest('该员工仍是已发布流程的审批人，请先调整并发布流程');
-    }
-    const [pending] = await conn.query<RowDataPacket[]>("SELECT a.id FROM approvals a LEFT JOIN approval_timeline t ON t.approval_id = a.id AND t.approver_id = ? AND t.state IN ('current', 'wait') WHERE a.status = 'pending' AND (a.applicant_id = ? OR t.id IS NOT NULL) LIMIT 1 FOR UPDATE", [employeeId, employeeId]);
-    if (pending.length) throw badRequest('该员工仍有待处理的申请或审批，请先处理');
-    await conn.execute("UPDATE employee_accounts SET status = 'disabled', updated_at = NOW() WHERE employee_id = ?", [employeeId]);
-    await revokeEmployeeSessions(conn, employeeId);
-    const [result] = await conn.execute<ResultSetHeader>("INSERT INTO hr_employee_departures (offboarding_id, employee_id, last_date, status, created_by, created_at) VALUES (?, ?, ?, 'departed', ?, NOW())", [caseId, employeeId, lastDate, adminId]);
+    await assertDepartureClearance(conn, employeeId);
+    await lockEmployeeAccount(conn, employeeId);
+    const [result] = await conn.execute<ResultSetHeader>(
+      "INSERT INTO hr_employee_departures (offboarding_id, employee_id, last_date, note, status, created_by, created_at) VALUES (?, ?, ?, '', 'departed', ?, NOW())",
+      [caseId, employeeId, lastDate, adminId]
+    );
     return { id: result.insertId, employeeId };
   });
 }

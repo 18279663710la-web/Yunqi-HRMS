@@ -387,16 +387,31 @@ CREATE TABLE IF NOT EXISTS `hr_offboarding_tasks` (
 
 CREATE TABLE IF NOT EXISTS `hr_employee_departures` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
-  `offboarding_id` BIGINT NOT NULL,
+  `offboarding_id` BIGINT NULL,
   `employee_id` VARCHAR(10) NOT NULL,
   `last_date` DATE NOT NULL,
-  `status` ENUM('departed','cancelled') NOT NULL DEFAULT 'departed',
+  `note` VARCHAR(500) NOT NULL DEFAULT '',
+  `status` ENUM('applied','departed','cancelled') NOT NULL DEFAULT 'applied',
   `created_by` INT NOT NULL,
   `created_at` DATETIME NOT NULL,
   `cancelled_by` INT NULL,
   `cancelled_at` DATETIME NULL,
   UNIQUE KEY `idx_hr_departure_case` (`offboarding_id`),
   KEY `idx_hr_departure_employee` (`employee_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `hr_departure_files` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+  `departure_id` BIGINT NOT NULL,
+  `employee_id` VARCHAR(10) NOT NULL,
+  `file_name` VARCHAR(200) NOT NULL,
+  `mime_type` VARCHAR(100) NOT NULL,
+  `file_size` INT UNSIGNED NOT NULL,
+  `file_data` LONGBLOB NOT NULL,
+  `uploaded_by` INT NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  KEY `idx_departure_files` (`departure_id`),
+  KEY `idx_departure_files_employee` (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `hr_contract_files` (

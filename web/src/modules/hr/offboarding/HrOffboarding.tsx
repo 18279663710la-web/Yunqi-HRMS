@@ -1,84 +1,262 @@
-import { useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Checkbox, DatePicker, Form, Input, List, Modal, Popconfirm, Select, Space, Spin, Table } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { App, Avatar, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
+import type { UploadFile } from 'antd/es/upload/interface';
 import dayjs, { type Dayjs } from 'dayjs';
-import { addOffboardingTask, cancelDeparture, completeOffboarding, createOffboarding, finalizeOffboarding, getOffboarding, getOffboardingTasks, updateOffboardingTask, type HrEmployee, type OffboardingRecord, type OnboardingTask } from '../api';
+import { fetchEmployees } from '../../employees/api';
+import type { AdminEmployee } from '../../../types';
+import { initialOf } from '../../../utils/helpers';
+import {
+  cancelDepartureRecord,
+  downloadDepartureFile,
+  getDepartureFiles,
+  getDepartures,
+  registerDeparture,
+  type DepartureFile,
+  type DepartureRecord,
+} from '../api';
 
-export function HrOffboarding({ employees, onEmployeeChanged }: { employees: HrEmployee[]; onEmployeeChanged: () => Promise<void> }) {
-  const { message } = App.useApp();
-  const [rows, setRows] = useState<OffboardingRecord[]>([]);
-  const [selected, setSelected] = useState<OffboardingRecord>();
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
-  const load = async () => { setLoading(true); try { setRows(await getOffboarding()); } catch (error) { message.error((error as Error).message); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, []);
-  const submit = async (values: { employeeId: string; lastDate: Dayjs; note?: string }) => {
-    setLoading(true);
-    try { await createOffboarding({ ...values, lastDate: values.lastDate.format('YYYY-MM-DD'), note: values.note || '' }); setOpen(false); form.resetFields(); await load(); message.success('离职清单已创建'); }
-    catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
-  };
-  const finalize = async (record: OffboardingRecord) => {
-    setLoading(true);
-    try { await finalizeOffboarding(record.id); message.success('已确认离职并停用小程序账号'); await load(); try { await onEmployeeChanged(); } catch { message.warning('员工列表刷新失败，请刷新页面'); } }
-    catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
-  };
-  const cancel = async (record: OffboardingRecord) => {
-    setLoading(true);
-    try { await cancelDeparture(record.id); message.success('已撤销离职；账号仍需管理员单独启用'); await load(); try { await onEmployeeChanged(); } catch { message.warning('员工列表刷新失败，请刷新页面'); } }
-    catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
-  };
-  return <Card title="离职清单" className="panel-card" bordered={false} extra={<Button type="primary" onClick={() => { form.resetFields(); setOpen(true); }}>新建清单</Button>}>
-    <Alert showIcon type="info" message="先完成交接清单，再确认离职；确认后停用小程序账号，历史数据保留。" style={{ marginBottom: 16 }} />
-    <Table rowKey="id" dataSource={rows} loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 600 }} columns={[
-      { title: '员工', render: (_: unknown, row: OffboardingRecord) => `${row.name} · ${row.employeeNo}` },
-      { title: '最后工作日', dataIndex: 'lastDate', render: (value: string) => dayjs(value).format('YYYY-MM-DD') },
-      { title: '状态', render: (_: unknown, row: OffboardingRecord) => row.status === 'open' ? '办理中' : '已完成' },
-      { title: '任务进度', render: (_: unknown, row: OffboardingRecord) => `${row.taskStatus === 'completed' ? '已完成' : row.taskStatus === 'in_progress' ? '进行中' : '待处理'}（${row.completedCount}/${row.taskCount}）` },
-      { title: '离职确认', render: (_: unknown, row: OffboardingRecord) => row.departureStatus === 'departed' ? '已离职' : row.departureStatus === 'cancelled' ? '已撤销' : '未确认' },
-      { title: '备注', dataIndex: 'note' }, { title: '操作', render: (_: unknown, row: OffboardingRecord) => <Space wrap><Button type="link" onClick={() => setSelected(row)}>查看任务</Button>
-        {row.status === 'completed' && !row.departureStatus && <Popconfirm title="确认离职并停用小程序账号？" description="请先处理指定审批人及待处理单据。" onConfirm={() => void finalize(row)} okText="确认离职" cancelText="返回"><Button type="link" danger>确认离职</Button></Popconfirm>}
-        {row.departureStatus === 'departed' && <Popconfirm title="撤销离职？" description="撤销后账号仍保持停用，可由管理员另行启用。" onConfirm={() => void cancel(row)} okText="撤销离职" cancelText="返回"><Button type="link">撤销离职</Button></Popconfirm>}
-      </Space> },
-    ]} />
-    <Modal title="新建离职清单" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} confirmLoading={loading} destroyOnClose>
-      <Form form={form} layout="vertical" onFinish={submit} preserve={false}>
-        <Form.Item label="员工" name="employeeId" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={employees.filter((employee) => employee.employmentStatus === 'active').map((employee) => ({ value: employee.id, label: `${employee.name} · ${employee.employeeNo}` }))} /></Form.Item>
-        <Form.Item label="最后工作日" name="lastDate" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
-        <Form.Item label="备注" name="note"><Input.TextArea maxLength={500} /></Form.Item>
-      </Form>
-    </Modal>
-    {selected && <OffboardingTasks record={selected} onClose={() => { setSelected(undefined); void load(); }} onCompleted={load} />}
-  </Card>;
+const avatarStyle = { background: '#EAF0FF', color: '#3D6EF7', fontWeight: 600 } as const;
+
+function positionTag(position: string) {
+  const color = position === '研发员' ? 'blue' : position === '业务员' ? 'orange' : 'default';
+  return <Tag color={color} bordered={false}>{position}</Tag>;
 }
 
-function OffboardingTasks({ record, onClose, onCompleted }: { record: OffboardingRecord; onClose: () => void; onCompleted: () => Promise<void> }) {
+export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => Promise<void> }) {
   const { message } = App.useApp();
-  const [tasks, setTasks] = useState<OnboardingTask[]>([]);
-  const [title, setTitle] = useState('');
-  const [required, setRequired] = useState(true);
+  const [rows, setRows] = useState<DepartureRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const load = async () => { setLoading(true); try { setTasks(await getOffboardingTasks(record.id)); setFailed(false); } catch (error) { setFailed(true); message.error((error as Error).message); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, [record.id]);
-  const add = async () => {
-    if (!title.trim()) { message.warning('请输入任务名称'); return; } setLoading(true);
-    try { await addOffboardingTask(record.id, title.trim(), required); setTitle(''); await load(); } catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [candidates, setCandidates] = useState<AdminEmployee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>();
+  const [lastDate, setLastDate] = useState<Dayjs | null>(null);
+  const [note, setNote] = useState('');
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [files, setFiles] = useState<DepartureFile[]>([]);
+  const [filesTarget, setFilesTarget] = useState<DepartureRecord>();
+
+  const load = async () => {
+    setLoading(true);
+    try { setRows(await getDepartures()); }
+    catch (error) { message.error((error as Error).message); }
+    finally { setLoading(false); }
   };
-  const toggle = async (task: OnboardingTask, completed: boolean) => {
-    setLoading(true); try { await updateOffboardingTask(record.id, task.id, completed); await load(); } catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
+  useEffect(() => { void load(); }, []);
+
+  const employeeOptions = useMemo(() => {
+    const busy = new Set(rows.map((row) => row.employeeId));
+    return candidates
+      .filter((employee) => employee.employmentStatus !== 'departed' && !busy.has(employee.id))
+      .map((employee) => ({
+        value: employee.id,
+        valueText: `${employee.name} ${employee.employeeNo}`,
+        searchText: [employee.name, employee.employeeNo, employee.phone, employee.account?.loginName]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase(),
+        label: (
+          <span className="departure-option">
+            <Avatar size={28} style={avatarStyle}>{initialOf(employee.name)}</Avatar>
+            <span className="departure-option-body">
+              <span className="departure-option-name">{employee.name}</span>
+              <span className="departure-option-meta">{employee.employeeNo || '—'} · {employee.position || '—'} · {employee.deptName || '未分配'}</span>
+            </span>
+          </span>
+        ),
+      }));
+  }, [candidates, rows]);
+
+  const openResign = async () => {
+    setOpen(true);
+    setSelectedEmployeeId(undefined);
+    setLastDate(null);
+    setNote('');
+    setFileList([]);
+    try {
+      const employeePage = await fetchEmployees({ page: 1, pageSize: 500, accountStatus: 'all' });
+      setCandidates(employeePage.list.filter((employee) => employee.employmentStatus !== 'departed'));
+    } catch (error) {
+      message.error((error as Error).message);
+    }
   };
-  const complete = async () => {
-    setLoading(true); try { await completeOffboarding(record.id); message.success('离职清单已完成'); await onCompleted(); onClose(); } catch (error) { message.error((error as Error).message); } finally { setLoading(false); }
+
+  const submit = async () => {
+    if (!selectedEmployeeId) { message.warning('请选择员工'); return; }
+    if (!lastDate) { message.warning('请选择离职日期'); return; }
+    setSaving(true);
+    try {
+      const uploadFiles: File[] = [];
+      for (const item of fileList) {
+        const file = item.originFileObj;
+        if (file) uploadFiles.push(file as File);
+      }
+      const result = await registerDeparture({ employeeId: selectedEmployeeId, lastDate: lastDate.format('YYYY-MM-DD'), note: note.trim() }, uploadFiles);
+      message.success(result.status === 'departed' ? '已登记离职并锁定账号' : '已登记离职申请');
+      setOpen(false);
+      await load();
+      try { await onEmployeeChanged(); } catch { message.warning('员工列表刷新失败，请刷新页面'); }
+    } catch (error) {
+      message.error((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
-  return <Modal title={`离职交接 · ${record.name}`} open onCancel={onClose} footer={null} destroyOnClose>
-    {failed && <Alert type="error" message="任务加载失败" action={<Button onClick={() => void load()}>重试</Button>} />}
-    <Spin spinning={loading}><List locale={{ emptyText: '暂无任务，可按需添加' }} dataSource={tasks} renderItem={(task) => <List.Item>
-      <Checkbox checked={task.completed} disabled={loading || record.status !== 'open'} onChange={(event) => void toggle(task, event.target.checked)}>{task.title} {task.required ? '（必需）' : '（可选）'}</Checkbox>
-    </List.Item>} /></Spin>
-    {record.status === 'open' && <Space wrap style={{ marginTop: 16 }}>
-      <Input aria-label="离职任务名称" placeholder="如：归还设备" maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} />
-      <Checkbox checked={required} onChange={(event) => setRequired(event.target.checked)}>必需完成</Checkbox><Button onClick={() => void add()} disabled={loading || failed}>添加任务</Button>
-      <Popconfirm title="确认完成离职清单？完成后不能修改。" onConfirm={() => void complete()} okText="确认" cancelText="取消"><Button type="primary" disabled={loading || failed || tasks.some((task) => task.required && !task.completed)}>完成清单</Button></Popconfirm>
-    </Space>}
-  </Modal>;
+
+  const cancel = async (record: DepartureRecord) => {
+    setLoading(true);
+    try {
+      await cancelDepartureRecord(record.id);
+      message.success(record.status === 'departed' ? '已撤销离职；账号仍需管理员单独启用' : '已撤销离职申请');
+      await load();
+      try { await onEmployeeChanged(); } catch { message.warning('员工列表刷新失败，请刷新页面'); }
+    } catch (error) {
+      message.error((error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openFiles = async (record: DepartureRecord) => {
+    setFilesTarget(record);
+    setFilesOpen(true);
+    setFilesLoading(true);
+    try { setFiles(await getDepartureFiles(record.id)); }
+    catch (error) { message.error((error as Error).message); }
+    finally { setFilesLoading(false); }
+  };
+
+  return <div className="onboarding-page departure-page">
+    <div className="salary-model-entries" role="toolbar" aria-label="离职管理操作">
+      <button type="button" className="salary-model-entry" onClick={() => void openResign()}>离职</button>
+      <button type="button" className="salary-model-entry" onClick={() => void load()}>刷新</button>
+    </div>
+    <Table
+      rowKey="id"
+      dataSource={rows}
+      loading={loading}
+      pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (value) => `共 ${value} 条` }}
+      tableLayout="fixed"
+      scroll={{ x: 930 }}
+      columns={[
+        {
+          title: '员工',
+          dataIndex: 'name',
+          width: 180,
+          render: (_: unknown, row: DepartureRecord) => (
+            <Space>
+              <Avatar style={avatarStyle}>{initialOf(row.name)}</Avatar>
+              <div>
+                <div className="table-primary">{row.name}</div>
+                <span className="table-secondary">{row.employeeNo}</span>
+              </div>
+            </Space>
+          ),
+        },
+        { title: '职务', dataIndex: 'position', width: 120, render: (value: string) => positionTag(value) },
+        { title: '离职日期', dataIndex: 'lastDate', width: 130, render: (value: string) => dayjs(value).format('YYYY-MM-DD') },
+        {
+          title: '状态',
+          width: 100,
+          render: (_: unknown, row: DepartureRecord) => row.status === 'applied'
+            ? <Tag color="processing">已申请</Tag>
+            : <Tag>已离职</Tag>,
+        },
+        {
+          title: '附件',
+          width: 140,
+          render: (_: unknown, row: DepartureRecord) => row.fileCount
+            ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => void openFiles(row)}>{row.fileCount} 个</Button>
+            : '—',
+        },
+        { title: '备注', dataIndex: 'note', width: 160, ellipsis: true, render: (value: string) => value || '—' },
+        {
+          title: '操作',
+          width: 100,
+          render: (_: unknown, row: DepartureRecord) => (
+            <Popconfirm
+              title={row.status === 'applied' ? '撤销离职申请？' : '撤销离职？'}
+              description={row.status === 'departed' ? '撤销后账号仍保持停用，可由管理员另行启用。' : undefined}
+              onConfirm={() => void cancel(row)}
+              okText="撤销"
+              cancelText="返回"
+            >
+              <Button type="link" size="small">撤销</Button>
+            </Popconfirm>
+          ),
+        },
+      ]}
+    />
+
+    <Modal
+      className="departure-modal"
+      title="离职"
+      open={open}
+      onCancel={() => !saving && setOpen(false)}
+      onOk={() => void submit()}
+      confirmLoading={saving}
+      okText="确认"
+      cancelText="取消"
+      width={560}
+      destroyOnHidden
+    >
+      <Form layout="vertical" className="departure-form">
+        <Form.Item label="员工" required>
+          <Select
+            showSearch
+            allowClear
+            value={selectedEmployeeId}
+            onChange={(value) => setSelectedEmployeeId(value)}
+            placeholder="搜索姓名、工号、手机号、登录名"
+            optionLabelProp="valueText"
+            style={{ width: '100%' }}
+            notFoundContent="没有匹配的在职员工"
+            filterOption={(input, option) => String(option?.searchText ?? '').includes(input.trim().toLowerCase())}
+            options={employeeOptions}
+          />
+        </Form.Item>
+        <Form.Item label="离职日期" required>
+          <DatePicker style={{ width: '100%' }} value={lastDate} onChange={setLastDate} placeholder="请选择日期" />
+        </Form.Item>
+        <Form.Item label="备注">
+          <Input.TextArea maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} rows={2} placeholder="可选" />
+        </Form.Item>
+        <Form.Item label="附件" extra={fileList.length ? undefined : '可选，最多 5 个，单个不超过 10MB'} className="departure-upload-item">
+          <Upload
+            beforeUpload={() => false}
+            fileList={fileList}
+            onChange={({ fileList: next }) => setFileList(next.slice(0, 5))}
+            multiple
+            maxCount={5}
+          >
+            <Button>选择文件</Button>
+          </Upload>
+        </Form.Item>
+      </Form>
+    </Modal>
+
+    <Modal title={filesTarget ? `附件 · ${filesTarget.name}` : '附件'} open={filesOpen} onCancel={() => setFilesOpen(false)} footer={<Button onClick={() => setFilesOpen(false)}>关闭</Button>}>
+      <Table
+        rowKey="id"
+        size="small"
+        loading={filesLoading}
+        pagination={false}
+        dataSource={files}
+        locale={{ emptyText: '暂无附件' }}
+        columns={[
+          { title: '文件名', dataIndex: 'name' },
+          { title: '大小', width: 100, render: (_: unknown, file: DepartureFile) => `${Math.ceil(file.size / 1024)} KB` },
+          {
+            title: '操作',
+            width: 90,
+            render: (_: unknown, file: DepartureFile) => filesTarget
+              ? <Button type="link" onClick={() => void downloadDepartureFile(filesTarget.id, file).catch((error: Error) => message.error(error.message))}>下载</Button>
+              : null,
+          },
+        ]}
+      />
+    </Modal>
+  </div>;
 }

@@ -54,6 +54,11 @@ export async function passwordLogin(loginName: string, password: string): Promis
     if (!user) throw unauthorized();
     return { ...issueTokens(user.id), user };
   }
+  const preview = await queryOne<{ employee_id: string }>('SELECT employee_id FROM employee_accounts WHERE login_name = ?', [loginName.trim()]);
+  if (preview) {
+    const { activateDueDepartures } = await import('../../admin/hr/hrDepartureService');
+    await activateDueDepartures(preview.employee_id);
+  }
   const row = await queryOne<{
     employee_id: string;
     password_hash: string;

@@ -1192,3 +1192,19 @@ code {
 @media (max-width: 600px) { .approval-test-fields { grid-template-columns: 1fr; } }
 .approval-test-report { display: grid; gap: 10px; max-height: 55vh; overflow-y: auto; }
 .approval-test-report-case { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+
+/* ---------------- 离职管理 ---------------- */
+.departure-upload-item .ant-form-item-row { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 8px; }
+.departure-upload-item .ant-form-item-label { flex: 0 0 auto; padding-bottom: 0; }
+.departure-upload-item .ant-form-item-label > label { height: 32px; line-height: 32px; }
+.departure-upload-item .ant-form-item-control,
+.departure-upload-item .ant-form-item-control-input,
+.departure-upload-item .ant-form-item-control-input-content,
+.departure-upload-item .ant-upload-wrapper { display: contents; }
+.departure-upload-item .ant-form-item-additional { flex: 0 0 100%; order: 1; }
+.departure-upload-item .ant-upload-list { flex: 0 0 100%; order: 2; }
+.departure-option { display: flex; align-items: center; gap: 10px; }
+.departure-option-body { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.departure-option-name { color: #1f2937; }
+.departure-option-meta { color: #8a94a6; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+

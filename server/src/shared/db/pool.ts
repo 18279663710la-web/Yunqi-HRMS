@@ -270,6 +270,31 @@ async function runMigrations(conn: Connection): Promise<void> {
     }
   }
 
+  // 简化离职：支持已申请/已离职，可无交接清单，可存档附件。
+  if (await hasColumn('hr_employee_departures', 'offboarding_id')) {
+    const [cols] = await conn.query<mysql.RowDataPacket[]>(
+      `SELECT IS_NULLABLE AS nullable FROM information_schema.columns
+       WHERE table_schema = ? AND table_name = 'hr_employee_departures' AND column_name = 'offboarding_id' LIMIT 1`,
+      [database]
+    );
+    if (cols.length && String(cols[0].nullable).toUpperCase() === 'NO') {
+      await conn.query('ALTER TABLE `hr_employee_departures` MODIFY COLUMN `offboarding_id` BIGINT NULL');
+    }
+  }
+  if (!(await hasColumn('hr_employee_departures', 'note'))) {
+    await conn.query("ALTER TABLE `hr_employee_departures` ADD COLUMN `note` VARCHAR(500) NOT NULL DEFAULT '' AFTER `last_date`");
+  }
+  {
+    const [cols] = await conn.query<mysql.RowDataPacket[]>(
+      `SELECT COLUMN_TYPE AS columnType FROM information_schema.columns
+       WHERE table_schema = ? AND table_name = 'hr_employee_departures' AND column_name = 'status' LIMIT 1`,
+      [database]
+    );
+    if (cols.length && !String(cols[0].columnType).includes('applied')) {
+      await conn.query("ALTER TABLE `hr_employee_departures` MODIFY COLUMN `status` ENUM('applied','departed','cancelled') NOT NULL DEFAULT 'applied'");
+    }
+  }
+
 }
 
 export async function queryRows<T = Record<string, unknown>>(

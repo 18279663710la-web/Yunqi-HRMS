@@ -17,6 +17,8 @@ export async function revokeEmployeeSessions(conn: PoolConnection, employeeId: s
 /** token 签名及类型须由调用方先验证。 */
 export async function requireActiveEmployeeSession(employeeId: string, token: string): Promise<number> {
   if (employeeId === CHAIRPERSON_ID) return 0;
+  const { activateDueDepartures } = await import('../../admin/hr/hrDepartureService');
+  await activateDueDepartures(employeeId);
   const row = await queryOne<{ status: string; version: number | null; departed: number }>("SELECT a.status, v.version, EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = a.employee_id AND d.status = 'departed') AS departed FROM employee_accounts a LEFT JOIN employee_session_versions v ON v.employee_id = a.employee_id WHERE a.employee_id = ?", [employeeId]);
   const payload = jwt.decode(token);
   if (!row || row.status !== 'active' || row.departed || !payload || typeof payload === 'string') throw unauthorized();

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   App as AntApp,
   Avatar,
   Button,
@@ -14,7 +13,6 @@ import {
   Row,
   Select,
   Space,
-  Steps,
   Switch,
   Table,
   Tag,
@@ -26,7 +24,6 @@ import {
   DownOutlined,
   SearchOutlined,
   TeamOutlined,
-  UserDeleteOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { pinyin } from 'pinyin-pro';
@@ -104,8 +101,6 @@ export function EmployeesPage() {
   const [resetTarget, setResetTarget] = useState<AdminEmployee | null>(null);
   const [resetForm] = Form.useForm<ResetFormValues>();
 
-  const [resignOpen, setResignOpen] = useState(false);
-  const [resignTarget, setResignTarget] = useState<AdminEmployee | null>(null);
   const [u9Target, setU9Target] = useState<AdminEmployee | null>(null);
   const [u9Operators, setU9Operators] = useState<U9Operator[]>([]);
   const [u9Selected, setU9Selected] = useState<string>();
@@ -219,11 +214,6 @@ export function EmployeesPage() {
   const openReset = (record: AdminEmployee) => {
     setResetTarget(record);
     setResetOpen(true);
-  };
-
-  const openResign = (record: AdminEmployee) => {
-    setResignTarget(record);
-    setResignOpen(true);
   };
 
   const submitEmployee = async (values: EmployeeFormValues) => {
@@ -348,8 +338,6 @@ export function EmployeesPage() {
             },
           ]
         : []),
-      { type: 'divider' as const },
-      { key: 'resign', label: '离职', icon: <UserDeleteOutlined />, danger: true },
     ],
     onClick: ({ key }) => {
       if (key === 'edit') openEdit(record);
@@ -357,7 +345,6 @@ export function EmployeesPage() {
       if (key === 'reset') openReset(record);
       if (key === 'create-account') openAccount(record);
       if (key === 'toggle') toggleAccount(record);
-      if (key === 'resign') openResign(record);
     },
   });
 
@@ -756,67 +743,6 @@ export function EmployeesPage() {
         </Form>
       </Modal>
 
-      <Modal
-        title={resignTarget ? `离职办理 · ${resignTarget.name}` : '离职办理'}
-        open={resignOpen}
-        onCancel={() => setResignOpen(false)}
-        width={640}
-        footer={[
-          <Button key="close" onClick={() => setResignOpen(false)}>
-            关闭
-          </Button>,
-          <Button key="confirm" type="primary" disabled>
-            确认离职（待启用）
-          </Button>,
-        ]}
-      >
-        <Alert
-          type="warning"
-          showIcon
-          message="离职流程正在设计中，此处为预留入口"
-          description="当前点击不会修改员工状态、登录账号、考勤或审批数据。后续将在这里接入完整的离职办理流程。"
-          style={{ marginBottom: 18 }}
-        />
-
-        {resignTarget ? (
-          <div className="resign-summary">
-            <Space size={12}>
-              <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7' }}>
-                {initialOf(resignTarget.name)}
-              </Avatar>
-              <div>
-                <div className="table-primary">
-                  {resignTarget.name}
-                  <Tag color="red" bordered={false} style={{ marginLeft: 8 }}>
-                    待设计
-                  </Tag>
-                </div>
-                <Text type="secondary" className="table-secondary">
-                  {resignTarget.employeeNo} · {resignTarget.jobCategory}
-                  {resignTarget.account ? ` · ${resignTarget.account.loginName}` : ' · 未开通账号'}
-                </Text>
-              </div>
-            </Space>
-          </div>
-        ) : null}
-
-        <Steps
-          direction="vertical"
-          size="small"
-          current={-1}
-          items={[
-            { title: '提交离职申请', description: '待接入离职审批单，记录离职原因与最后工作日' },
-            { title: '工作交接', description: '待接入交接清单、接手人与文档归档' },
-            { title: '账号与权限回收', description: '待接入登录账号停用、审批/通讯录权限回收' },
-            { title: '考勤与薪资结算', description: '待接入考勤封存、调休/加班结算与薪资数据' },
-            { title: '离职归档', description: '待接入员工状态变更、历史数据归档与审计' },
-          ]}
-        />
-
-        <div className="form-tip" style={{ marginTop: 16 }}>
-          以上步骤仅为占位，暂未启用；后续可在此扩展为完整的离职向导。
-        </div>
-      </Modal>
     </div>
   );
 }

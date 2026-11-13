@@ -22,6 +22,8 @@ export interface AutoPayrollTotals { baseGross: number; gross: number; deduction
 export interface AutoPayrollPreview { month: string; candidates: AutoPayrollCandidate[]; existingCount: number; reviewedCount: number; totals: AutoPayrollTotals }
 export interface AutoPayrollAddResult { addedCount: number; skippedExisting: number; totals: AutoPayrollTotals }
 export interface OffboardingRecord { id: number; employeeId: string; name: string; employeeNo: string; lastDate: string; note: string; status: 'open' | 'completed'; departureStatus: 'departed' | 'cancelled' | null; taskStatus: 'pending' | 'in_progress' | 'completed'; taskCount: number; completedCount: number }
+export interface DepartureRecord { id: number; employeeId: string; name: string; employeeNo: string; position: string; lastDate: string; note: string; status: 'applied' | 'departed'; createdAt: string; fileCount: number }
+export interface DepartureFile { id: number; name: string; size: number; mimeType: string; createdAt: string }
 export type HrSection = 'profile' | 'contract' | 'salary';
 export const getHrEmployees = () => request<HrEmployee[]>('/admin/hr/employees');
 export const getOnboardingFields = () => request<string[]>('/admin/hr/onboarding/fields');
@@ -97,6 +99,16 @@ export const updateOffboardingTask = (id: number, taskId: number, completed: boo
 export const completeOffboarding = (id: number) => request(`/admin/hr/offboarding/${id}/complete`, { method: 'POST', body: {} });
 export const finalizeOffboarding = (id: number) => request(`/admin/hr/offboarding/${id}/finalize`, { method: 'POST', body: {} });
 export const cancelDeparture = (id: number) => request(`/admin/hr/offboarding/${id}/cancel-departure`, { method: 'POST', body: {} });
+export const getDepartures = () => request<DepartureRecord[]>('/admin/hr/departures');
+export const registerDeparture = (body: { employeeId: string; lastDate: string; note?: string }, files: File[]) => {
+  const form = new FormData();
+  form.append('payload', JSON.stringify(body));
+  for (const file of files) form.append('files', file);
+  return request<{ id: number; employeeId: string; status: 'applied' | 'departed' }>('/admin/hr/departures', { method: 'POST', body: form });
+};
+export const cancelDepartureRecord = (id: number) => request(`/admin/hr/departures/${id}/cancel`, { method: 'POST', body: {} });
+export const getDepartureFiles = (id: number) => request<DepartureFile[]>(`/admin/hr/departures/${id}/files`);
+export const downloadDepartureFile = (id: number, file: DepartureFile) => downloadFile(`/admin/hr/departures/${id}/files/${file.id}`, file.name);
 export const getHrRecord = (employeeId: string, section: HrSection) => request<Record<string, unknown>>(`/admin/hr/employees/${encodeURIComponent(employeeId)}/${section}`);
 export const saveHrRecord = (employeeId: string, section: HrSection, data: unknown) => request(`/admin/hr/employees/${encodeURIComponent(employeeId)}/${section}`, { method: 'PUT', body: data });
 
