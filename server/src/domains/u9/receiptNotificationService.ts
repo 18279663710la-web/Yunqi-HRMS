@@ -1,5 +1,6 @@
 import { config } from '../../config';
 import { execute, queryOne, queryRows } from '../../shared/db/pool';
+import { mirrorU9 } from './mirrorGateway';
 import { sqlServerU9 } from './sqlServerGateway';
 import type { U9Gateway } from './types';
 
@@ -77,24 +78,40 @@ export async function syncReceiptNotifications(
   return inserted;
 }
 
+/** 从 MySQL 镜像留单；供 ETL 成功后调用，不再高频直连 U9。 */
+export async function syncReceiptNotificationsFromMirror(
+  options: { since?: string } = {}
+): Promise<number> {
+  return syncReceiptNotifications(mirrorU9, options);
+}
+
 let busy = false;
 
 export async function processReceiptNotificationQueue(): Promise<void> {
   if (busy) return;
   busy = true;
   try {
-    await syncReceiptNotifications();
+    // ETL 未启用时保留旧轮询直连；启用镜像后仅读镜像补漏，避免打主库。
+    if (config.u9Mirror.etlEnabled) {
+      await syncReceiptNotificationsFromMirror();
+    } else {
+      await syncReceiptNotifications(sqlServerU9);
+    }
   } finally {
     busy = false;
   }
 }
 
 export function startReceiptNotificationWorker(): void {
+  // 镜像 ETL 开启后，主路径由抽取任务留单；此处仅作低频补漏（拉长间隔）。
+  const pollMs = config.u9Mirror.etlEnabled
+    ? Math.max(config.u9ReceiptNotify.pollMs, config.u9Mirror.incrementalMs)
+    : Math.max(5000, config.u9ReceiptNotify.pollMs);
   const run = (): void => {
     void processReceiptNotificationQueue().catch(error =>
       console.error('[u9-receipt] 回款通知同步失败', error instanceof Error ? error.message : error)
     );
   };
   run();
-  setInterval(run, Math.max(5000, config.u9ReceiptNotify.pollMs)).unref();
+  setInterval(run, pollMs).unref();
 }

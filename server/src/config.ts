@@ -56,6 +56,29 @@ export const config = {
     lookbackDays: int(process.env.U9_RECEIPT_NOTIFY_LOOKBACK_DAYS, 2),
     pollMs: int(process.env.U9_RECEIPT_NOTIFY_POLL_MS, 60000),
   },
+  u9Mirror: {
+    /** 员工查询数据源：mysql=镜像；sqlserver=直连（对照/回滚）。 */
+    querySource: str(process.env.U9_QUERY_SOURCE, 'sqlserver') === 'mysql' ? 'mysql' : 'sqlserver',
+    /** 是否启用镜像抽取调度；关闭时不访问 U9 做 ETL。 */
+    etlEnabled: str(process.env.U9_ETL_ENABLED, 'false') === 'true',
+    /** 白天增量间隔（毫秒），默认 1 小时。 */
+    incrementalMs: int(process.env.U9_ETL_INCREMENTAL_MS, 3600000),
+    /** 夜间全量校对起始小时（本地 0–23）。 */
+    nightlyHour: int(process.env.U9_ETL_NIGHTLY_HOUR, 2),
+    /** 逗号分隔的本地小时，处于这些小时则跳过白天增量。 */
+    skipHours: str(process.env.U9_ETL_SKIP_HOURS, '')
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isInteger(n) && n >= 0 && n <= 23),
+    /** 单次写入/查询的 ID 分批大小。 */
+    batchSize: int(process.env.U9_ETL_BATCH_SIZE, 200),
+    /** U9 IN 查询分批大小。 */
+    inChunk: int(process.env.U9_ETL_IN_CHUNK, 100),
+    /** 进程内查询缓存 TTL（毫秒）。 */
+    queryCacheTtlMs: int(process.env.U9_QUERY_CACHE_TTL_MS, 120000),
+    /** 增量回看天数（与水位配合，避免边界漏数）。 */
+    lookbackDays: int(process.env.U9_ETL_LOOKBACK_DAYS, 3),
+  },
   corsOrigin: str(process.env.CORS_ORIGIN, '*'),
   admin: {
     username: str(process.env.ADMIN_USERNAME, 'admin'),

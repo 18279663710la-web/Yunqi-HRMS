@@ -11,6 +11,7 @@ import { backfillEmployeeJobCategories } from './admin/employees/adminEmployeeSe
 import { startExpenseAiWorker } from './domains/approvals/expenseAiService';
 import { startWorkflowAiWorker } from './domains/approvals/workflowAiWorker';
 import { startReceiptNotificationWorker } from './domains/u9/receiptNotificationService';
+import { startU9MirrorScheduler } from './domains/u9/etl/scheduler';
 import { backfillJobTitles } from './domains/employees/jobTitleService';
 import { migrateOrganizations } from './domains/employees/organizationService';
 
@@ -36,6 +37,7 @@ async function bootstrap(): Promise<void> {
   const app = createApp();
   startExpenseAiWorker();
   startWorkflowAiWorker();
+  startU9MirrorScheduler();
   startReceiptNotificationWorker();
   app.listen(config.port, '0.0.0.0', () => {
     console.log(`[server] http://127.0.0.1:${config.port}`);

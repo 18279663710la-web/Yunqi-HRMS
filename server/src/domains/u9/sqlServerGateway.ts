@@ -14,24 +14,7 @@ import type {
 } from './types';
 import { HttpError } from '../../shared/utils/errors';
 import { formatMoney } from './money';
-
-// ODBC 连接仅在 U9 功能被访问时建立，不影响原有业务启动。
-function connectionString(): string {
-  const value = (name: string, fallback: string) => `{${(process.env[name] || fallback).replace(/}/g, '}}')}}`;
-  return `Driver=${value('U9_SQL_DRIVER', 'ODBC Driver 17 for SQL Server')};Server=${value('U9_SQL_SERVER', '.')};Database=${value('U9_SQL_DATABASE', 'U9数据库')};Trusted_Connection=Yes;TrustServerCertificate=Yes;ApplicationIntent=ReadOnly;`;
-}
-
-async function sql<T>(statement: string, params: string[]): Promise<T[]> {
-  try {
-    const driver = await import('msnodesqlv8');
-    return await new Promise<T[]>((resolve, reject) => {
-      driver.query(connectionString(), statement, params, (err, rows) => err ? reject(err) : resolve(rows as T[]));
-    });
-  } catch (error) {
-    console.error('[U9] 数据库查询失败', error instanceof Error ? error.message : '未知错误');
-    throw new HttpError(503, 503, 'U9 数据库暂不可用，请联系管理员');
-  }
-}
+import { u9Sql as sql } from './sqlClient';
 
 const operatorSelect = `SELECT CONVERT(varchar(20), o.ID) id, o.Code code, t.Name name,
   CONVERT(varchar(20), o.Org) orgId, COALESCE(ot.Name, '') orgName

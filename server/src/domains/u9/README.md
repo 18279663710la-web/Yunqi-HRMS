@@ -1,5 +1,24 @@
 # U9 业务领域
 
-`sqlServerGateway.ts` 使用参数化查询读取 U9 的业务员、出货关联应收和收款，并调用 U9 原有汇总过程；过程所需筛选条件仅由校验后的业务员 ID 生成。应收单列表可按记账期间、客户或两者组合查询；两者都为空时默认上个月。有期间时以 `BusinessDate` 范围做索引预过滤并精确匹配 `PostPeriod`；客户选中时按 `AccrueCust_Customer` 索引过滤；客户联想按业务员和期间缓存后在内存中模糊匹配。收款单列表使用相同条件，按 `h.Cust_Customer`/客户名称和 `h.BusinessDate`/`PostPeriod` 过滤，收款单客户联想同样按业务员与期间缓存。应收单列表与详情按业务员过滤出货明细，按单号聚合表头与本人明细行；明细行含来源单号、来源行号及物料、数量、单价、金额、到期日等字段。`receiptNotificationService.ts` 按 U9“收款单审核发送”规则定时轮询已审核及之后的收款单，按表头业务员绑定写入回款通知快照；轮询起点、组织、回看天数和间隔由环境配置，重复轮询由通知唯一键去重。`money.ts` 使用十进制字符串按币种精度处理金额，`pdf.ts` 统一输出业务 PDF，样式对齐工资发放模块导出的工资表（宋体 11pt、单元格居中换行、细黑框、白底、标题加粗 16pt、合并首行、A4/A3 横向 fitToWidth，未改动工资模块源码）；应收单列表 PDF 列为来源单号、来源行号、料品、料号、主单位、数量、含税单价、价税合计、到期日，收款单列表 PDF 为行号、结算方式、流水号、金额、银行账号，应收款汇总表按“承上 + 各月 + 合计”透视（期间到固定当月，A3 横向）。
+## 查询路径
 
-SQL Server 连接使用服务进程的 Windows 身份，部署时须限制数据库权限。此目录不写入 U9 永久数据；汇总过程使用临时表。对应员工绑定和权限入口分别位于管理端与小程序端。业务模块功能已收尾冻结：查询口径、归属规则、接口契约与 PDF 样式均不再修改，仅允许不改变口径与行为的性能优化。
+- `createGateway.ts`：按 `U9_QUERY_SOURCE`（`mysql` | `sqlserver`）为员工/管理端注入网关；默认 `sqlserver` 便于对照与回滚。
+- `mirrorGateway.ts`：只读 MySQL `u9_mirror_*`，实现同一 `U9Gateway` 契约（列表、详情、客户池、回款候选、预计算汇总）。
+- `sqlServerGateway.ts`：直连 U9（对照/回滚，以及汇总过程预计算时调用）；ODBC 经 `sqlClient.ts`。
+
+## 镜像抽取（ETL）
+
+- `etl/u9RawQueries.ts`：**单表**参数化查询，禁止 SQL 表关联；`IN` 按 `U9_ETL_IN_CHUNK` 分批。
+- `etl/assemble.ts`：按 ID 在应用层拼接，过滤口径与现网一致（出货业务员归属、未取消、DocStatus）。
+- `etl/extractWindow.ts` / `writer.ts` / `syncJob.ts` / `scheduler.ts`：按业务日期窗口增量或夜间校对写入镜像；失败不前移水位；成功后失效进程缓存并触发镜像回款留单。
+- `etl/summaryPrecompute.ts`：抽取窗口内按绑定业务员调用 U9 原汇总过程写入 `u9_mirror_summary_rows`，员工查询不再 `EXEC` 过程。
+
+## 回款与缓存
+
+- `receiptNotificationService.ts`：`U9_ETL_ENABLED=true` 时以镜像留单为主并拉长补漏间隔；未启用 ETL 时保持原直连轮询。
+- `queryCache.ts`：进程短 TTL；同步成功 `invalidateU9QueryCache`。
+
+## 其它
+
+- `money.ts` / `pdf.ts`：金额精度与业务 PDF（样式对齐工资表）不变。
+- 功能与页面冻结：仅允许不改变口径与接口行为的性能路径切换；配置见 `config.u9Mirror` 与 `.env.example`。

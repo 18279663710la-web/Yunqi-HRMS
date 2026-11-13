@@ -815,3 +815,144 @@ CREATE TABLE IF NOT EXISTS `admin_operation_logs` (
   KEY `idx_admin_logs_created` (`created_at`),
   KEY `idx_admin_logs_admin` (`admin_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- U9 只读镜像：员工查询读此库表，U9 SQL Server 仅由限流抽取器访问
+CREATE TABLE IF NOT EXISTS `u9_mirror_operators` (
+  `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+  `code` VARCHAR(50) NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `org_id` VARCHAR(32) NOT NULL,
+  `org_name` VARCHAR(100) NOT NULL DEFAULT '',
+  `synced_at` DATETIME NOT NULL,
+  KEY `idx_u9_mirror_operators_code` (`code`),
+  KEY `idx_u9_mirror_operators_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_ar_heads` (
+  `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+  `doc_no` VARCHAR(50) NOT NULL,
+  `customer_id` VARCHAR(32) NOT NULL DEFAULT '',
+  `customer_name` VARCHAR(255) NOT NULL DEFAULT '',
+  `business_date` DATE NOT NULL,
+  `post_period` VARCHAR(20) NOT NULL DEFAULT '',
+  `src_org` VARCHAR(100) NOT NULL DEFAULT '',
+  `invoice_date` DATE NULL,
+  `invoice_num` VARCHAR(50) NOT NULL DEFAULT '',
+  `currency_name` VARCHAR(50) NOT NULL DEFAULT '',
+  `currency_precision` INT NOT NULL DEFAULT 2,
+  `doc_status` INT NOT NULL DEFAULT 0,
+  `synced_at` DATETIME NOT NULL,
+  KEY `idx_u9_mirror_ar_heads_date` (`business_date`),
+  KEY `idx_u9_mirror_ar_heads_period` (`post_period`),
+  KEY `idx_u9_mirror_ar_heads_customer` (`customer_id`),
+  KEY `idx_u9_mirror_ar_heads_doc` (`doc_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_ar_lines` (
+  `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+  `doc_id` VARCHAR(32) NOT NULL,
+  `seller_operator_id` VARCHAR(32) NOT NULL,
+  `line_num` INT NOT NULL,
+  `src_ship_no` VARCHAR(50) NOT NULL DEFAULT '',
+  `src_line_num` INT NOT NULL DEFAULT 0,
+  `item_name` VARCHAR(255) NOT NULL DEFAULT '',
+  `item_code` VARCHAR(80) NOT NULL DEFAULT '',
+  `uom` VARCHAR(50) NOT NULL DEFAULT '',
+  `qty` VARCHAR(50) NOT NULL DEFAULT '0',
+  `non_tax_price` VARCHAR(50) NOT NULL DEFAULT '0',
+  `tax_price` VARCHAR(50) NOT NULL DEFAULT '0',
+  `non_tax_amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `tax_amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `tax_included_total` VARCHAR(60) NOT NULL DEFAULT '0',
+  `total_amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `total_balance` VARCHAR(60) NOT NULL DEFAULT '0',
+  `own_amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `biz_org` VARCHAR(100) NOT NULL DEFAULT '',
+  `maturity` DATE NULL,
+  `line_status` VARCHAR(20) NOT NULL DEFAULT '',
+  `synced_at` DATETIME NOT NULL,
+  KEY `idx_u9_mirror_ar_lines_doc` (`doc_id`),
+  KEY `idx_u9_mirror_ar_lines_seller` (`seller_operator_id`, `doc_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_rec_heads` (
+  `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+  `doc_no` VARCHAR(50) NOT NULL,
+  `customer_id` VARCHAR(32) NOT NULL DEFAULT '',
+  `customer_name` VARCHAR(255) NOT NULL DEFAULT '',
+  `business_date` DATE NOT NULL,
+  `post_period` VARCHAR(20) NOT NULL DEFAULT '',
+  `org_id` VARCHAR(32) NOT NULL DEFAULT '',
+  `org_code` VARCHAR(50) NOT NULL DEFAULT '',
+  `org_name` VARCHAR(100) NOT NULL DEFAULT '',
+  `transactor_id` VARCHAR(32) NOT NULL DEFAULT '',
+  `total_amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `currency_name` VARCHAR(50) NOT NULL DEFAULT '',
+  `currency_precision` INT NOT NULL DEFAULT 2,
+  `doc_status` INT NOT NULL DEFAULT 0,
+  `synced_at` DATETIME NOT NULL,
+  KEY `idx_u9_mirror_rec_heads_date` (`business_date`),
+  KEY `idx_u9_mirror_rec_heads_period` (`post_period`),
+  KEY `idx_u9_mirror_rec_heads_customer` (`customer_id`),
+  KEY `idx_u9_mirror_rec_heads_transactor` (`transactor_id`),
+  KEY `idx_u9_mirror_rec_heads_org` (`org_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_rec_lines` (
+  `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+  `doc_id` VARCHAR(32) NOT NULL,
+  `line_num` INT NOT NULL,
+  `settlement_method` VARCHAR(100) NOT NULL DEFAULT '',
+  `note_no` VARCHAR(100) NOT NULL DEFAULT '',
+  `amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `bank_account` VARCHAR(255) NOT NULL DEFAULT '',
+  `synced_at` DATETIME NOT NULL,
+  KEY `idx_u9_mirror_rec_lines_doc` (`doc_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 收款单按出货明细业务员归属；同一收款单可对应多名业务员
+CREATE TABLE IF NOT EXISTS `u9_mirror_rec_sellers` (
+  `doc_id` VARCHAR(32) NOT NULL,
+  `seller_operator_id` VARCHAR(32) NOT NULL,
+  `own_amount` VARCHAR(60) NOT NULL DEFAULT '0',
+  `synced_at` DATETIME NOT NULL,
+  PRIMARY KEY (`doc_id`, `seller_operator_id`),
+  KEY `idx_u9_mirror_rec_sellers_op` (`seller_operator_id`, `doc_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_summary_rows` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `operator_id` VARCHAR(32) NOT NULL,
+  `from_period` VARCHAR(20) NOT NULL,
+  `to_period` VARCHAR(20) NOT NULL,
+  `customer_code` VARCHAR(50) NOT NULL DEFAULT '',
+  `customer_name` VARCHAR(255) NOT NULL DEFAULT '',
+  `ar_term` VARCHAR(255) NOT NULL DEFAULT '',
+  `saleser` VARCHAR(255) NOT NULL DEFAULT '',
+  `row_num` BIGINT NOT NULL DEFAULT 0,
+  `display_name` VARCHAR(50) NOT NULL DEFAULT '',
+  `un_rec_money` VARCHAR(60) NOT NULL DEFAULT '0',
+  `currency_name` VARCHAR(50) NOT NULL DEFAULT '-',
+  `money_precision` INT NOT NULL DEFAULT 2,
+  `synced_at` DATETIME NOT NULL,
+  KEY `idx_u9_mirror_summary_op_range` (`operator_id`, `from_period`, `to_period`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_sync_state` (
+  `id` TINYINT NOT NULL PRIMARY KEY,
+  `watermark_date` DATE NULL,
+  `last_success_at` DATETIME NULL,
+  `last_mode` VARCHAR(20) NULL,
+  `updated_at` DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `u9_mirror_sync_runs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `mode` VARCHAR(20) NOT NULL,
+  `started_at` DATETIME NOT NULL,
+  `finished_at` DATETIME NULL,
+  `success` TINYINT(1) NULL,
+  `error_message` VARCHAR(500) NULL,
+  `stats_json` JSON NULL,
+  KEY `idx_u9_mirror_sync_runs_started` (`started_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
