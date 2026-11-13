@@ -18,7 +18,15 @@
 - `receiptNotificationService.ts`：`U9_ETL_ENABLED=true` 时以镜像留单为主并拉长补漏间隔；未启用 ETL 时保持原直连轮询。
 - `queryCache.ts`：进程短 TTL；同步成功 `invalidateU9QueryCache`。
 
+## 切换到镜像读（生产）
+
+1. 设置 `U9_ETL_ENABLED=true`，保持 `U9_QUERY_SOURCE=sqlserver`，重启并等待同步成功（日志 `[u9-mirror] 同步成功`）。
+2. 运行 `npx tsx scripts/u9-mirror-parity.ts <operatorId> <period>` 对照应收列表。
+3. 对照通过后设 `U9_QUERY_SOURCE=mysql` 并重启；启动日志会出现 `querySource=mysql`。
+4. 回滚：改回 `U9_QUERY_SOURCE=sqlserver` 重启即可（ETL 可继续双跑）。
+
 ## 其它
 
 - `money.ts` / `pdf.ts`：金额精度与业务 PDF（样式对齐工资表）不变。
 - 功能与页面冻结：仅允许不改变口径与接口行为的性能路径切换；配置见 `config.u9Mirror` 与 `.env.example`。
+

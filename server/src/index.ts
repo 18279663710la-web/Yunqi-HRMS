@@ -12,6 +12,8 @@ import { startExpenseAiWorker } from './domains/approvals/expenseAiService';
 import { startWorkflowAiWorker } from './domains/approvals/workflowAiWorker';
 import { startReceiptNotificationWorker } from './domains/u9/receiptNotificationService';
 import { startU9MirrorScheduler } from './domains/u9/etl/scheduler';
+import { getU9QuerySource } from './domains/u9/createGateway';
+import { getLastSuccessAt } from './domains/u9/etl/writer';
 import { backfillJobTitles } from './domains/employees/jobTitleService';
 import { migrateOrganizations } from './domains/employees/organizationService';
 
@@ -39,10 +41,20 @@ async function bootstrap(): Promise<void> {
   startWorkflowAiWorker();
   startU9MirrorScheduler();
   startReceiptNotificationWorker();
+  const u9Source = getU9QuerySource();
+  if (u9Source === 'mysql') {
+    const lastSync = await getLastSuccessAt();
+    if (!lastSync) {
+      console.warn('[u9-mirror] U9_QUERY_SOURCE=mysql 但尚无成功同步，业务查询可能为空；请先启用 U9_ETL_ENABLED 完成抽取');
+    }
+  }
   app.listen(config.port, '0.0.0.0', () => {
     console.log(`[server] http://127.0.0.1:${config.port}`);
     console.log(`[db] ${config.mysql.user}@${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`);
     console.log(`[ocr] driver=${config.ocrDriver}  [verify] driver=${config.verifyDriver}`);
+    console.log(
+      `[u9] querySource=${u9Source} etlEnabled=${config.u9Mirror.etlEnabled}`
+    );
   });
 }
 
