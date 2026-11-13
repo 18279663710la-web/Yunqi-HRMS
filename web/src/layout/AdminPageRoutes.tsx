@@ -37,6 +37,7 @@ export function AdminPageRoutes({ location }: { location: Location }) {
     <Route path="/models-formulas/company-calendar" element={<ModelsFormulasPage section="company-calendar" />} />
     <Route path="/models-formulas/salary" element={<ModelsFormulasPage section="salary" />} />
     <Route path="/models-formulas/onboarding-template" element={<ModelsFormulasPage section="onboarding-template" />} />
+    <Route path="/models-formulas/offboarding-template" element={<ModelsFormulasPage section="offboarding-template" />} />
     <Route path="/models-formulas/payroll-workflow" element={<Navigate to="/approvals/leave" replace />} />
     <Route path="/approvals" element={<Navigate to="/approvals/leave" replace />} />
     <Route path="/approvals/custom-workflow" element={<Navigate to="/approvals/leave" replace />} />

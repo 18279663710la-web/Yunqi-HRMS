@@ -55,6 +55,7 @@ export const SUB_MODULES: SubModule[] = [
       { key: '/models-formulas/company-calendar', label: '公司日历' },
       { key: '/models-formulas/salary', label: '薪资构成模型' },
       { key: '/models-formulas/onboarding-template', label: '入职申请表设置' },
+      { key: '/models-formulas/offboarding-template', label: '离职申请表设置' },
     ],
   },
   {

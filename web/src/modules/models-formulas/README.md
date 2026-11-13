@@ -7,7 +7,7 @@
 
 ## 主要内容
 
-- 子目录：[attendance/](attendance/README.md)、[company-calendar/](company-calendar/README.md)、[onboarding-template/](onboarding-template/README.md)、[overtime/](overtime/README.md)、[payroll-workflow/](payroll-workflow/README.md)、[salary/](salary/README.md)。
+- 子目录：[attendance/](attendance/README.md)、[company-calendar/](company-calendar/README.md)、[onboarding-template/](onboarding-template/README.md)、[offboarding-template/](offboarding-template/README.md)、[overtime/](overtime/README.md)、[payroll-workflow/](payroll-workflow/README.md)、[salary/](salary/README.md)。
 - 主要文件：`ModelsFormulas.tsx`。
 
 ## 维护约束

@@ -15,6 +15,7 @@ import noticesRoutes from './miniprogram/notices/noticesRoutes';
 import orgRoutes from './miniprogram/contacts/orgRoutes';
 import todoRoutes from './miniprogram/workbench/todoRoutes';
 import onboardingFormAdmin from './admin/models-formulas/onboardingFormRoutes';
+import offboardingFormAdmin from './admin/models-formulas/offboardingFormRoutes';
 import companyCalendarAdmin from './admin/models-formulas/companyCalendarRoutes';
 import payslipRoutes from './miniprogram/workbench/payslipRoutes';
 import onboardingFormEmployee from './miniprogram/onboarding/onboardingFormRoutes';
@@ -57,6 +58,7 @@ export function createApp(): express.Express {
   app.use('/api/admin/u9', requireAdmin, createU9AdminRouter(u9Gateway));
   app.use('/api/business', createU9BusinessRouter(u9Gateway));
   app.use('/api/admin/onboarding-form', onboardingFormAdmin);
+  app.use('/api/admin/offboarding-form', offboardingFormAdmin);
   app.use('/api/admin/models-formulas', companyCalendarAdmin);
   app.use('/api/onboarding-form', onboardingFormEmployee);
   app.use('/api/admin/hr', hrRoutes);

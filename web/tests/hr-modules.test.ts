@@ -33,10 +33,11 @@ test('模块路径按边界匹配，避免误匹配相似前缀', () => {
   assert.equal(matchSubModule('/models-formulas/salary')?.key, '/models-formulas');
 });
 
-test('模型与公式保留入职申请表设置，不包含审批流程', () => {
+test('模型与公式保留入职与离职申请表设置，不包含审批流程', () => {
   const models = SUB_MODULES.find(module => module.key === '/models-formulas');
   assert.ok(models);
   assert.ok(models.items.some(item => item.key === '/models-formulas/onboarding-template' && item.label === '入职申请表设置'));
+  assert.ok(models.items.some(item => item.key === '/models-formulas/offboarding-template' && item.label === '离职申请表设置'));
   assert.ok(!models.items.some(item => item.label === '自定义审批流程'));
 });
 
