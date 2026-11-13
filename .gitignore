@@ -17,4 +17,5 @@ server/uploads/*
 /发票样本/
 /.playwright-cli/
 /.zcode/
+/.superpowers/
 /project.private.config.json
