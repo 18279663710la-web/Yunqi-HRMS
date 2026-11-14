@@ -70,9 +70,8 @@ check('部门树', tree.length === 1 && tree[0].total >= 26);
 check('员工下拉', (await api('/api/admin/employees/options')).length >= 26);
 check('员工列表', (await api('/api/admin/employees?page=1&pageSize=5')).list.length === 5);
 
-const jobCategories = await api('/api/admin/job-categories');
-const categoryTotal = jobCategories.reduce((sum, group) => sum + group.count, 0);
-check('职位分类', jobCategories.length === 3 && categoryTotal === dashboard.employeeCount, JSON.stringify(jobCategories.map((g) => `${g.name}:${g.count}`)));
+const jobTitles = await api('/api/admin/job-titles');
+check('职务目录', Array.isArray(jobTitles) && jobTitles.length > 0, JSON.stringify(jobTitles.map((title) => title.name)));
 
 const created = await api('/api/admin/employees', {
   method: 'POST',

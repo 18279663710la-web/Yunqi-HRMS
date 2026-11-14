@@ -252,6 +252,9 @@ export async function getTodayAttendance(employeeId: string): Promise<TodayAtten
 
 export async function punch(employeeId: string, type: PunchType, location?: Location): Promise<PunchResult> {
   if (type !== 'in' && type !== 'out') throw badRequest('打卡类型不正确');
+  if (await queryOne("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [employeeId])) {
+    return { ok: false, message: '已离职，无需打卡' };
+  }
 
   const now = new Date();
   const day = dateKey(now);

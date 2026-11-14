@@ -1,7 +1,6 @@
 export type AdminRole = 'super_admin' | 'hr_admin';
 export type AccountStatus = 'active' | 'disabled';
 export type JobCategoryName = string;
-export type JobCategoryKey = string;
 
 export interface AdminUser {
   id: number;
@@ -48,24 +47,6 @@ export interface AdminEmployee {
   account: EmployeeAccount | null;
 }
 
-export interface JobCategoryEmployee {
-  id: string;
-  name: string;
-  employeeNo: string;
-  phone: string;
-  joinDate: string;
-  isLeader: boolean;
-  accountStatus: AccountStatus | 'none';
-  loginName: string;
-}
-
-export interface JobCategoryGroup {
-  key: JobCategoryKey;
-  name: JobCategoryName;
-  count: number;
-  employees: JobCategoryEmployee[];
-}
-
 export interface EmployeeListResponse {
   list: AdminEmployee[];
   total: number;
@@ -79,6 +60,8 @@ export interface EmployeeOption {
   deptName: string;
   position: string;
   employeeNo: string;
+  phone: string;
+  loginName: string | null;
 }
 
 export interface DepartmentNode {

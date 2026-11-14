@@ -6,7 +6,6 @@ EmployeeAccountInput,
 EmployeeInput,
 EmployeeListResponse,
 EmployeeOption,
-JobCategoryGroup,
 JobCategoryName
 } from '../../types';
 
@@ -25,10 +24,6 @@ export function fetchEmployees(params: EmployeeListQuery): Promise<EmployeeListR
 
 export function fetchEmployeeOptions(): Promise<EmployeeOption[]> {
   return request<EmployeeOption[]>('/admin/employees/options');
-}
-
-export function fetchJobCategories(): Promise<JobCategoryGroup[]> {
-  return request<JobCategoryGroup[]>('/admin/job-categories');
 }
 
 export function fetchEmployee(id: string): Promise<AdminEmployee> {

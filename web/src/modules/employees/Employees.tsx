@@ -222,10 +222,14 @@ export function EmployeesPage() {
       const generatedPinyin = pinyin(values.name, { toneType: 'none', type: 'array' })
         .join('')
         .toLowerCase()
-        .replace(/\s+/g, '');
+        .replace(/[^a-z]/g, '');
+      if (!/^[a-z]+$/.test(generatedPinyin)) {
+        message.error('姓名无法生成拼音');
+        return;
+      }
       const payload = {
         name: values.name.trim(),
-        pinyin: editing ? editing.pinyin : generatedPinyin,
+        pinyin: generatedPinyin,
         gender: values.gender,
         deptId: values.deptId || 'D00',
         position: values.jobCategory || '员工',

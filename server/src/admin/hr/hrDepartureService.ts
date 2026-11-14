@@ -62,10 +62,36 @@ async function activateDueDepartureRows(conn: PoolConnection, employeeId?: strin
   }
 }
 
-/** 将到期的「已申请」转为「已离职」并锁定账号。 */
+/** 去掉离职锁定前缀并启用账号。没有账号时不处理。 */
+export async function unlockEmployeeAccount(conn: PoolConnection, employeeId: string): Promise<void> {
+  const [accounts] = await conn.query<RowDataPacket[]>('SELECT password_hash FROM employee_accounts WHERE employee_id = ? FOR UPDATE', [employeeId]);
+  if (!accounts.length) return;
+  let hash = String(accounts[0].password_hash || '');
+  if (hash.startsWith(LOCKED_PASSWORD_PREFIX)) hash = hash.slice(LOCKED_PASSWORD_PREFIX.length);
+  await conn.execute("UPDATE employee_accounts SET password_hash = ?, status = 'active', updated_at = NOW() WHERE employee_id = ?", [hash, employeeId]);
+}
+
+async function completeDueReinstatementRows(conn: PoolConnection, employeeId?: string): Promise<void> {
+  const today = dateKey();
+  const params: unknown[] = [today];
+  let sql = "SELECT id, employee_id FROM hr_employee_departures WHERE status = 'departed' AND reinstatement_date IS NOT NULL AND reinstatement_date <= ?";
+  if (employeeId) {
+    sql += ' AND employee_id = ?';
+    params.push(employeeId);
+  }
+  sql += ' FOR UPDATE';
+  const [rows] = await conn.query<RowDataPacket[]>(sql, params);
+  for (const row of rows) {
+    await unlockEmployeeAccount(conn, String(row.employee_id));
+    await conn.execute("UPDATE hr_employee_departures SET status = 'cancelled', cancelled_at = NOW() WHERE id = ? AND status = 'departed'", [row.id]);
+  }
+}
+
+/** 将到期的「已申请」转为「已离职」并锁定；到期的「待复职」恢复账号。 */
 export async function activateDueDepartures(employeeId?: string): Promise<void> {
   await transaction(async (conn) => {
     await activateDueDepartureRows(conn, employeeId);
+    await completeDueReinstatementRows(conn, employeeId);
   });
 }
 
@@ -121,28 +147,66 @@ export async function listDepartures() {
     position: string;
     lastDate: string;
     note: string;
-    status: 'applied' | 'departed';
+    status: 'applied' | 'departed' | 'pending_reinstatement';
+    reinstatementDate: string | null;
     createdAt: unknown;
     fileCount: number;
   }>(
     `SELECT d.id, d.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, e.position,
-            DATE_FORMAT(d.last_date, '%Y-%m-%d') AS lastDate, d.note, d.status, d.created_at AS createdAt,
+            DATE_FORMAT(d.last_date, '%Y-%m-%d') AS lastDate, DATE_FORMAT(d.reinstatement_date, '%Y-%m-%d') AS reinstatementDate,
+            d.note, d.status, d.created_at AS createdAt,
             (SELECT COUNT(*) FROM hr_departure_files f WHERE f.departure_id = d.id) AS fileCount
      FROM hr_employee_departures d
      JOIN employees e ON e.id = d.employee_id
      WHERE d.status IN ('applied', 'departed')
      ORDER BY d.id DESC
      LIMIT 200`
-  ).then((rows) => rows.map((row) => ({ ...row, fileCount: Number(row.fileCount) })));
+  ).then((rows) => rows.map((row) => ({
+    ...row,
+    fileCount: Number(row.fileCount),
+    status: row.status === 'departed' && row.reinstatementDate && row.reinstatementDate > dateKey()
+      ? 'pending_reinstatement' as const
+      : row.status,
+  })));
 }
 
 export async function cancelDepartureRecord(departureId: number, adminId: number): Promise<void> {
   await transaction(async (conn) => {
-    const [rows] = await conn.query<RowDataPacket[]>("SELECT id, status FROM hr_employee_departures WHERE id = ? FOR UPDATE", [departureId]);
+    const [rows] = await conn.query<RowDataPacket[]>("SELECT employee_id, status FROM hr_employee_departures WHERE id = ? FOR UPDATE", [departureId]);
     if (!rows.length) throw notFound('离职记录不存在');
-    if (rows[0].status === 'cancelled') throw badRequest('该离职记录已撤销');
-    if (rows[0].status !== 'applied' && rows[0].status !== 'departed') throw badRequest('该离职记录不可撤销');
+    if (rows[0].status !== 'applied') throw badRequest(rows[0].status === 'departed' ? '已离职员工请办理复职' : '该离职记录不可撤销');
+    const employeeId = String(rows[0].employee_id);
     await conn.execute("UPDATE hr_employee_departures SET status = 'cancelled', cancelled_by = ?, cancelled_at = NOW() WHERE id = ?", [adminId, departureId]);
+    await unlockEmployeeAccount(conn, employeeId);
+  });
+}
+
+/** 已离职员工安排复职。日期未到时保持锁定并记为待复职；日期已到则立即恢复账号。 */
+export async function scheduleReinstatement(
+  departureId: number,
+  reinstatementDate: string,
+  adminId: number
+): Promise<{ employeeId: string; status: 'pending_reinstatement' | 'reinstated' }> {
+  return transaction(async (conn) => {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      "SELECT employee_id, status, DATE_FORMAT(last_date, '%Y-%m-%d') AS lastDate, DATE_FORMAT(reinstatement_date, '%Y-%m-%d') AS reinstatementDate FROM hr_employee_departures WHERE id = ? FOR UPDATE",
+      [departureId]
+    );
+    if (!rows.length) throw notFound('离职记录不存在');
+    if (rows[0].status !== 'departed') throw badRequest('只有已离职员工可以复职');
+    if (rows[0].reinstatementDate) throw badRequest('该员工已在待复职');
+    if (reinstatementDate < String(rows[0].lastDate)) throw badRequest('复职日期不能早于离职日期');
+    const employeeId = String(rows[0].employee_id);
+    if (reinstatementDate <= dateKey()) {
+      await conn.execute(
+        "UPDATE hr_employee_departures SET reinstatement_date = ?, status = 'cancelled', cancelled_by = ?, cancelled_at = NOW() WHERE id = ?",
+        [reinstatementDate, adminId, departureId]
+      );
+      await unlockEmployeeAccount(conn, employeeId);
+      return { employeeId, status: 'reinstated' };
+    }
+    await conn.execute('UPDATE hr_employee_departures SET reinstatement_date = ? WHERE id = ?', [reinstatementDate, departureId]);
+    return { employeeId, status: 'pending_reinstatement' };
   });
 }
 

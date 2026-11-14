@@ -1,3 +1,4 @@
+import { pinyin } from 'pinyin-pro';
 import { execute, queryOne, queryRows, transaction } from '../../shared/db/pool';
 import type {
   AccountStatus,
@@ -5,18 +6,18 @@ import type {
   AdminEmployee,
   AdminEmployeeListResponse,
   EmployeeAccount,
-  JobCategoryGroup,
   JobCategoryName,
 } from '../../shared/types/admin';
-import type { DepartmentNode, EmployeeGroup } from '../../shared/types/models';
+import type { DepartmentNode } from '../../shared/types/models';
 import { badRequest, notFound } from '../../shared/utils/errors';
 import { hashPassword } from '../../shared/utils/password';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
 import type { AdminUser } from '../../shared/types/admin';
-import { getDepartmentTree, getEmployeeGroups } from '../../domains/employees/userService';
-import { assertJobTitle, listAdminJobTitles } from '../../domains/employees/jobTitleService';
+import { getDepartmentTree } from '../../domains/employees/userService';
+import { assertJobTitle } from '../../domains/employees/jobTitleService';
 import { assertOrganization } from '../../domains/employees/organizationService';
 import { revokeEmployeeSessions } from '../../domains/accounts/employeeSessionService';
+import { activateDueDepartures, unlockEmployeeAccount } from '../hr/hrDepartureService';
 import type { PoolConnection } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2';
 
@@ -45,6 +46,8 @@ interface EmployeeRow {
   account_updated_at: string | null;
   departed: number;
 }
+
+const ACTIVE_EMPLOYEE = "NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed')";
 
 const SELECT_EMPLOYEE = `
   SELECT e.*, d.name AS dept_name,
@@ -148,10 +151,17 @@ export interface AdminEmployeeListParams {
   pageSize?: number;
 }
 
+async function assertEmployed(employeeId: string): Promise<void> {
+  await activateDueDepartures(employeeId);
+  const departed = await queryOne("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [employeeId]);
+  if (departed) throw badRequest('员工已离职，请在离职管理中办理复职');
+}
+
 export async function getAdminEmployeeList(
   params: AdminEmployeeListParams = {}
 ): Promise<AdminEmployeeListResponse> {
-  const where: string[] = [];
+  await activateDueDepartures();
+  const where: string[] = [ACTIVE_EMPLOYEE];
   const args: unknown[] = [];
 
   const keyword = String(params.keyword || '').trim();
@@ -208,23 +218,37 @@ export async function getAdminEmployeeById(id: string): Promise<AdminEmployee | 
   return row ? mapEmployee(row) : null;
 }
 
-export async function getAllEmployeesForSelect(): Promise<Array<{ id: string; name: string; deptName: string; position: string; employeeNo: string }>> {
-  const rows = await queryRows<EmployeeRow>(`${SELECT_EMPLOYEE} ORDER BY e.pinyin ASC`);
+export async function getAllEmployeesForSelect(): Promise<Array<{ id: string; name: string; deptName: string; position: string; employeeNo: string; phone: string; loginName: string | null }>> {
+  await activateDueDepartures();
+  const rows = await queryRows<EmployeeRow>(`${SELECT_EMPLOYEE} WHERE ${ACTIVE_EMPLOYEE} ORDER BY e.pinyin ASC`);
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     deptName: r.dept_name || '',
     position: r.position,
     employeeNo: r.employee_no,
+    phone: r.phone,
+    loginName: r.login_name,
   }));
 }
 
-async function nextEmployeeId(): Promise<string> {
-  const rows = await queryRows<{ id: string }>(
-    "SELECT id FROM employees WHERE id REGEXP '^U[0-9]+$'"
-  );
-  const max = rows.reduce((acc, row) => Math.max(acc, Number(row.id.slice(1)) || 0), 0);
-  return `U${String(max + 1).padStart(3, '0')}`;
+function employeeNamePinyin(name: string): string {
+  const value = pinyin(name, { toneType: 'none', type: 'array' }).join('').toLowerCase().replace(/[^a-z]/g, '');
+  if (!/^[a-z]+$/.test(value) || value.length > 100) throw badRequest('姓名无法生成拼音');
+  return value;
+}
+
+async function allocateEmployeeId(conn: PoolConnection): Promise<string> {
+  const [rows] = await conn.query<RowDataPacket[]>("SELECT id FROM employees WHERE id REGEXP '^U[0-9]+$' FOR UPDATE");
+  const max = rows.reduce((acc, row) => Math.max(acc, Number(String(row.id).slice(1)) || 0), 0);
+  const id = `U${String(max + 1).padStart(3, '0')}`;
+  if (id.length > 10) throw badRequest('员工编号已用完');
+  return id;
+}
+
+function duplicateEmployeeNo(error: unknown): boolean {
+  const err = error as { code?: string; message?: string };
+  return err.code === 'ER_DUP_ENTRY' && String(err.message || '').includes('employee_no');
 }
 
 async function assertDepartment(deptId: string): Promise<void> {
@@ -239,12 +263,12 @@ async function assertLeader(leaderId: string, employeeId: string): Promise<void>
   if (!row) throw badRequest('直属上级不存在');
 }
 
-async function assertEmployeeNo(employeeNo: string, excludeId = ''): Promise<void> {
-  const row = await queryOne<{ id: string }>(
-    'SELECT id FROM employees WHERE employee_no = ? AND id <> ?',
+async function assertEmployeeNo(conn: PoolConnection, employeeNo: string, excludeId = ''): Promise<void> {
+  const [rows] = await conn.query<RowDataPacket[]>(
+    'SELECT id FROM employees WHERE employee_no = ? AND id <> ? LIMIT 1 FOR UPDATE',
     [employeeNo, excludeId]
   );
-  if (row) throw badRequest('工号已存在');
+  if (rows.length) throw badRequest('工号已存在');
 }
 
 async function resolveLeaderId(deptId: string, excludeId = ''): Promise<string | null> {
@@ -295,10 +319,7 @@ export async function createEmployee(
   operator: AdminUser
 ): Promise<AdminEmployee> {
   await assertDepartment(input.deptId);
-  await assertEmployeeNo(input.employeeNo);
-  const id = await nextEmployeeId();
-  const leaderId = input.leaderId || (await resolveLeaderId(input.deptId, id));
-  await assertLeader(leaderId || '', id);
+  const namePinyin = employeeNamePinyin(input.name);
   const position = input.jobCategory || input.position;
 
   let account: EmployeeAccountInput | undefined;
@@ -315,9 +336,15 @@ export async function createEmployee(
     account = input.account;
   }
 
+  let id = '';
+  try {
   await transaction(async (conn) => {
     await assertOrganization(conn, input.deptId);
     await assertJobTitle(conn, position);
+    id = await allocateEmployeeId(conn);
+    const leaderId = input.leaderId || (await resolveLeaderId(input.deptId, id));
+    await assertLeader(leaderId || '', id);
+    await assertEmployeeNo(conn, input.employeeNo);
     await conn.query(
       `INSERT INTO employees
         (id, name, pinyin, gender, dept_id, position, job_category, level, employee_no, phone, email, join_date, is_leader, seat, leader_id)
@@ -325,7 +352,7 @@ export async function createEmployee(
       [
         id,
         input.name,
-        input.pinyin,
+        namePinyin,
         input.gender || null,
         input.deptId,
         position,
@@ -350,6 +377,10 @@ export async function createEmployee(
       );
     }
   });
+  } catch (error) {
+    if (duplicateEmployeeNo(error)) throw badRequest('工号已存在');
+    throw error;
+  }
 
   await recordAdminLog(operator, '创建员工', 'employee', id, {
     name: input.name,
@@ -367,16 +398,20 @@ export async function updateEmployee(
   input: EmployeeInput,
   operator: AdminUser
 ): Promise<AdminEmployee> {
+  await assertEmployed(id);
   const current = await getAdminEmployeeById(id);
   if (!current) throw notFound('员工不存在');
   await assertDepartment(input.deptId);
-  await assertEmployeeNo(input.employeeNo, id);
   await assertLeader(input.leaderId || '', id);
 
   const leaderId = input.leaderId || (await resolveLeaderId(input.deptId, id));
   const position = input.position;
+  const namePinyin = employeeNamePinyin(input.name);
 
+  try {
   await transaction(async (conn) => {
+    await conn.query('SELECT id FROM employees WHERE id = ? FOR UPDATE', [id]);
+    await assertEmployeeNo(conn, input.employeeNo, id);
     await assertOrganization(conn, input.deptId);
     await assertJobTitle(conn, position);
     await conn.execute(
@@ -386,7 +421,7 @@ export async function updateEmployee(
      WHERE id = ?`,
     [
       input.name,
-      input.pinyin,
+      namePinyin,
       input.gender || null,
       input.deptId,
       position,
@@ -402,6 +437,10 @@ export async function updateEmployee(
     ]
     );
   });
+  } catch (error) {
+    if (duplicateEmployeeNo(error)) throw badRequest('工号已存在');
+    throw error;
+  }
 
   await recordAdminLog(operator, '修改员工', 'employee', id, {
     before: { name: current.name, deptId: current.deptId, position: current.position },
@@ -432,6 +471,7 @@ export async function upsertEmployeeAccount(
   input: EmployeeAccountInput,
   operator: AdminUser
 ): Promise<AdminEmployee> {
+  await assertEmployed(employeeId);
   const employee = await getAdminEmployeeById(employeeId);
   if (!employee) throw notFound('员工不存在');
   if (!/^[A-Za-z0-9_.-]{3,30}$/.test(input.loginName)) {
@@ -465,14 +505,19 @@ export async function setEmployeeAccountStatus(
   status: AccountStatus,
   operator: AdminUser
 ): Promise<AdminEmployee> {
+  await assertEmployed(employeeId);
   const employee = await getAdminEmployeeById(employeeId);
   if (!employee) throw notFound('员工不存在');
   if (!employee.account) throw badRequest('该员工尚未开通登录账号');
   await transaction(async (conn) => {
     await conn.query('SELECT id FROM employees WHERE id = ? FOR UPDATE', [employeeId]);
-    if (status === 'active') await assertAccountCanBeEnabled(conn, employeeId);
-    await conn.execute('UPDATE employee_accounts SET status = ?, updated_at = NOW() WHERE employee_id = ?', [status, employeeId]);
-    if (status === 'disabled') await revokeEmployeeSessions(conn, employeeId);
+    if (status === 'active') {
+      await assertAccountCanBeEnabled(conn, employeeId);
+      await unlockEmployeeAccount(conn, employeeId);
+    } else {
+      await conn.execute('UPDATE employee_accounts SET status = ?, updated_at = NOW() WHERE employee_id = ?', [status, employeeId]);
+      await revokeEmployeeSessions(conn, employeeId);
+    }
   });
   await recordAdminLog(operator, status === 'active' ? '启用员工账号' : '禁用员工账号', 'employee', employeeId, {
     loginName: employee.account.loginName,
@@ -487,6 +532,7 @@ export async function resetEmployeeAccountPassword(
   password: string,
   operator: AdminUser
 ): Promise<void> {
+  await assertEmployed(employeeId);
   const employee = await getAdminEmployeeById(employeeId);
   if (!employee) throw notFound('员工不存在');
   if (!employee.account) throw badRequest('该员工尚未开通登录账号');
@@ -497,11 +543,6 @@ export async function resetEmployeeAccountPassword(
   await recordAdminLog(operator, '重置员工密码', 'employee', employeeId, {
     loginName: employee.account.loginName,
   });
-}
-
-/** 通讯录分组（管理后台侧边筛选用，保持与小程序一致） */
-export async function getAdminEmployeeGroups(deptId?: string): Promise<EmployeeGroup[]> {
-  return getEmployeeGroups({ deptId: deptId || '' });
 }
 
 /** 历史员工补齐职位分类（新增列后执行一次即可；幂等） */
@@ -518,11 +559,6 @@ export async function backfillEmployeeJobCategories(): Promise<number> {
     await execute('UPDATE employees SET job_category = ? WHERE id = ?', [category, row.id]);
   }
   return rows.length;
-}
-
-/** 职位分类汇总：三类职位对应的员工列表 */
-export async function getAdminJobCategories(): Promise<JobCategoryGroup[]> {
-  return (await listAdminJobTitles()).map(title => ({ ...title, key: String(title.id), employees: title.employees.map(employee => ({ ...employee, accountStatus: employee.accountStatus === 'active' || employee.accountStatus === 'disabled' ? employee.accountStatus : 'none', loginName: employee.loginName || '' })) }));
 }
 
 /** 部门树（带负责人姓名） */

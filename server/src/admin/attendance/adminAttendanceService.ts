@@ -22,6 +22,7 @@ import { getTravelDateMapForEmployees, getTravelDatesForEmployee } from '../../d
 import { getLeaveDateMapForEmployees, getLeaveDatesForEmployee } from '../../domains/attendance/leaveAttendanceService';
 import { getOvertimeMapForEmployees } from '../../domains/attendance/overtimeAttendanceService';
 import { listJobTitles } from '../../domains/employees/jobTitleService';
+import { activateDueDepartures } from '../hr/hrDepartureService';
 
 interface AdminEmployeeRow {
   id: string;
@@ -155,6 +156,7 @@ export interface AdminAttendanceParams {
 }
 
 export async function getAdminAttendance(params: AdminAttendanceParams = {}): Promise<AdminAttendanceResponse> {
+  await activateDueDepartures();
   let { month, startDate, endDate } = monthRange(params.month);
   if (params.date) {
     const date = parseDateKey(params.date);

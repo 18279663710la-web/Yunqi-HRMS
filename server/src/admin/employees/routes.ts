@@ -10,9 +10,7 @@ import { success } from '../../shared/utils/response';
 import {
 createEmployee,
 getAdminEmployeeById,
-getAdminEmployeeGroups,
 getAdminEmployeeList,
-getAdminJobCategories,
 getAllEmployeesForSelect,
 resetEmployeeAccountPassword,
 setEmployeeAccountStatus,
@@ -81,20 +79,6 @@ router.get(
   '/employees/options',
   asyncHandler(async (_req, res) => {
     success(res, await getAllEmployeesForSelect());
-  })
-);
-
-router.get(
-  '/employee-groups',
-  asyncHandler(async (req, res) => {
-    success(res, await getAdminEmployeeGroups(String(req.query.deptId || '')));
-  })
-);
-
-router.get(
-  '/job-categories',
-  asyncHandler(async (_req, res) => {
-    success(res, await getAdminJobCategories());
   })
 );
 

@@ -1,5 +1,5 @@
 import type { RowDataPacket } from 'mysql2';
-import { queryRows, transaction } from '../../shared/db/pool';
+import { queryOne, queryRows, transaction } from '../../shared/db/pool';
 import { formatTime } from '../../shared/utils/datetime';
 import { getAttendanceSettingsForEmployee } from './attendanceGroups';
 import { validatePunchLocation, type Location } from './attendancePolicy';
@@ -24,6 +24,9 @@ export async function listOvertimePunches(employeeId: string) {
 }
 
 export async function punchOvertime(employeeId: string, approvalId: string, type: 'in' | 'out', location?: Location) {
+  if (await queryOne("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1", [employeeId])) {
+    return { ok: false, message: '已离职，无需打卡' };
+  }
   const locationCheck = validatePunchLocation(await getAttendanceSettingsForEmployee(employeeId), location);
   if (!locationCheck.ok) return { ok: false, message: locationCheck.message };
   const now = formatTime(new Date(), 'YYYY-MM-DD HH:mm:ss');

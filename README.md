@@ -376,7 +376,7 @@ npm run dev:web
 | POST | `/auth/change-password` | 管理员 | 修改自己的密码 |
 | GET | `/dashboard` | 管理员 | 仪表盘 |
 | GET | `/departments` | 管理员 | 部门树 + 负责人（员工/考勤筛选使用） |
-| GET | `/job-categories` | 管理员 | 三类职位汇总 + 员工列表 |
+| GET | `/job-titles` | 管理员 | 职务目录 |
 | GET | `/logs` | 管理员 | 操作日志 |
 | GET | `/employees` | 管理员 | 员工分页 / 搜索 / 职位分类 / 账号状态 |
 | GET | `/employees/options` | 管理员 | 员工下拉选项 |

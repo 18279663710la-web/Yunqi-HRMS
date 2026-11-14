@@ -44,10 +44,10 @@ test('工资明细按月读取考勤，普通单卡按零出勤计算并保留�
     await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT3','U001','2020-02-20 19:00:00','2020-02-20 21:00:00')`);
     const batch = (await call('/admin/hr/payroll-batches', 'POST', { month: '2020-02' })).body.data.id;
     const [numberRows] = await conn.query<mysql.RowDataPacket[]>(`SELECT employee_no FROM \`${database}\`.employees WHERE id='U013'`);
-    await conn.query(`UPDATE \`${database}\`.employees SET employee_no=(SELECT employee_no FROM (SELECT employee_no FROM \`${database}\`.employees WHERE id='U001') source_employee) WHERE id='U013'`);
-    const ambiguous = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`);
-    assert.equal(ambiguous.status, 400);
-    assert.match(ambiguous.body.message || '', /员工号/);
+    await assert.rejects(
+      conn.query(`UPDATE \`${database}\`.employees SET employee_no=(SELECT employee_no FROM (SELECT employee_no FROM \`${database}\`.employees WHERE id='U001') source_employee) WHERE id='U013'`),
+      (error: unknown) => (error as { code?: string }).code === 'ER_DUP_ENTRY'
+    );
     await conn.query(`UPDATE \`${database}\`.employees SET employee_no='' WHERE id='U013'`);
     const missingNumber = await call(`/admin/hr/payroll-batches/${batch}/auto-preview`);
     assert.equal(missingNumber.status, 400);

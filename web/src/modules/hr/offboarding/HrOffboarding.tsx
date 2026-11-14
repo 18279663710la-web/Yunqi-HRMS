@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { App, Avatar, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import dayjs, { type Dayjs } from 'dayjs';
-import { fetchEmployees } from '../../employees/api';
-import type { AdminEmployee } from '../../../types';
+import { fetchEmployeeOptions } from '../../employees/api';
+import type { EmployeeOption } from '../../../types';
 import { initialOf } from '../../../utils/helpers';
 import {
   cancelDepartureRecord,
+  reinstateDeparture,
   downloadDepartureFile,
   getDepartureFiles,
   getDepartures,
@@ -28,9 +29,11 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [candidates, setCandidates] = useState<AdminEmployee[]>([]);
+  const [candidates, setCandidates] = useState<EmployeeOption[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>();
   const [lastDate, setLastDate] = useState<Dayjs | null>(null);
+  const [reinstateTarget, setReinstateTarget] = useState<DepartureRecord>();
+  const [reinstateDate, setReinstateDate] = useState<Dayjs | null>(null);
   const [note, setNote] = useState('');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [filesOpen, setFilesOpen] = useState(false);
@@ -40,7 +43,9 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
 
   const load = async () => {
     setLoading(true);
-    try { setRows(await getDepartures()); }
+    try {
+      setRows(await getDepartures());
+    }
     catch (error) { message.error((error as Error).message); }
     finally { setLoading(false); }
   };
@@ -49,11 +54,11 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
   const employeeOptions = useMemo(() => {
     const busy = new Set(rows.map((row) => row.employeeId));
     return candidates
-      .filter((employee) => employee.employmentStatus !== 'departed' && !busy.has(employee.id))
+      .filter((employee) => !busy.has(employee.id))
       .map((employee) => ({
         value: employee.id,
         valueText: `${employee.name} ${employee.employeeNo}`,
-        searchText: [employee.name, employee.employeeNo, employee.phone, employee.account?.loginName]
+        searchText: [employee.name, employee.employeeNo, employee.phone, employee.loginName]
           .filter(Boolean)
           .join(' ')
           .toLowerCase(),
@@ -76,8 +81,7 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
     setNote('');
     setFileList([]);
     try {
-      const employeePage = await fetchEmployees({ page: 1, pageSize: 500, accountStatus: 'all' });
-      setCandidates(employeePage.list.filter((employee) => employee.employmentStatus !== 'departed'));
+      setCandidates(await fetchEmployeeOptions());
     } catch (error) {
       message.error((error as Error).message);
     }
@@ -109,13 +113,30 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
     setLoading(true);
     try {
       await cancelDepartureRecord(record.id);
-      message.success(record.status === 'departed' ? '已撤销离职；账号仍需管理员单独启用' : '已撤销离职申请');
+      message.success('已撤销离职申请');
       await load();
       try { await onEmployeeChanged(); } catch { message.warning('员工列表刷新失败，请刷新页面'); }
     } catch (error) {
       message.error((error as Error).message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const submitReinstate = async () => {
+    if (!reinstateTarget) return;
+    if (!reinstateDate) { message.warning('请选择复职日期'); return; }
+    setSaving(true);
+    try {
+      const result = await reinstateDeparture(reinstateTarget.id, reinstateDate.format('YYYY-MM-DD'));
+      message.success(result.status === 'pending_reinstatement' ? '已设为待复职' : '已复职');
+      setReinstateTarget(undefined);
+      await load();
+      try { await onEmployeeChanged(); } catch { message.warning('员工列表刷新失败，请刷新页面'); }
+    } catch (error) {
+      message.error((error as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -160,9 +181,13 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
         {
           title: '状态',
           width: 100,
-          render: (_: unknown, row: DepartureRecord) => row.status === 'applied'
-            ? <Tag color="processing">已申请</Tag>
-            : <Tag>已离职</Tag>,
+          render: (_: unknown, row: DepartureRecord) => {
+            if (row.status === 'applied') return <Tag color="processing">已申请</Tag>;
+            if (row.status === 'pending_reinstatement') {
+              return <span><Tag color="gold">待复职</Tag>{row.reinstatementDate ? <div className="table-secondary">{row.reinstatementDate}</div> : null}</span>;
+            }
+            return <Tag>已离职</Tag>;
+          },
         },
         {
           title: '附件',
@@ -175,17 +200,13 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
         {
           title: '操作',
           width: 100,
-          render: (_: unknown, row: DepartureRecord) => (
-            <Popconfirm
-              title={row.status === 'applied' ? '撤销离职申请？' : '撤销离职？'}
-              description={row.status === 'departed' ? '撤销后账号仍保持停用，可由管理员另行启用。' : undefined}
-              onConfirm={() => void cancel(row)}
-              okText="撤销"
-              cancelText="返回"
-            >
+          render: (_: unknown, row: DepartureRecord) => row.status === 'applied' ? (
+            <Popconfirm title="撤销离职申请？" onConfirm={() => void cancel(row)} okText="撤销" cancelText="返回">
               <Button type="link" size="small">撤销</Button>
             </Popconfirm>
-          ),
+          ) : row.status === 'departed' ? (
+            <Button type="link" size="small" onClick={() => { setReinstateTarget(row); setReinstateDate(null); }}>复职</Button>
+          ) : '—',
         },
       ]}
     />
@@ -233,6 +254,29 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
           >
             <Button>选择文件</Button>
           </Upload>
+        </Form.Item>
+      </Form>
+    </Modal>
+
+    <Modal
+      title="复职"
+      open={Boolean(reinstateTarget)}
+      onCancel={() => !saving && setReinstateTarget(undefined)}
+      onOk={() => void submitReinstate()}
+      confirmLoading={saving}
+      okText="确认"
+      cancelText="取消"
+      destroyOnHidden
+    >
+      <Form layout="vertical">
+        <Form.Item label="复职日期" required>
+          <DatePicker
+            style={{ width: '100%' }}
+            value={reinstateDate}
+            onChange={setReinstateDate}
+            placeholder="请选择日期"
+            disabledDate={(current) => Boolean(reinstateTarget && current && current.isBefore(dayjs(reinstateTarget.lastDate), 'day'))}
+          />
         </Form.Item>
       </Form>
     </Modal>

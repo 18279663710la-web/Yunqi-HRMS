@@ -22,7 +22,7 @@ export interface AutoPayrollTotals { baseGross: number; gross: number; deduction
 export interface AutoPayrollPreview { month: string; candidates: AutoPayrollCandidate[]; existingCount: number; reviewedCount: number; totals: AutoPayrollTotals }
 export interface AutoPayrollAddResult { addedCount: number; skippedExisting: number; totals: AutoPayrollTotals }
 export interface OffboardingRecord { id: number; employeeId: string; name: string; employeeNo: string; lastDate: string; note: string; status: 'open' | 'completed'; departureStatus: 'departed' | 'cancelled' | null; taskStatus: 'pending' | 'in_progress' | 'completed'; taskCount: number; completedCount: number }
-export interface DepartureRecord { id: number; employeeId: string; name: string; employeeNo: string; position: string; lastDate: string; note: string; status: 'applied' | 'departed'; createdAt: string; fileCount: number }
+export interface DepartureRecord { id: number; employeeId: string; name: string; employeeNo: string; position: string; lastDate: string; reinstatementDate: string | null; note: string; status: 'applied' | 'departed' | 'pending_reinstatement'; createdAt: string; fileCount: number }
 export interface DepartureFile { id: number; name: string; size: number; mimeType: string; createdAt: string }
 export type HrSection = 'profile' | 'contract' | 'salary';
 export const getHrEmployees = () => request<HrEmployee[]>('/admin/hr/employees');
@@ -107,6 +107,10 @@ export const registerDeparture = (body: { employeeId: string; lastDate: string; 
   return request<{ id: number; employeeId: string; status: 'applied' | 'departed' }>('/admin/hr/departures', { method: 'POST', body: form });
 };
 export const cancelDepartureRecord = (id: number) => request(`/admin/hr/departures/${id}/cancel`, { method: 'POST', body: {} });
+export const reinstateDeparture = (id: number, reinstatementDate: string) => request<{ employeeId: string; status: 'pending_reinstatement' | 'reinstated' }>(`/admin/hr/departures/${id}/reinstate`, {
+  method: 'POST',
+  body: { reinstatementDate },
+});
 export const getDepartureFiles = (id: number) => request<DepartureFile[]>(`/admin/hr/departures/${id}/files`);
 export const downloadDepartureFile = (id: number, file: DepartureFile) => downloadFile(`/admin/hr/departures/${id}/files/${file.id}`, file.name);
 export const getHrRecord = (employeeId: string, section: HrSection) => request<Record<string, unknown>>(`/admin/hr/employees/${encodeURIComponent(employeeId)}/${section}`);

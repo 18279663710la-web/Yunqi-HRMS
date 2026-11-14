@@ -18,6 +18,7 @@ import type { RequestHandler } from 'express';
 import {
   cancelDeparture,
   cancelDepartureRecord,
+  scheduleReinstatement,
   finalizeDeparture,
   getDepartureFile,
   listDepartureFiles,
@@ -401,6 +402,13 @@ router.post('/departures/:id/cancel', asyncHandler(async (req, res) => {
   await cancelDepartureRecord(id, req.admin!.id);
   await recordAdminLog(req.admin!, '撤销员工离职', 'hr_employee_departures', String(id), {});
   success(res, {});
+}));
+router.post('/departures/:id/reinstate', asyncHandler(async (req, res) => {
+  const id = parse(z.coerce.number().int().positive(), req.params.id);
+  const input = parse(z.object({ reinstatementDate: z.string().date() }), req.body);
+  const result = await scheduleReinstatement(id, input.reinstatementDate, req.admin!.id);
+  await recordAdminLog(req.admin!, '员工复职', 'hr_employee_departures', String(id), { employeeId: result.employeeId, reinstatementDate: input.reinstatementDate, status: result.status });
+  success(res, result);
 }));
 router.get('/departures/:id/files', asyncHandler(async (req, res) => {
   const id = parse(z.coerce.number().int().positive(), req.params.id);

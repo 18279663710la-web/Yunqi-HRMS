@@ -119,6 +119,13 @@ async function runMigrations(conn: Connection): Promise<void> {
   if (!(await hasColumn('employees', 'job_category'))) {
     await conn.query("ALTER TABLE `employees` ADD COLUMN `job_category` ENUM('研发员','业务员','员工') NULL AFTER `position`");
   }
+  if (!(await hasIndex('employees', 'uk_employees_employee_no'))) {
+    const [duplicates] = await conn.query<mysql.RowDataPacket[]>(
+      'SELECT employee_no FROM employees GROUP BY employee_no HAVING COUNT(*) > 1 LIMIT 1'
+    );
+    if (duplicates.length) throw new Error('员工工号存在重复，无法添加唯一约束');
+    await conn.query('ALTER TABLE employees ADD UNIQUE KEY uk_employees_employee_no (employee_no)');
+  }
   if (!(await hasColumn('hr_onboarding_tasks', 'description'))) {
     await conn.query("ALTER TABLE `hr_onboarding_tasks` ADD COLUMN `description` VARCHAR(500) NOT NULL DEFAULT ''");
   }
@@ -283,6 +290,9 @@ async function runMigrations(conn: Connection): Promise<void> {
   }
   if (!(await hasColumn('hr_employee_departures', 'note'))) {
     await conn.query("ALTER TABLE `hr_employee_departures` ADD COLUMN `note` VARCHAR(500) NOT NULL DEFAULT '' AFTER `last_date`");
+  }
+  if (!(await hasColumn('hr_employee_departures', 'reinstatement_date'))) {
+    await conn.query('ALTER TABLE `hr_employee_departures` ADD COLUMN `reinstatement_date` DATE NULL AFTER `last_date`');
   }
   {
     const [cols] = await conn.query<mysql.RowDataPacket[]>(

@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS `employees` (
   `leader_id` VARCHAR(10) NULL,
   KEY `idx_employees_dept` (`dept_id`),
   KEY `idx_employees_leader` (`leader_id`),
-  KEY `idx_employees_pinyin` (`pinyin`)
+  KEY `idx_employees_pinyin` (`pinyin`),
+  UNIQUE KEY `uk_employees_employee_no` (`employee_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `u9_employee_bindings` (
@@ -390,6 +391,7 @@ CREATE TABLE IF NOT EXISTS `hr_employee_departures` (
   `offboarding_id` BIGINT NULL,
   `employee_id` VARCHAR(10) NOT NULL,
   `last_date` DATE NOT NULL,
+  `reinstatement_date` DATE NULL,
   `note` VARCHAR(500) NOT NULL DEFAULT '',
   `status` ENUM('applied','departed','cancelled') NOT NULL DEFAULT 'applied',
   `created_by` INT NOT NULL,
