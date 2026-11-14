@@ -33,6 +33,8 @@ test('工资明细按月读取考勤，普通单卡按零出勤计算并保留�
       await conn.query(`INSERT INTO \`${database}\`.hr_self_onboarding (employee_id,expected_date,template_json,answers_json,created_at,submitted_at,archived_at,archived_by) VALUES (?,'2020-01-01','[]','{}',NOW(),NOW(),NOW(),1)`, [employee]);
       await conn.query(`INSERT INTO \`${database}\`.hr_employee_records (employee_id,section,data_json,updated_at) VALUES (?, 'contract', ?, NOW()), (?, 'salary', ?, NOW())`, [employee, JSON.stringify({ number: 'C', startDate: '2020-01-01', endDate: '2030-01-01' }), employee, JSON.stringify({ effectiveDate: '2020-01-01', values: { 基本工资: 1000, 出勤天数: 99 } })]);
     }
+    // 演示员工入职日晚于 2020-02。这里把月份放进在职窗口，休息日和单卡仍按原断言计算。
+    await conn.query(`UPDATE \`${database}\`.employees SET join_date='2019-01-01' WHERE id IN ('U001','U013')`);
     await conn.query(`INSERT INTO \`${database}\`.attendance_settings (id,start_time,end_time,rest_dates,latitude,longitude,radius) VALUES (1,'09:00','18:00',?,0,0,100) ON DUPLICATE KEY UPDATE rest_dates=VALUES(rest_dates)`, [JSON.stringify(['2020-02-02'])]);
     await conn.query(`INSERT INTO \`${database}\`.attendance_punches (employee_id,punch_date,check_in,check_out,source,created_at,updated_at) VALUES ('U001','2020-02-01','09:00','18:00','admin',NOW(),NOW()), ('U001','2020-02-02','09:00','18:00','admin',NOW(),NOW()), ('U013','2020-02-03','09:00',NULL,'admin',NOW(),NOW())`);
     await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('OT1','overtime','加班','加班','approved','U001','员工','','员工','[]',NOW()), ('OT2','overtime','加班','加班','approved','U013','员工','','员工','[]',NOW())`);

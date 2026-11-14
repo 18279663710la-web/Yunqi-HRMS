@@ -35,11 +35,53 @@ function groupByEmployee(rows: RowDataPacket[]): Map<string, RowDataPacket[]> {
   return result;
 }
 
-/** 工资统计只计完整上下班卡，普通单卡按缺勤处理；请假状态不计入，已通过的出差日按正常出勤计算。 */
-function payrollPresentDays(records: AttendanceRecord[], travelDates: Set<string>): number {
-  const completeDays = records.filter(record => record.status !== 'rest' && record.status !== 'travel' && record.status !== 'leave' && !!record.checkIn && !!record.checkOut).length;
-  // 出差日无打卡也计入出勤；出差日与打卡重叠时仅按出差计一次。
-  return completeDays + travelDates.size;
+export interface PayrollEmployment {
+  joinDate: string;
+  /** 仍为已离职时的最晚离职日；该日仍算出勤，次日开始不算。 */
+  openDeparture: string | null;
+  /** 已复职记录的空窗，不含离职日和复职日。 */
+  gaps: Array<{ lastDate: string; reinstatementDate: string }>;
+}
+
+export interface PayrollDepartureRow {
+  status: string;
+  lastDate: string;
+  reinstatementDate: string | null;
+}
+
+/** 已离职取最晚离职日。待复职仍是已离职，不把未来复职日当成空窗。撤销且没有复职日的记录忽略。 */
+export function payrollEmployment(joinDate: string, rows: PayrollDepartureRow[]): PayrollEmployment {
+  let openDeparture: string | null = null;
+  const gaps: PayrollEmployment['gaps'] = [];
+  for (const row of rows) {
+    if (row.status === 'departed') {
+      if (!openDeparture || row.lastDate > openDeparture) openDeparture = row.lastDate;
+    } else if (row.status === 'cancelled' && row.reinstatementDate) {
+      gaps.push({ lastDate: row.lastDate, reinstatementDate: row.reinstatementDate });
+    }
+  }
+  return { joinDate, openDeparture, gaps };
+}
+
+export function isPayrollEmployed(date: string, employment: PayrollEmployment): boolean {
+  if (date < employment.joinDate) return false;
+  if (employment.openDeparture && date > employment.openDeparture) return false;
+  return !employment.gaps.some((gap) => date > gap.lastDate && date < gap.reinstatementDate);
+}
+
+export function countPayrollDays(records: AttendanceRecord[]): { presentDays: number; workdays: number; requiresPunch: boolean } {
+  let presentDays = 0;
+  let workdays = 0;
+  let requiresPunch = false;
+  for (const record of records) {
+    if (record.status === 'rest') continue;
+    workdays += 1;
+    if (record.status === 'travel') presentDays += 1;
+    else if (record.status === 'leave') continue;
+    else if (record.checkIn && record.checkOut) presentDays += 1;
+    else requiresPunch = true;
+  }
+  return { presentDays, workdays, requiresPunch };
 }
 
 /** 使用工资事务的连接读取批次月份；时长按上班卡日期归属，小时保留两位小数。 */
@@ -80,11 +122,13 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
     const [rows] = await conn.query<RowDataPacket[]>(`SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') AS day, check_in, check_out, status_override, note, source FROM attendance_punches WHERE employee_id IN (${placeholders}) AND punch_date >= ? AND punch_date < DATE_ADD(?, INTERVAL 1 MONTH)`, [...ids, start, start]);
     const travelMap = await getTravelDateMapForEmployees(ids, start, last, conn);
     const leaveMap = await getLeaveDateMapForEmployees(ids, start, last, conn);
-    const [employment] = config ? await conn.query<RowDataPacket[]>(`SELECT e.id, DATE_FORMAT(e.join_date, '%Y-%m-%d') AS join_date, (SELECT DATE_FORMAT(MAX(d.last_date), '%Y-%m-%d') FROM hr_employee_departures d WHERE d.employee_id = e.id AND d.status = 'departed') AS departure_date FROM employees e WHERE e.id IN (${placeholders})`, ids) : [[]];
+    const [employmentRows] = await conn.query<RowDataPacket[]>(`SELECT e.id, DATE_FORMAT(e.join_date, '%Y-%m-%d') AS join_date FROM employees e WHERE e.id IN (${placeholders})`, ids);
+    const [departureRows] = await conn.query<RowDataPacket[]>(`SELECT employee_id, status, DATE_FORMAT(last_date, '%Y-%m-%d') AS last_date, DATE_FORMAT(reinstatement_date, '%Y-%m-%d') AS reinstatement_date FROM hr_employee_departures WHERE employee_id IN (${placeholders}) AND (status = 'departed' OR (status = 'cancelled' AND reinstatement_date IS NOT NULL))`, ids);
+    const joinByEmployee = new Map(employmentRows.map((row) => [String(row.id), row.join_date ? String(row.join_date) : '']));
+    const departuresByEmployee = groupByEmployee(departureRows);
     const rowsByEmployee = groupByEmployee(rows);
     for (const employee of employees) {
       const ownRows = rowsByEmployee.get(employee.id) ?? [];
-      if (!ownRows.length) throw badRequest(`员工“${employee.name}”在 ${month} 没有考勤记录，请先核实`);
       const groupConfig = groupConfigs.get(employee.id);
       const rule = groupConfig ? groupConfig.rule : fallbackRule;
       const legacyRestDates = groupConfig ? groupConfig.legacyRestDates : fallbackLegacyRestDates;
@@ -93,26 +137,37 @@ export async function readPayrollAttendance(conn: PoolConnection, employees: Arr
       const settings = { restDates } as AttendanceSettings;
       const travelDates = travelMap.get(employee.id) ?? new Set<string>();
       const leaveDates = leaveMap.get(employee.id) ?? new Set<string>();
-      const records = ownRows.map(row => buildDayRecord(String(row.day), { checkIn: row.check_in || '', checkOut: row.check_out || '', statusOverride: row.status_override as DayOverride | null, note: row.note || '', source: row.source || 'employee' }, { settings, travelDates, leaveDates }));
-      result.get(employee.id)!.presentDays = payrollPresentDays(records, travelDates);
+      const joinDate = joinByEmployee.get(employee.id) ?? '';
+      if (!joinDate) throw badRequest(`员工“${employee.name}”缺少入职日期`);
+      const employment = payrollEmployment(joinDate, (departuresByEmployee.get(employee.id) ?? []).map((row) => ({
+        status: String(row.status),
+        lastDate: String(row.last_date),
+        reinstatementDate: row.reinstatement_date ? String(row.reinstatement_date) : null,
+      })));
+      const periodStart = joinDate > start ? joinDate : start;
+      const periodEnd = employment.openDeparture && employment.openDeparture < last ? employment.openDeparture : last;
+      const punchByDay = new Map(ownRows.map((row) => [String(row.day), row]));
+      const records: AttendanceRecord[] = [];
+      for (let day = 1; day <= lastDay; day += 1) {
+        const key = `${month}-${String(day).padStart(2, '0')}`;
+        if (!isPayrollEmployed(key, employment)) continue;
+        const row = punchByDay.get(key);
+        records.push(buildDayRecord(key, row ? { checkIn: row.check_in || '', checkOut: row.check_out || '', statusOverride: row.status_override as DayOverride | null, note: row.note || '', source: row.source || 'employee' } : null, { settings, travelDates, leaveDates }));
+      }
+      const counted = countPayrollDays(records);
+      // 整月出差、请假或休息不必打卡。只有在职且需要打卡的日子一条记录都没有时，才拦住整批。
+      if (!ownRows.length && counted.requiresPunch) throw badRequest(`员工“${employee.name}”在 ${month} 没有考勤记录，请先核实`);
+      const values = result.get(employee.id)!;
+      values.presentDays = counted.presentDays;
       if (config) {
-        const dates = employment.find(row => String(row.id) === employee.id);
-        if (!dates?.join_date) throw badRequest(`员工“${employee.name}”缺少入职日期`);
-        const periodStart = String(dates.join_date) > start ? String(dates.join_date) : start;
-        const periodEnd = dates.departure_date && String(dates.departure_date) < last ? String(dates.departure_date) : last;
-        const rest = new Set(restDates);
-        let workdays = 0;
-        for (let day = 1; day <= lastDay; day++) {
-          const key = `${month}-${String(day).padStart(2, '0')}`;
-          // 出差日优先于日历休息日：出差落在日历休息日时计入应出勤，保证 presentDays <= workdays。
-          if (key >= periodStart && key <= periodEnd && (!rest.has(key) || travelDates.has(key))) workdays++;
+        if (counted.workdays === 0) {
+          values.attendanceAdjustment = 0;
+          values.attendanceCalculation = { presentDays: counted.presentDays, workdays: 0, input: 0, periodStart, periodEnd, config, matchedRule: null };
+        } else {
+          const calculated = calculateAttendanceRule(config, counted.presentDays, counted.workdays);
+          values.attendanceAdjustment = calculated.amount;
+          values.attendanceCalculation = { presentDays: counted.presentDays, workdays: counted.workdays, input: calculated.input, periodStart, periodEnd, config, matchedRule: calculated.matchedRule };
         }
-        const actual = records.filter(record => record.date >= periodStart && record.date <= periodEnd && !rest.has(record.date));
-        const actualTravel = new Set(Array.from(travelDates).filter(date => date >= periodStart && date <= periodEnd));
-        const presentDays = payrollPresentDays(actual, actualTravel);
-        const calculated = calculateAttendanceRule(config, presentDays, workdays);
-        result.get(employee.id)!.attendanceAdjustment = calculated.amount;
-        result.get(employee.id)!.attendanceCalculation = { presentDays, workdays, input: calculated.input, periodStart, periodEnd, config, matchedRule: calculated.matchedRule };
       }
     }
   }
