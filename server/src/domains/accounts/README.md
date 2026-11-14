@@ -2,11 +2,11 @@
 
 ## 职责
 
-董事长账号及员工会话版本、令牌撤销相关逻辑。
+员工会话版本与令牌撤销相关逻辑。
 
 ## 主要内容
 
-- 主要文件：`chairpersonService.ts`、`employeeSessionService.ts`。
+- 主要文件：`employeeSessionService.ts`。
 
 ## 维护约束
 

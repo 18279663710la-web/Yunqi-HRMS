@@ -79,7 +79,6 @@ async function clearAll(conn: PoolConnection): Promise<void> {
     'admin_operation_logs',
     'approval_approvers',
     'approval_rules',
-    'chairperson_account',
     'employee_accounts',
     'admins',
     'invoice_verifications',

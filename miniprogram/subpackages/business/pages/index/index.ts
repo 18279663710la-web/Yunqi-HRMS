@@ -70,7 +70,7 @@ Page<Data, Methods>({
 
   onShow() {
     void getCurrentUser().then(user => {
-      if (user.isChairperson || user.position !== '业务员') { wx.switchTab({ url: '/pages/index/index' }); return; }
+      if (user.position !== '业务员') { wx.switchTab({ url: '/pages/index/index' }); return; }
       const kind = this.data.kind;
       const changed = !!this.data.userId && this.data.userId !== user.id;
       this.setData(changed ? {

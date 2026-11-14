@@ -68,13 +68,13 @@ export function createU9BusinessRouter(u9: U9Gateway): Router {
   router.use(requireAuth);
   const kindSchema = z.enum(['receivables', 'receipts']);
   async function operatorFor(user: Express.Request['user']): Promise<string> {
-    if (user.isChairperson || user.position !== '业务员') throw forbidden('仅业务员可访问');
+    if (user.position !== '业务员') throw forbidden('仅业务员可访问');
     const binding = await queryOne<{ operator_id: string }>('SELECT operator_id FROM u9_employee_bindings WHERE employee_id=?', [user.id]);
     if (!binding) throw forbidden('请联系管理员绑定 U9 业务员');
     return binding.operator_id;
   }
   function notificationEmployee(user: Express.Request['user']): string {
-    if (user.isChairperson || user.position !== '业务员') throw forbidden('仅业务员可访问');
+    if (user.position !== '业务员') throw forbidden('仅业务员可访问');
     return user.id;
   }
   const pageSchema = z.object({ page: z.coerce.number().int().min(1).max(100000).default(1) }).strict();

@@ -55,12 +55,9 @@ App<IAppOption>({
     const route = pages.length ? pages[pages.length - 1].route || '' : '';
     if (!getToken() && route && route !== 'pages/login/login') {
       wx.reLaunch({ url: '/pages/login/login' });
-    } else if (getToken() && this.globalData.userInfo?.isChairperson && route &&
-      route !== 'pages/login/login' && route !== 'pages/approval/approval' && route !== 'pages/approval-detail/approval-detail') {
-      wx.switchTab({ url: '/pages/approval/approval' });
-    } else if (getToken() && this.globalData.userInfo && !this.globalData.userInfo.isChairperson && route &&
+    } else if (getToken() && this.globalData.userInfo && route &&
       !['pages/login/login', 'pages/index/index'].includes(route) && !isOnboardingRoute(route)) {
-      void getEntryDestination(false).then((destination) => {
+      void getEntryDestination().then((destination) => {
         const current = getCurrentPages();
         if (destination === ONBOARDING_REQUIRED && current[current.length - 1]?.route === route) wx.reLaunch({ url: destination });
       }).catch(() => { const current = getCurrentPages(); if (current[current.length - 1]?.route === route) wx.reLaunch({ url: '/pages/login/login' }); });

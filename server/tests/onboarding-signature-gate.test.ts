@@ -7,7 +7,7 @@ test('待入职用户能进入签名页，延迟返回的拦截响应不会打�
   g.App = (value: any) => { app = value; };
   g.getCurrentPages = () => [{ route }];
   g.wx = {
-    getStorageSync: (key: string) => key === 'current_user' ? { isChairperson: false } : 'token',
+    getStorageSync: (key: string) => key === 'current_user' ? { position: '员工' } : 'token',
     showToast: (o: any) => toasts.push(o.title),
     reLaunch: (o: any) => navigation.push(o.url),
     request: (o: any) => { requests++; o.success(mode === 'pending' ? { statusCode: 200, data: { code: 0, data: { id: 1 } } } : { statusCode: 403, data: { code: 40301, message: '请先提交入职信息' } }); },

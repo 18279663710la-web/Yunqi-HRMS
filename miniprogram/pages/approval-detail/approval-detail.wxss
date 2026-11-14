@@ -439,5 +439,7 @@
 }
 
 .workflow-ai-status { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; color: #344054; font-size: 26rpx; }
+.workflow-ai-tip { flex: 1; min-width: 0; }
 .workflow-ai-retry { margin: 0; padding: 0 28rpx; line-height: 60rpx; font-size: 24rpx; color: #3D6EF7; background: #EAF0FF; border: 0; }
 .workflow-ai-retry::after { border: 0; }
+.final-comment { font-size: 26rpx; line-height: 1.6; color: #344054; word-break: break-all; }

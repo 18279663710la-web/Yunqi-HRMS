@@ -101,7 +101,7 @@ Page<IndexData, IndexCustom>({
   async checkAccess() {
     this.setData({ gateError: false });
     try {
-      const destination = await getEntryDestination(!!getCachedUser()?.isChairperson);
+      const destination = await getEntryDestination();
       const pages = getCurrentPages();
       if (pages[pages.length - 1]?.route !== 'pages/index/index') return;
       if (destination === ONBOARDING_REQUIRED) { wx.reLaunch({ url: destination }); return; }
@@ -118,7 +118,7 @@ Page<IndexData, IndexCustom>({
 
   async checkPendingWhileVisible() {
     try {
-      const destination = await getEntryDestination(false);
+      const destination = await getEntryDestination();
       const pages = getCurrentPages();
       if (destination === ONBOARDING_REQUIRED && pages[pages.length - 1]?.route === 'pages/index/index') {
         this.setData({ ready: false });
@@ -131,7 +131,7 @@ Page<IndexData, IndexCustom>({
   },
 
   async checkPayslips() {
-    if (this.reminderLoading || !this.data.ready || getCachedUser()?.isChairperson) return;
+    if (this.reminderLoading || !this.data.ready) return;
     this.reminderLoading = true;
     const epoch = this.reminderEpoch;
     const employeeId = getCachedUser()?.id;

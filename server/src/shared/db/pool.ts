@@ -308,6 +308,22 @@ async function runMigrations(conn: Connection): Promise<void> {
   await conn.query('DROP TABLE IF EXISTS `hr_offboarding_form_template_history`');
   await conn.query('DROP TABLE IF EXISTS `hr_offboarding_form_templates`');
   await conn.query("DELETE FROM hr_settings WHERE setting_key = 'self_offboarding_default'");
+
+  // 特殊董事长账号下线：把旧的指定审批人配置与时间线经手记录改派给唯一的“职务=董事长”在职员工，然后删除账号表。
+  {
+    const [chairRows] = await conn.query<mysql.RowDataPacket[]>(
+      `SELECT ea.employee_id AS employee_id FROM employees e
+       JOIN employee_accounts ea ON ea.employee_id = e.id
+       WHERE e.position = '董事长' AND ea.status = 'active'
+       GROUP BY ea.employee_id`
+    );
+    const chairEmployeeId = chairRows.length === 1 ? String(chairRows[0].employee_id) : null;
+    if (chairEmployeeId) {
+      await conn.query('UPDATE `approval_approvers` SET employee_id = ? WHERE employee_id = ?', [chairEmployeeId, 'CHAIR001']);
+      await conn.query('UPDATE `approval_timeline` SET approver_id = ? WHERE approver_id = ?', [chairEmployeeId, 'CHAIR001']);
+    }
+    await conn.query('DROP TABLE IF EXISTS `chairperson_account`');
+  }
 }
 
 export async function queryRows<T = Record<string, unknown>>(

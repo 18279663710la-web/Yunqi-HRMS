@@ -533,16 +533,6 @@ CREATE TABLE IF NOT EXISTS `expense_attachments` (
   KEY `idx_expense_attachment_approval` (`approval_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `chairperson_account` (
-  `id` TINYINT PRIMARY KEY,
-  `login_name` VARCHAR(30) NOT NULL UNIQUE,
-  `password_hash` VARCHAR(255) NOT NULL,
-  `status` ENUM('active','disabled') NOT NULL DEFAULT 'active',
-  `created_by` INT NOT NULL,
-  `created_at` DATETIME NOT NULL,
-  `updated_at` DATETIME NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `quick_actions` (
   `key` VARCHAR(20) PRIMARY KEY,
   `name` VARCHAR(50) NOT NULL,

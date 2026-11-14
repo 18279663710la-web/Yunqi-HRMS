@@ -1,8 +1,6 @@
 import * as approvalsApi from '../../services/approvals/api';
-import * as authApi from '../../services/auth/api';
 import type { ApprovalListItem } from '../../types/models';
 import { getCustomTabBar, type TapEvent } from '../../types/ui';
-import { getCachedUser } from '../../utils/request';
 
 const TYPE_ICON: Record<string, string> = {
   leave: '休',
@@ -25,7 +23,6 @@ interface ApprovalData {
   activeTab: ApprovalTab;
   list: ApprovalListItem[];
   loading: boolean;
-  isChairperson: boolean;
 }
 
 interface ApprovalCustom {
@@ -34,7 +31,6 @@ interface ApprovalCustom {
   onTab(e: TapEvent): void;
   goDetail(e: TapEvent): void;
   goCreate(): void;
-  logout(): void;
 }
 
 Page<ApprovalData, ApprovalCustom>({
@@ -47,15 +43,12 @@ Page<ApprovalData, ApprovalCustom>({
     activeTab: 'pending',
     list: [],
     loading: true,
-    isChairperson: false,
   },
 
   onShow() {
-    const isChairperson = !!getCachedUser()?.isChairperson;
-    this.setData({ isChairperson });
     const tabBar = getCustomTabBar(this);
     if (tabBar) {
-      tabBar.setData({ selected: isChairperson ? 0 : 1 });
+      tabBar.setData({ selected: 1 });
       tabBar.refreshBadge();
     }
     void this.loadCounts();
@@ -72,7 +65,7 @@ Page<ApprovalData, ApprovalCustom>({
       this.setData({
         tabs: [
           { key: 'pending', name: '待我审批', count: counts.pending },
-          ...(this.data.isChairperson ? [] : [{ key: 'mine' as const, name: '我发起的', count: counts.mine }]),
+          { key: 'mine', name: '我发起的', count: counts.mine },
           { key: 'done', name: '已办结', count: counts.done },
         ],
       });
@@ -107,13 +100,5 @@ Page<ApprovalData, ApprovalCustom>({
 
   goCreate() {
     wx.navigateTo({ url: '/pages/approval-create/approval-create' });
-  },
-
-  logout() {
-    wx.showModal({ title: '退出登录', content: '确定退出当前账号吗？', success: (result) => {
-      if (!result.confirm) return;
-      authApi.logout();
-      wx.reLaunch({ url: '/pages/login/login' });
-    } });
   },
 });

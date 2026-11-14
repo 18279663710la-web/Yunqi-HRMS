@@ -14,6 +14,7 @@
         <view class="applicant-name">{{detail.applicantName}}</view>
         <view class="applicant-meta">{{detail.applicantPosition}}</view>
       </view>
+      <view class="tag tag-red" wx:if="{{detail.urgent}}">加急</view>
     </view>
 
     <!-- ============ 申请内容 ============ -->
@@ -74,33 +75,46 @@
     </block>
 
     <view class="card workflow-ai-status" wx:if="{{detail.aiRetryAvailable}}">
+      <view class="workflow-ai-tip">审批处理出现异常，可重试或联系管理员</view>
       <button class="workflow-ai-retry" loading="{{retryingAi}}" disabled="{{retryingAi}}" bindtap="retryAi">重试</button>
     </view>
 
-    <!-- ============ 审批流程 ============ -->
-    <view class="section-head">
-      <view class="section-title">审批流程</view>
-    </view>
+    <!-- ============ 审批意见（申请人视角） ============ -->
+    <block wx:if="{{!detail.flowVisible && detail.finalComment}}">
+      <view class="section-head">
+        <view class="section-title">审批意见</view>
+      </view>
+      <view class="card">
+        <view class="final-comment">{{detail.finalComment}}</view>
+      </view>
+    </block>
 
-    <view class="card">
-      <view class="tl-item {{item.isLast ? 'is-last' : ''}}" wx:for="{{detail.timeline}}" wx:key="_k">
-        <view class="tl-rail">
-          <view class="tl-dot {{item.nodeClass}}"></view>
-          <view class="tl-line" wx:if="{{!item.isLast}}"></view>
-        </view>
-        <view class="tl-body">
-          <view class="flex-between">
-            <view class="tl-name">
-              {{item.name}}
-              <text class="tl-role">{{item.role}}</text>
-            </view>
-            <view class="tl-action {{item.nodeClass}}">{{item.action}}</view>
+    <!-- ============ 审批流程 ============ -->
+    <block wx:if="{{detail.flowVisible}}">
+      <view class="section-head">
+        <view class="section-title">审批流程</view>
+      </view>
+
+      <view class="card">
+        <view class="tl-item {{item.isLast ? 'is-last' : ''}}" wx:for="{{detail.timeline}}" wx:key="_k">
+          <view class="tl-rail">
+            <view class="tl-dot {{item.nodeClass}}"></view>
+            <view class="tl-line" wx:if="{{!item.isLast}}"></view>
           </view>
-          <view class="tl-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
-          <view class="tl-time" wx:if="{{item.time}}">{{item.time}}</view>
+          <view class="tl-body">
+            <view class="flex-between">
+              <view class="tl-name">
+                {{item.name}}
+                <text class="tl-role">{{item.role}}</text>
+              </view>
+              <view class="tl-action {{item.nodeClass}}">{{item.action}}</view>
+            </view>
+            <view class="tl-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
+            <view class="tl-time" wx:if="{{item.time}}">{{item.time}}</view>
+          </view>
         </view>
       </view>
-    </view>
+    </block>
 
     <!-- ============ 单据信息 ============ -->
     <view class="card card-tight">

@@ -1,5 +1,4 @@
 import { queryRows } from '../../shared/db/pool';
-import { CHAIRPERSON_ID, getChairpersonUser } from '../accounts/chairpersonService';
 import type {
   Company,
   CurrentUser,
@@ -139,7 +138,6 @@ function toListItem(row: EmployeeRow, depts: Map<string, DepartmentRow>): Employ
 }
 
 export async function getCurrentUserById(employeeId: string): Promise<CurrentUser | null> {
-  if (employeeId === CHAIRPERSON_ID) return getChairpersonUser();
   const [deptRows, empRows] = await Promise.all([loadDepartments(), loadEmployees()]);
   const depts = deptMapOf(deptRows);
   const employees = employeeMapOf(empRows.filter((employee) => !employee.departed));

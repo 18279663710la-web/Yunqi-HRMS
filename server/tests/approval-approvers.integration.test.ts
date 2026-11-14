@@ -74,65 +74,34 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
     }
     assert.equal((await request('/admin/approval-approvers/unknown', admin)).status, 400);
     assert.equal((await request('/approvals/approvers/unknown', applicant)).status, 400);
-    const chair = await request('/admin/chairperson-account', admin, 'POST', { loginName: 'chair_test', password: 'test-password' });
-    assert.equal(chair.status, 200);
-    const loginRes = await fetch(base + '/auth/password-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginName: 'chair_test', password: 'test-password' }) });
-    const login = await loginRes.json() as { data: { accessToken: string; user: { id: string } } };
-    const chairToken = login.data.accessToken;
-    const chairId = login.data.user.id;
+    const secondApprover = issueTokens('U012').accessToken;
     for (const type of [...types, 'expense']) {
       const path = `/admin/approval-workflows/${type}/approver-candidates`;
       assert.equal((await request(path, hr)).status, 403);
-      assert.ok((await request(path, admin)).body.data.candidates.some((c: { id: string }) => c.id === chairId), `${type} 独立设计稿可选择董事长`);
+      assert.ok((await request(path, admin)).body.data.candidates.some((c: { id: string }) => c.id === 'U012'), `${type} 独立设计稿候选为启用了小程序账号的员工`);
     }
     assert.equal((await request('/admin/approval-workflows/unknown/approver-candidates', admin)).status, 400);
-    const expenseDraft = { version: 0, formFields: [], nodes: [{ id: 'review', kind: 'approver', position: { x: 0, y: 0 }, config: { approverIds: [chairId] } }], edges: [] };
+    const expenseDraft = { version: 0, formFields: [], nodes: [{ id: 'review', kind: 'approver', position: { x: 0, y: 0 }, config: { approverIds: ['U012'] } }], edges: [] };
     assert.equal((await request('/admin/approval-workflows/expense', admin, 'PUT', expenseDraft)).status, 200);
-    assert.deepEqual((await request('/admin/approval-workflows/expense', admin)).body.data.nodes[0].config.approverIds, [chairId]);
+    assert.deepEqual((await request('/admin/approval-workflows/expense', admin)).body.data.nodes[0].config.approverIds, ['U012']);
     for (const type of types) {
-      assert.ok((await request(`/admin/approval-approvers/${type}`, admin)).body.data.candidates.some((c: { id: string }) => c.id === chairId));
-    }
-    assert.ok((await request('/admin/approval-approvers/expense', admin)).body.data.candidates.every((c: { id: string }) => c.id !== chairId));
-    assert.equal((await request('/admin/approval-approvers/expense', admin, 'PUT', { employeeId: chairId })).status, 400);
-    assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: chairId })).status, 200);
-    assert.equal((await request('/approvals/leave-approver', applicant)).body.data.id, chairId);
-    const chairLeave = await request('/approvals', applicant, 'POST', { type: 'leave', form: leaveForm });
-    assert.equal(chairLeave.body.data.timeline[1].approverId, chairId);
-    assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: 'U005' })).status, 200);
-    assert.equal((await request(`/approvals/${chairLeave.body.data.id}/action`, chairToken, 'POST', { action: 'approve' })).body.data.ok, true, '修改配置不会影响董事长已接收的请假单');
-    for (const type of ['overtime', 'travel', 'purchase']) {
-      assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: chairId })).status, 200);
-      assert.equal((await request(`/approvals/approvers/${type}`, applicant)).body.data.id, chairId);
-      const assigned = await request('/approvals', applicant, 'POST', { type });
+      assert.ok((await request(`/admin/approval-approvers/${type}`, admin)).body.data.candidates.some((c: { id: string }) => c.id === 'U012'));
+      assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U012' })).status, 200);
+      assert.equal((await request(`/approvals/approvers/${type}`, applicant)).body.data.id, 'U012');
+      const assigned = await request('/approvals', applicant, 'POST', { type, form: type === 'leave' ? leaveForm : [] });
       assert.equal(assigned.status, 200);
-      assert.equal(assigned.body.data.timeline[1].approverId, chairId);
-      assert.equal((await request(`/approvals/${assigned.body.data.id}`, chairToken)).status, 200);
-      assert.ok((await request('/approvals?tab=pending', chairToken)).body.data.some((a: { id: string }) => a.id === assigned.body.data.id));
-      assert.ok((await request('/approvals/pending-count', chairToken)).body.data >= 1);
+      assert.equal(assigned.body.data.timeline[1].approverId, 'U012');
+      assert.equal((await request(`/approvals/${assigned.body.data.id}`, secondApprover)).status, 200);
+      assert.ok((await request('/approvals?tab=pending', secondApprover)).body.data.some((a: { id: string }) => a.id === assigned.body.data.id));
+      assert.ok((await request('/approvals/pending-count', secondApprover)).body.data >= 1);
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U005' })).status, 200);
-      assert.equal((await request(`/approvals/${assigned.body.data.id}/action`, chairToken, 'POST', { action: 'approve' })).body.data.ok, true);
-      assert.ok((await request('/approvals?tab=done', chairToken)).body.data.some((a: { id: string }) => a.id === assigned.body.data.id));
-      const unassigned = await request('/approvals', applicant, 'POST', { type });
-      assert.equal((await request(`/approvals/${unassigned.body.data.id}`, chairToken)).status, 404);
-      assert.equal((await request(`/approvals/${unassigned.body.data.id}/action`, chairToken, 'POST', { action: 'approve' })).body.data.ok, false);
+      assert.equal((await request(`/approvals/${assigned.body.data.id}/action`, secondApprover, 'POST', { action: 'approve' })).body.data.ok, true, '修改配置不会影响审批人已接收的申请');
+      assert.ok((await request('/approvals?tab=done', secondApprover)).body.data.some((a: { id: string }) => a.id === assigned.body.data.id));
+      const unassigned = await request('/approvals', applicant, 'POST', { type, form: type === 'leave' ? leaveForm : [] });
+      assert.equal((await request(`/approvals/${unassigned.body.data.id}`, secondApprover)).status, 404);
+      assert.equal((await request(`/approvals/${unassigned.body.data.id}/action`, secondApprover, 'POST', { action: 'approve' })).body.data.ok, false);
     }
-    assert.equal((await request('/admin/approval-approvers/purchase', admin, 'PUT', { employeeId: chairId })).status, 200);
-    const unsupported = await request('/approvals', applicant, 'POST', { type: 'purchase' });
-    await conn.query(`UPDATE \`${database}\`.approvals SET type = 'expense' WHERE id = ?`, [unsupported.body.data.id]);
-    assert.equal((await request(`/approvals/${unsupported.body.data.id}`, chairToken)).status, 404, '董事长无权查看报销');
-    assert.equal((await request(`/approvals/${unsupported.body.data.id}/action`, chairToken, 'POST', { action: 'approve' })).body.data.ok, false);
-    assert.ok((await request('/approvals?tab=pending', chairToken)).body.data.every((a: { id: string }) => a.id !== unsupported.body.data.id));
     assert.equal((await request('/admin/approval-approvers/purchase', admin, 'PUT', { employeeId: 'U005' })).status, 200);
-    assert.equal((await request('/admin/approval-approvers/overtime', admin, 'PUT', { employeeId: chairId })).status, 200);
-    await conn.query(`UPDATE \`${database}\`.chairperson_account SET status = 'disabled' WHERE id = 1`);
-    assert.ok((await request('/admin/approval-workflows/expense/approver-candidates', admin)).body.data.candidates.every((c: { id: string }) => c.id !== chairId));
-    assert.equal((await request('/approvals/approvers/overtime', applicant)).status, 400, '董事长停用后不可继续提交新单');
-    assert.equal((await request('/admin/approval-approvers/travel', admin, 'PUT', { employeeId: chairId })).status, 400);
-    assert.ok((await request('/admin/approval-approvers/overtime', admin)).body.data.candidates.every((c: { id: string }) => c.id !== chairId));
-    await conn.query(`UPDATE \`${database}\`.chairperson_account SET status = 'active' WHERE id = 1`);
-    assert.equal((await request('/admin/approval-approvers/overtime', admin, 'PUT', { employeeId: 'U005' })).status, 200);
-    assert.equal((await request('/approvals', chairToken, 'POST', { type: 'travel' })).status, 403);
-    assert.equal((await request('/attendance/today', chairToken)).status, 403);
     await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'disabled' WHERE employee_id = 'U005'`);
     for (const type of types) assert.equal((await request(`/approvals/approvers/${type}`, applicant)).status, 400);
     assert.equal((await request('/admin/expense-approver', admin)).body.data.approver, null, '其他类型不覆盖报销审批人');

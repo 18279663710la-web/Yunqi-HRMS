@@ -332,7 +332,6 @@ export async function createEmployee(
       [input.account.loginName]
     );
     if (exists) throw badRequest('该登录名已被使用');
-    if (await queryOne('SELECT id FROM chairperson_account WHERE login_name = ?', [input.account.loginName])) throw badRequest('该登录名已被使用');
     account = input.account;
   }
 
@@ -458,7 +457,6 @@ async function assertLoginName(loginName: string, employeeId: string): Promise<v
     [loginName, employeeId]
   );
   if (row) throw badRequest('该登录名已被使用');
-  if (await queryOne('SELECT id FROM chairperson_account WHERE login_name = ?', [loginName])) throw badRequest('该登录名已被使用');
 }
 
 async function assertAccountCanBeEnabled(conn: PoolConnection, employeeId: string): Promise<void> {

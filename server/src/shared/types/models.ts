@@ -94,7 +94,6 @@ export interface CurrentUser extends Employee {
   deptName: string;
   leaderId: string;
   leaderName: string;
-  isChairperson?: boolean;
 }
 
 export interface ApprovalField {
@@ -200,6 +199,10 @@ export interface ApprovalDecorated extends Approval {
 
 export interface ApprovalDetail extends ApprovalDecorated {
   canCancel: boolean;
+  /** 申请人且非流程参与人时为 false：时间线与当前节点已裁剪，仅保留最终状态与驳回意见。 */
+  flowVisible: boolean;
+  /** 申请人视角下审批被驳回时的驳回意见。 */
+  finalComment?: string;
   attachments?: Array<{ name: string; fileID: string }>;
   aiAdvice?: { status: string; advice: import('../../domains/approvals/expenseAiPolicy').AiAdvice | null } | null;
   aiRetryAvailable?: boolean;

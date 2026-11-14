@@ -21,7 +21,7 @@ import { signExpenseFile } from './expenseFileAccess';
 import { calculateLeaveDays } from '../../shared/utils/leaveDuration';
 import { checkDuplicate, verifyInvoice } from '../invoices/invoiceService';
 import { ensureInvoicesVerified } from '../invoices/tencentInvoiceVerifier';
-import { getApprovalApprover, parseApproverType, chairpersonCanApprove, getCustomWorkflowApproverCandidates } from './expenseApproverService';
+import { getApprovalApprover, parseApproverType, getCustomWorkflowApproverCandidates } from './expenseApproverService';
 import { readPublishedWorkflow } from './customWorkflowPublication';
 import { planWorkflowExecution } from './customWorkflowExecutionPlan';
 import { ownWorkflowValue, validateWorkflowTestCase, type WorkflowTestField } from './customWorkflowTestFields';
@@ -31,7 +31,6 @@ import { getWorkflowAiState } from './workflowAiWorker';
 import { enqueueExpenseAi, getExpenseAiAdvice, generateExpenseAdvice } from './expenseAiService';
 import { getExpenseRules } from './expenseRulesService';
 import { config } from '../../config';
-import { CHAIRPERSON_ID } from '../accounts/chairpersonService';
 import type { RowDataPacket } from 'mysql2';
 
 interface ApprovalRow {
@@ -192,14 +191,8 @@ const APPROVAL_SELECT = `SELECT a.*, EXISTS (SELECT 1 FROM approval_workflow_ins
        (SELECT 1 FROM job_titles t WHERE t.name = a.applicant_position)
        THEN a.applicant_position ELSE COALESCE(e.position, a.applicant_position) END AS applicant_position
      FROM approvals a LEFT JOIN employees e ON e.id = a.applicant_id`;
-const CHAIR_TYPE_SQL = `(a.type IN ('leave', 'overtime', 'travel', 'purchase') OR (a.type = 'expense' AND EXISTS (SELECT 1 FROM approval_workflow_instances wi WHERE wi.approval_id = a.id)))`;
 
 function approvalVisibility(tab: 'pending' | 'mine' | 'done', user: CurrentUser): { sql: string; params: string[] } {
-  if (user.isChairperson) {
-    if (tab === 'pending') return { sql: `a.status = 'pending' AND ${CHAIR_TYPE_SQL} AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.state = 'current' AND t.approver_id = ?)`, params: [user.id] };
-    if (tab === 'mine') return { sql: `a.applicant_id = ? AND ${CHAIR_TYPE_SQL} AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.approver_id = ?)`, params: [user.id, user.id] };
-    return { sql: `a.status IN ('approved', 'rejected') AND ${CHAIR_TYPE_SQL} AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.approver_id = ?)`, params: [user.id] };
-  }
   if (tab === 'pending') return { sql: `a.status = 'pending' AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.state = 'current' AND t.approver_id = ?)`, params: [user.id] };
   if (tab === 'mine') return { sql: 'a.applicant_id = ?', params: [user.id] };
   return { sql: `a.status IN ('approved', 'rejected') AND (a.applicant_id = ? OR EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.approver_id = ?))`, params: [user.id, user.id] };
@@ -231,16 +224,11 @@ async function hydrateApprovals(rows: ApprovalRow[]): Promise<Approval[]> {
 
 function canReadApproval(user: CurrentUser, approval: Approval): boolean {
   const onTimeline = approval.timeline.some((node) => node.approverId === user.id);
-  if (user.isChairperson) return chairpersonCanAccessApproval(approval) && onTimeline;
   return approval.applicantId === user.id || onTimeline;
 }
 
 export function expenseBranchAmount(invoices: Array<{ totalAmount: number }>): string {
   return round2(invoices.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0)).toFixed(2);
-}
-
-function chairpersonCanAccessApproval(a: Approval): boolean {
-  return chairpersonCanApprove(a.type) || (a.type === 'expense' && !!a.workflowInstance);
 }
 
 function getCurrentNode(a: Approval): TimelineNode | null {
@@ -312,7 +300,7 @@ export async function getPendingCount(user: CurrentUser): Promise<number> {
   return countVisible('pending', user);
 }
 
-export async function getApprovalDetail(id: string, user: CurrentUser): Promise<ApprovalDetail | null> {
+export async function getApprovalDetail(id: string, user: CurrentUser, options?: { includeFlow?: boolean }): Promise<ApprovalDetail | null> {
   const rows = await queryRows<ApprovalRow>(`${APPROVAL_SELECT} WHERE a.id = ?`, [id]);
   const [approval] = await hydrateApprovals(rows);
   if (!approval || !canReadApproval(user, approval)) return null;
@@ -321,12 +309,24 @@ export async function getApprovalDetail(id: string, user: CurrentUser): Promise<
   const isApprover = approval.timeline.some((node) => node.approverId === user.id);
   const workflowAi = approval.workflowInstance ? await getWorkflowAiState(approval.id, approval.applicantId === user.id || isApprover, isApprover) : null;
   const aiAdvice = workflowAi?.aiAdvice ?? (approval.type === 'expense' && isApprover ? await getExpenseAiAdvice(approval.id, user.id) : null);
+  // 申请人且非流程参与人时不展示流转过程：时间线与当前节点裁剪，仅保留最终状态与驳回意见。
+  // 创建单据的提交返回不对外展示，仍保留时间线供引擎断言与提交确认使用。
+  const flowVisible = isApprover || options?.includeFlow === true;
+  const timeline = flowVisible ? approval.timeline : [];
+  const node = flowVisible ? approval.node : '';
+  const finalComment = !flowVisible && approval.status === 'rejected'
+    ? approval.timeline.find((timelineNode) => timelineNode.state === 'reject')?.comment
+    : undefined;
   return {
     ...decorated,
+    node,
+    timeline,
     invoices: decorated.invoices.map((invoice) => invoice.fileID ? { ...invoice, fileID: signExpenseFile(invoice.fileID) } : invoice),
     attachments: attachments.map((item) => ({ ...item, fileID: item.fileID ? signExpenseFile(item.fileID) : item.fileID })),
     aiAdvice,
     ...(workflowAi ? { aiRetryAvailable: workflowAi.aiRetryAvailable, workflowAiStatus: workflowAi.workflowAiStatus } : {}),
+    ...(finalComment ? { finalComment } : {}),
+    flowVisible,
     canApprove: approval.status === 'pending' && isPendingForMe(approval, user),
     canCancel: approval.status === 'pending' && approval.applicantId === user.id,
   };
@@ -468,15 +468,15 @@ export async function getLeaveApprover(_user: CurrentUser): Promise<{ id: string
 
 export function approvalAssigneesFromSteps(
   steps: Array<{ kind: string; approverId?: string }>,
-  candidates: Array<{ id: string; name: string }>,
+  candidates: Array<{ id: string; name: string; jobCategory?: string }>,
 ): Array<{ id: string; name: string; role: string }> | null {
-  const names = new Map(candidates.map((candidate) => [candidate.id, candidate.name]));
+  const info = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const approvers: Array<{ id: string; name: string; role: string }> = [];
   for (const step of steps) {
     if (step.kind !== 'approver' || !step.approverId) continue;
-    const name = names.get(step.approverId);
-    if (!name) return null;
-    approvers.push({ id: step.approverId, name, role: step.approverId === CHAIRPERSON_ID ? '董事长' : '审批人' });
+    const candidate = info.get(step.approverId);
+    if (!candidate?.name) return null;
+    approvers.push({ id: step.approverId, name: candidate.name, role: candidate.jobCategory === '董事长' ? '董事长' : '审批人' });
   }
   return approvers;
 }
@@ -497,7 +497,7 @@ export async function previewApprovalAssignees(payload: {
     values.days = String(days);
   }
   const invoices = Array.isArray(payload.invoices) ? payload.invoices : [];
-  if (approvalType === 'expense' && !invoices.length) return { approvers: [] };
+  // 未添加发票时按 0 元预览；流程未按金额分支时同样能给出确定的审批人。
   const branchValues = { ...values };
   if (approvalType === 'expense') branchValues.amount = expenseBranchAmount(invoices.map((invoice) => ({ totalAmount: Number(invoice.totalAmount) || 0 })));
   try {
@@ -623,7 +623,7 @@ export async function createApproval(
         timeline.push({ name: 'AI 审批', role: 'AI 审批', action: index === firstActionIndex ? '处理中' : '待处理', time: '', state: index === firstActionIndex ? 'current' : 'wait' });
       } else {
         const candidate = candidateMap.get(step.approverId)!;
-        timeline.push({ name: candidate.name, role: candidate.id === CHAIRPERSON_ID ? '董事长' : '审批人', action: index === firstActionIndex ? '审批中' : '待审批', time: '', state: index === firstActionIndex ? 'current' : 'wait', approverId: step.approverId });
+        timeline.push({ name: candidate.name, role: candidate.jobCategory === '董事长' ? '董事长' : '审批人', action: index === firstActionIndex ? '审批中' : '待审批', time: '', state: index === firstActionIndex ? 'current' : 'wait', approverId: step.approverId });
       }
     });
   } else if (hasLeader) {
@@ -633,15 +633,11 @@ export async function createApproval(
   let approvalId = '';
   await transaction(async (conn) => {
     // 与确认离职使用同一把员工行锁，避免离职后并发创建待处理审批。
-    for (const employeeId of [...new Set([user.id, ...(plan ? planApprovers.map(step => step.approverId) : [approverId])].filter((id) => id && id !== CHAIRPERSON_ID))].sort()) {
+    for (const employeeId of [...new Set([user.id, ...(plan ? planApprovers.map(step => step.approverId) : [approverId])].filter((id) => id))].sort()) {
       const [employees] = await conn.query<RowDataPacket[]>('SELECT id FROM employees WHERE id = ? FOR UPDATE', [employeeId]);
       const [accounts] = await conn.query<RowDataPacket[]>('SELECT status FROM employee_accounts WHERE employee_id = ? FOR UPDATE', [employeeId]);
       const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1 FOR UPDATE", [employeeId]);
       if (!employees.length || !accounts.length || accounts[0].status !== 'active' || departures.length) throw badRequest('申请人或审批人账号不可用，请联系管理员');
-    }
-    if (planApprovers.some(step => step.approverId === CHAIRPERSON_ID)) {
-      const [chair] = await conn.query<RowDataPacket[]>("SELECT status FROM chairperson_account WHERE id = 1 FOR UPDATE");
-      if (!chair.length || chair[0].status !== 'active') throw badRequest('审批人账号不可用，请联系管理员');
     }
     let publishedCredentials: unknown = null;
     if (publication && plan) {
@@ -710,7 +706,7 @@ export async function createApproval(
     }
   });
 
-  const detail = await getApprovalDetail(approvalId, user);
+  const detail = await getApprovalDetail(approvalId, user, { includeFlow: true });
   if (!detail) throw notFound('审批单创建失败');
   return detail;
 }
@@ -734,10 +730,6 @@ export async function submitApprovalAction(
     const [approvalResult] = await conn.query('SELECT * FROM approvals WHERE id = ? FOR UPDATE', [id]);
     const row = (approvalResult as ApprovalRow[])[0];
     if (!row) return { ok: false, message: '审批单不存在' };
-    if (user.isChairperson && !chairpersonCanApprove(row.type)) {
-      const [instances] = await conn.query<RowDataPacket[]>('SELECT 1 FROM approval_workflow_instances WHERE approval_id = ?', [id]);
-      if (row.type !== 'expense' || !instances.length) return { ok: false, message: '无权处理该审批单' };
-    }
     if (row.status !== 'pending') return { ok: false, message: '该审批单已处理，无需重复操作' };
     const [timelineResult] = await conn.query('SELECT * FROM approval_timeline WHERE approval_id = ? ORDER BY step_no', [id]);
     const timelineRows = timelineResult as TimelineRow[];

@@ -168,9 +168,3 @@
   font-weight: 500;
   color: #FFFFFF;
 }
-.chairperson-logout {
-  margin: 32rpx auto 120rpx;
-  text-align: center;
-  color: #667085;
-  font-size: 26rpx;
-}

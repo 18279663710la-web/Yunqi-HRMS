@@ -15,7 +15,7 @@ Page<Data, Methods>({
     }
     this.setData({ id });
     void getCurrentUser().then(user => {
-      if (user.isChairperson || user.position !== '业务员') { wx.switchTab({ url: '/pages/index/index' }); return; }
+      if (user.position !== '业务员') { wx.switchTab({ url: '/pages/index/index' }); return; }
       void this.load();
     }).catch(() => this.setData({ loading: false, error: '无法确认账号权限，请重试' }));
   },

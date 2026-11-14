@@ -3,7 +3,6 @@ import { isDeepStrictEqual } from 'node:util';
 import { queryOne, queryRows, transaction } from '../../shared/db/pool';
 import { badRequest, conflict } from '../../shared/utils/errors';
 import type { ApprovalApproverType } from './expenseApproverService';
-import { CHAIRPERSON_ID } from '../accounts/chairpersonService';
 import { customWorkflowSchema, validateCustomWorkflowGraph, type CustomWorkflow } from './customWorkflowService';
 import { validateExecutableWorkflow } from './customWorkflowSimulation';
 import { normalizeFixedWorkflowTestFields, hashWorkflowTestFields, type WorkflowTestField } from './customWorkflowTestFields';
@@ -57,15 +56,11 @@ export async function publishCustomWorkflow(type: ApprovalApproverType, workflow
     const errors = validateExecutableWorkflow(type, validated);
     if (errors.length) throw badRequest(errors[0]);
     const approverIds = [...new Set(workflow.nodes.filter(node => node.kind === 'approver').flatMap(node => node.config?.approverIds ?? []))].sort();
-    for (const id of approverIds.filter(id => id !== CHAIRPERSON_ID)) {
+    for (const id of approverIds) {
       const [employees] = await conn.query<RowDataPacket[]>('SELECT id FROM employees WHERE id = ? FOR UPDATE', [id]);
       const [accounts] = await conn.query<RowDataPacket[]>('SELECT status FROM employee_accounts WHERE employee_id = ? FOR UPDATE', [id]);
       const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1 FOR UPDATE", [id]);
       if (!employees.length || !accounts.length || accounts[0].status !== 'active' || departures.length) throw badRequest('流程中存在不可用的审批人，请重新配置并测试');
-    }
-    if (approverIds.includes(CHAIRPERSON_ID)) {
-      const [chair] = await conn.query<RowDataPacket[]>('SELECT status FROM chairperson_account WHERE id = 1 FOR UPDATE');
-      if (!chair.length || chair[0].status !== 'active') throw badRequest('流程中存在不可用的审批人，请重新配置并测试');
     }
     const [previous] = await conn.query<RowDataPacket[]>('SELECT publication_version, workflow_version, case_version, fixed_fields_json FROM custom_approval_publications WHERE approval_type = ? FOR UPDATE', [type]);
     const publishedFields = previous.length && (typeof previous[0].fixed_fields_json === 'string' ? JSON.parse(previous[0].fixed_fields_json) : previous[0].fixed_fields_json);

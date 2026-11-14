@@ -6,7 +6,6 @@ import type { LoginResponse } from '../../shared/types/models';
 import { forbidden, unauthorized } from '../../shared/utils/errors';
 import { verifyPassword } from '../../shared/utils/password';
 import { getCurrentUserById } from '../../domains/employees/userService';
-import { CHAIRPERSON_ID, getChairpersonAccount } from '../../domains/accounts/chairpersonService';
 import { requireActiveEmployeeSession } from '../../domains/accounts/employeeSessionService';
 
 export type TokenType = 'access' | 'refresh';
@@ -46,14 +45,6 @@ export function verifyToken(token: string, expected: TokenType): string {
 
 /** 员工账号密码登录（账号由 Web 管理后台创建） */
 export async function passwordLogin(loginName: string, password: string): Promise<LoginResponse> {
-  const chairman = await getChairpersonAccount();
-  if (chairman && chairman.login_name === loginName.trim()) {
-    if (!verifyPassword(password, chairman.password_hash)) throw unauthorized('登录名或密码错误');
-    if (chairman.status !== 'active') throw forbidden('该账号已被停用');
-    const user = await getCurrentUserById(CHAIRPERSON_ID);
-    if (!user) throw unauthorized();
-    return { ...issueTokens(user.id), user };
-  }
   const preview = await queryOne<{ employee_id: string }>('SELECT employee_id FROM employee_accounts WHERE login_name = ?', [loginName.trim()]);
   if (preview) {
     const { activateDueDepartures } = await import('../../admin/hr/hrDepartureService');

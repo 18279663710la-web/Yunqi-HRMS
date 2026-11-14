@@ -146,6 +146,12 @@
         <view class="flex-1"></view>
         <view class="approver-name">{{approverHint}}</view>
       </view>
+      <view class="list-row">
+        <view class="setting-label">加急处理</view>
+        <view class="setting-hint">加急单据将在审批列表中置顶提醒</view>
+        <view class="flex-1"></view>
+        <switch checked="{{urgent}}" color="#3D6EF7" bindchange="onUrgentChange" />
+      </view>
     </view>
   </view>
 

@@ -7,7 +7,7 @@ import type {
   Invoice,
   InvoiceChangeDetail,
 } from '../../types/models';
-import type { CustomEvent, InputEvent, PickerEvent, TapEvent } from '../../types/ui';
+import type { CustomEvent, InputEvent, PickerEvent, SwitchEvent, TapEvent } from '../../types/ui';
 import { formatTime, toast } from '../../utils/util';
 import { calculateLeaveDays } from '../../utils/leave-duration';
 import { upload, resolveFileUrl, getStaticBase } from '../../utils/request';
@@ -60,6 +60,7 @@ interface ApprovalCreateData {
   fields: ApprovalField[];
   segments: FormSegment[];
   values: Record<string, string>;
+  urgent: boolean;
   approvers: Array<{ id: string; name: string; role: string }>;
   approverReady: boolean;
   approverHint: string;
@@ -96,6 +97,7 @@ interface ApprovalCreateCustom {
   onTypeTap(e: TapEvent): void;
   onInput(e: InputEvent): void;
   onPicker(e: PickerEvent): void;
+  onUrgentChange(e: SwitchEvent): void;
   onInvoiceChange(e: CustomEvent<InvoiceChangeDetail>): void;
   addAttachments(): void;
   removeAttachment(e: TapEvent): void;
@@ -112,6 +114,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     fields: [],
     segments: [],
     values: {},
+    urgent: false,
     approvers: [],
     approverReady: false,
     approverHint: '',
@@ -195,6 +198,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       fields,
       segments,
       values,
+      urgent: false,
       canSubmit: this.validate(values, fields, type.key),
       isExpense: type.key === 'expense',
       recognized: [],
@@ -230,7 +234,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       });
       if (generation !== this.approverGeneration) return;
       const approvers = result.approvers || [];
-      this.setData({ approvers, approverReady: approvers.length > 0, approverHint: approvers.length ? '' : '' });
+      this.setData({ approvers, approverReady: approvers.length > 0, approverHint: approvers.length ? '' : '未匹配到审批人，请联系管理员' });
     } catch (error) {
       if (generation !== this.approverGeneration) return;
       this.setData({ approvers: [], approverReady: false, approverHint: (error as { message?: string }).message || '审批人不可用，请联系管理员' });
@@ -273,6 +277,10 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     }
     this.setData({ values, canSubmit: this.validate(values) });
     this.scheduleApprovers(values);
+  },
+
+  onUrgentChange(e: SwitchEvent) {
+    this.setData({ urgent: e.detail.value });
   },
 
   /* ---------------- 发票 OCR 联动 ---------------- */
@@ -451,7 +459,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     const staticBase = getStaticBase();
     const invoices = type.key === 'expense' ? this.data.recognized.map((item) => ({ ...item, fileID: item.fileID?.startsWith(`${staticBase}/uploads/`) ? item.fileID.slice(staticBase.length) : item.fileID })) : [];
     if (invoices.length) form.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${this.data.invoiceSummary?.totalAmountText || '0.00'}` });
-    return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], ...(type.workflowPublicationVersion ? { workflowPublicationVersion: type.workflowPublicationVersion, workflowValues: { ...values } } : {}) };
+    return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, urgent: this.data.urgent, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], ...(type.workflowPublicationVersion ? { workflowPublicationVersion: type.workflowPublicationVersion, workflowValues: { ...values } } : {}) };
   },
 
   async onSubmit(): Promise<void> {

@@ -89,7 +89,7 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     assert.deepEqual(loaded.formFields, configured.formFields);
     assert.deepEqual(loaded.nodes.find((node: any) => node.id === 'review').config, { approverIds: ['U005', 'U011'] });
     assert.deepEqual(loaded.edges.find((edge: any) => edge.id === 'three').conditions, configured.edges[2].conditions);
-    assert.equal((await request('expense', 'PUT', { ...graph, version: 3 })).status, 409, '旧客户端不能覆盖已保存的节点配置');
+    assert.equal((await request('expense', 'PUT', { ...graph, version: 2 })).status, 409, '旧客户端不能覆盖已保存的节点配置');
     const overlap = { ...configured, version: 3, edges: [...configured.edges, { id: 'overlap', source: 'branch', target: 'end', conditions: [{ field: 'project', operator: 'eq', value: '客户' }] }] };
     assert.equal((await request('expense', 'PUT', overlap)).status, 400, '同一条件节点下不能保存重叠分支');
     assert.equal((await request('expense', 'PUT', { ...configured, version: 3, formFields: [] })).status, 400, '不能删除条件所引用的字段');
@@ -210,7 +210,7 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       const response = await fetch(`http://127.0.0.1:${address.port}/api${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       return { status: response.status, body: await response.json() as { data?: any; message?: string } };
     };
-    const legacyAfterPublish = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${legacyId}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
+    const legacyAfterPublish = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${legacyId}`, { headers: { Authorization: `Bearer ${issueTokens('U011').accessToken}` } });
     assert.equal((await legacyAfterPublish.json() as { data: any }).data.timeline[1].approverId, 'U011', '发布后旧单审批人保持原样');
     assert.equal((await approvalRequest(`/approvals/${legacyId}/action`, issueTokens('U011').accessToken, { action: 'approve' })).body.data.finished, true);
     const leavePayload = { type: 'leave', workflowPublicationVersion: 1, workflowValues: sampleValues, form: [
@@ -343,15 +343,10 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       assert.equal(reviewerDetail.aiAdvice.advice.recommendation, 'approve');
       assert.ok(seenModels.every(model => model === 'test-model'), '旧单应使用提交时的 AI 模型快照');
       assert.equal((await approvalRequest(`/approvals/${expenseId}/action`, reviewerToken, { action: 'approve' })).body.data.ok, true);
-      const chairCreated = await fetch(`http://127.0.0.1:${address.port}/api/admin/chairperson-account`, { method: 'POST', headers: { Authorization: `Bearer ${admin}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ loginName: 'chair_test', password: 'test-password' }) });
-      assert.equal(chairCreated.status, 200);
-      const chairLogin = await fetch(`http://127.0.0.1:${address.port}/api/auth/password-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginName: 'chair_test', password: 'test-password' }) });
-      const chairData = await chairLogin.json() as { data: { accessToken: string; user: { id: string } } };
-      const chairToken = chairData.data.accessToken;
-      const chairId = chairData.data.user.id;
+      const secondApproverToken = issueTokens('U012').accessToken;
       const afterHumanAi = { ...expenseGraph, version: 9, nodes: [expenseGraph.nodes[0],
         { id: 'first-human', kind: 'approver', position: { x: 5, y: 0 }, config: { approverIds: ['U011'] } }, expenseGraph.nodes[4], expenseGraph.nodes[1],
-        { id: 'chair-review', kind: 'approver', position: { x: 20, y: 0 }, config: { approverIds: [chairId] } }, expenseGraph.nodes[3],
+        { id: 'chair-review', kind: 'approver', position: { x: 20, y: 0 }, config: { approverIds: ['U012'] } }, expenseGraph.nodes[3],
       ], edges: [{ id: 'sh', source: 'start-ai', target: 'first-human' }, { id: 'hv', source: 'first-human', target: 'verify-ai' }, { id: 'va', source: 'verify-ai', target: 'test-ai' },
         { id: 'ac', source: 'test-ai', target: 'chair-review' }, { id: 'ce', source: 'chair-review', target: 'end-ai' }] };
       assert.equal((await request('expense', 'PUT', afterHumanAi)).status, 200);
@@ -365,24 +360,34 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       const firstReviewer = issueTokens('U011').accessToken;
       const handoff = await approvalRequest(`/approvals/${secondId}/action`, firstReviewer, { action: 'approve' });
       assert.equal(handoff.body.data.finished, false);
-      const afterHandoff = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${secondId}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
+      const afterHandoff = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${secondId}`, { headers: { Authorization: `Bearer ${firstReviewer}` } });
       const handoffDetail = (await afterHandoff.json() as { data: any }).data;
+      assert.equal(handoffDetail.flowVisible, true);
       assert.equal(handoffDetail.timeline.find((node: any) => node.role === '系统查验').state, 'done');
       assert.equal(handoffDetail.timeline.find((node: any) => node.role === 'AI 审批').state, 'current');
+      const applicantHandoff = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${secondId}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
+      const applicantHandoffDetail = (await applicantHandoff.json() as { data: any }).data;
+      assert.equal(applicantHandoffDetail.flowVisible, false, '申请人且非参与人不应看到流转过程');
+      assert.deepEqual(applicantHandoffDetail.timeline, []);
+      assert.equal(applicantHandoffDetail.node, '');
       modelFails = true;
       for (let i = 0; i < 3; i++) await aiWorker.processWorkflowAiQueue();
-      const chairRetry = await approvalRequest(`/approvals/${secondId}/retry-ai`, chairToken, {});
-      assert.equal(chairRetry.status, 200);
+      const secondApproverRetry = await approvalRequest(`/approvals/${secondId}/retry-ai`, secondApproverToken, {});
+      assert.equal(secondApproverRetry.status, 200);
       modelFails = false;
       await aiWorker.processWorkflowAiQueue();
-      const chairDetail = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${secondId}`, { headers: { Authorization: `Bearer ${chairToken}` } });
-      assert.equal(chairDetail.status, 200);
-      assert.equal((await chairDetail.json() as { data: any }).data.canApprove, true);
-      assert.equal((await approvalRequest(`/approvals/${secondId}/action`, chairToken, { action: 'approve' })).body.data.ok, true);
+      const secondApproverDetail = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${secondId}`, { headers: { Authorization: `Bearer ${secondApproverToken}` } });
+      assert.equal(secondApproverDetail.status, 200);
+      assert.equal((await secondApproverDetail.json() as { data: any }).data.canApprove, true);
+      assert.equal((await approvalRequest(`/approvals/${secondId}/action`, secondApproverToken, { action: 'approve' })).body.data.ok, true);
       const cancelledExpense = await approvalRequest('/approvals', applicantToken, { ...expensePayload, workflowPublicationVersion: secondPublication.publicationVersion,
         invoices: [{ ...expensePayload.invoices[0], id: 'cancelled-runtime-invoice', invoiceNumber: '12345678901234567892' }] });
       assert.equal(cancelledExpense.status, 200);
       assert.equal((await approvalRequest(`/approvals/${cancelledExpense.body.data.id}/cancel`, applicantToken, {})).body.data.ok, true);
+      const cancelledDetail = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${cancelledExpense.body.data.id}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
+      const cancelledData = (await cancelledDetail.json() as { data: any }).data;
+      assert.equal(cancelledData.flowVisible, false);
+      assert.deepEqual(cancelledData.timeline, []);
       const callsBeforeCancelledJob = modelRequests;
       await aiWorker.processWorkflowAiQueue();
       assert.equal(modelRequests, callsBeforeCancelledJob, '撤销申请不能触发待执行 AI 节点');
@@ -415,6 +420,19 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       assert.equal((await missingDetail.json() as { data: any }).data.aiRetryAvailable, true, '无法读取材料时不应跳过 AI 节点');
       assert.equal(modelRequests, beforeMissingFile);
       assert.equal((await approvalRequest(`/approvals/${missingFileId}/cancel`, applicantToken, {})).body.data.ok, true);
+
+      const rejectedExpense = await approvalRequest('/approvals', applicantToken, { ...expensePayload, workflowPublicationVersion: secondPublication.publicationVersion,
+        invoices: [{ ...expensePayload.invoices[0], id: 'rejected-runtime-invoice', invoiceNumber: '12345678901234567895' }] });
+      assert.equal(rejectedExpense.status, 200);
+      const rejectedId = rejectedExpense.body.data.id;
+      assert.equal((await approvalRequest(`/approvals/${rejectedId}/action`, firstReviewer, { action: 'reject', comment: '预算不足，请下月再提交' })).body.data.ok, true);
+      const rejectedApplicant = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${rejectedId}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
+      const rejectedData = (await rejectedApplicant.json() as { data: any }).data;
+      assert.equal(rejectedData.status, 'rejected');
+      assert.equal(rejectedData.statusText, '已驳回');
+      assert.equal(rejectedData.flowVisible, false);
+      assert.deepEqual(rejectedData.timeline, []);
+      assert.equal(rejectedData.finalComment, '预算不足，请下月再提交');
 
 
 

@@ -42,7 +42,7 @@ Page<LoginData, LoginCustom>({
     try {
       const user = await authApi.getCurrentUser();
       getApp<IAppOption>().globalData.userInfo = user;
-      const destination = await getEntryDestination(!!user.isChairperson);
+      const destination = await getEntryDestination();
       if (destination === ONBOARDING_REQUIRED) wx.reLaunch({ url: destination });
       else wx.switchTab({ url: destination });
     } catch {
@@ -76,7 +76,7 @@ Page<LoginData, LoginCustom>({
     try {
       const user = await authApi.login(loginName.trim(), password);
       getApp<IAppOption>().globalData.userInfo = user;
-      const destination = await getEntryDestination(!!user.isChairperson);
+      const destination = await getEntryDestination();
       if (destination === ONBOARDING_REQUIRED) wx.reLaunch({ url: destination });
       else wx.switchTab({ url: destination });
     } catch (err) {

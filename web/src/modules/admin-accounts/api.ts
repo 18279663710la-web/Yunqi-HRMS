@@ -5,14 +5,6 @@ AdminRole,
 AdminUser
 } from '../../types';
 
-export function fetchChairpersonAccount(): Promise<{ loginName: string; status: 'active' | 'disabled' } | null> {
-  return request('/admin/chairperson-account');
-}
-
-export function createChairpersonAccount(input: { loginName: string; password: string }): Promise<{ loginName: string }> {
-  return request('/admin/chairperson-account', { method: 'POST', body: input });
-}
-
 export function fetchAdmins(): Promise<AdminAccountItem[]> {
   return request<AdminAccountItem[]>('/admin/admins');
 }

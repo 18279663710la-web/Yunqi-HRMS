@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { createChairpersonAccount,getChairpersonAccount } from '../../domains/accounts/chairpersonService';
 import { requireSuperAdmin } from '../admin-accounts/authMiddleware';
 import { parse } from '../../shared/middleware/validate';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
@@ -61,19 +60,6 @@ router.delete('/job-titles/:id', asyncHandler(async (req, res) => {
 }));
 
 /* ---------------- 员工与账号 ---------------- */
-
-router.get('/chairperson-account', requireSuperAdmin, asyncHandler(async (_req, res) => {
-  const account = await getChairpersonAccount();
-  success(res, account ? { loginName: account.login_name, status: account.status } : null);
-}));
-
-router.post('/chairperson-account', requireSuperAdmin, asyncHandler(async (req, res) => {
-  const body = parse(z.object({
-    loginName: z.string().trim().regex(/^[A-Za-z0-9_.-]{3,30}$/),
-    password: z.string().min(6).max(64),
-  }), req.body);
-  success(res, await createChairpersonAccount(body, adminOf(req)));
-}));
 
 router.get(
   '/employees/options',

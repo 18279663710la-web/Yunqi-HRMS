@@ -46,9 +46,7 @@ Component<TabBarData, Record<string, never>, TabBarMethods, never[]>({
       this.setData({ hidden: !ready });
       if (!ready) return;
     }
-    if (getCachedUser()?.isChairperson) {
-      this.setData({ selected: 0, list: [{ pagePath: '/pages/approval/approval', text: '审批', icon: 'approval' }] });
-    } else if (getCachedUser()?.position === '业务员') {
+    if (getCachedUser()?.position === '业务员') {
       this.setData({ list: [...normalTabs, businessTab], ...(page?.route === 'subpackages/business/pages/index/index' ? { selected: 4 } : {}) });
     }
     void this.refreshBadge();
@@ -61,8 +59,7 @@ Component<TabBarData, Record<string, never>, TabBarMethods, never[]>({
     async refreshBadge(): Promise<void> {
       try {
         const user = await getCurrentUser();
-        const list = user.isChairperson ? [{ pagePath: '/pages/approval/approval', text: '审批', icon: 'approval' }]
-          : user.position === '业务员' ? [...normalTabs, businessTab] : normalTabs;
+        const list = user.position === '业务员' ? [...normalTabs, businessTab] : normalTabs;
         this.setData({ list });
       } catch { /* 保留上次导航状态，服务端仍会校验权限 */ }
       try {

@@ -17,7 +17,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { KeyOutlined, PlusOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 
-import { createAdmin, createChairpersonAccount, fetchAdmins, fetchChairpersonAccount, resetAdminPassword, setAdminStatus } from './api';
+import { createAdmin, fetchAdmins, resetAdminPassword, setAdminStatus } from './api';
 import { useAuth } from '../../auth/AuthContext';
 import { PageTitle } from '../../components/PageTitle';
 import type { AdminAccountItem, AdminRole } from '../../types';
@@ -36,11 +36,6 @@ interface ResetFormValues {
   password: string;
 }
 
-interface ChairpersonFormValues {
-  loginName: string;
-  password: string;
-}
-
 export function AdminsPage() {
   const { admin: currentAdmin } = useAuth();
   const { message, modal } = AntApp.useApp();
@@ -50,9 +45,6 @@ export function AdminsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<AdminAccountItem | null>(null);
   const [saving, setSaving] = useState(false);
-  const [chairperson, setChairperson] = useState<{ loginName: string; status: 'active' | 'disabled' } | null>(null);
-  const [chairOpen, setChairOpen] = useState(false);
-  const [chairForm] = Form.useForm<ChairpersonFormValues>();
   const [form] = Form.useForm<AdminFormValues>();
   const [resetForm] = Form.useForm<ResetFormValues>();
 
@@ -60,9 +52,8 @@ export function AdminsPage() {
     if (currentAdmin?.role !== 'super_admin') return;
     setLoading(true);
     try {
-      const [admins, account] = await Promise.all([fetchAdmins(), fetchChairpersonAccount()]);
+      const admins = await fetchAdmins();
       setList(admins);
-      setChairperson(account);
     } catch (err) {
       message.error((err as Error).message);
     } finally {
@@ -114,23 +105,7 @@ export function AdminsPage() {
     }
   };
 
-  const submitChairperson = async (values: ChairpersonFormValues) => {
-    setSaving(true);
-    try {
-      await createChairpersonAccount({ loginName: values.loginName.trim(), password: values.password });
-      message.success('董事长小程序账号已创建');
-      setChairOpen(false);
-      chairForm.resetFields();
-      await load();
-    } catch (err) {
-      message.error((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const submitReset = async (values: ResetFormValues) => {
-    if (!resetTarget) return;
+  const submitReset = async (values: ResetFormValues) => {    if (!resetTarget) return;
     setSaving(true);
     try {
       await resetAdminPassword(resetTarget.id, values.password);
@@ -256,27 +231,6 @@ export function AdminsPage() {
           scroll={{ x: 880 }}
         />
       </Card>
-
-      <Card className="panel-card" title="董事长小程序账号" bordered={false}
-        extra={!chairperson ? <Button onClick={() => setChairOpen(true)}>创建账号</Button> : null}>
-        {chairperson ? (
-          <Space>登录名：{chairperson.loginName} <Tag color={chairperson.status === 'active' ? 'success' : 'error'}>{chairperson.status === 'active' ? '启用' : '停用'}</Tag></Space>
-        ) : <Text type="secondary">尚未创建。该账号用于审批负责人发起的请假申请。</Text>}
-      </Card>
-
-      <Modal title="创建董事长小程序账号" open={chairOpen} onCancel={() => setChairOpen(false)}
-        onOk={() => chairForm.submit()} confirmLoading={saving} okText="创建" cancelText="取消" destroyOnClose>
-        <Form form={chairForm} layout="vertical" onFinish={submitChairperson} preserve={false}>
-          <Form.Item name="loginName" label="登录名" rules={[
-            { required: true, message: '请输入登录名' },
-            { pattern: /^[A-Za-z0-9_.-]{3,30}$/, message: '3-30 位字母、数字、下划线、点或短横线' },
-          ]}><Input autoComplete="off" /></Form.Item>
-          <Form.Item name="password" label="初始密码" rules={[
-            { required: true, message: '请输入初始密码' }, { min: 6, message: '密码至少 6 位' }, { max: 64, message: '密码不能超过 64 位' },
-          ]}><Input.Password autoComplete="new-password" /></Form.Item>
-          <div className="form-tip">该账号仅用于小程序审批，不计入员工和考勤统计。</div>
-        </Form>
-      </Modal>
 
       <Modal
         title="新增管理员"

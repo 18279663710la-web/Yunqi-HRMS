@@ -89,7 +89,6 @@ export interface EmployeeDetail extends EmployeeListItem {
 export interface CurrentUser extends Employee {
   leaderId: string;
   leaderName: string;
-  isChairperson?: boolean;
 }
 
 export type ApprovalFieldType = 'text' | 'number' | 'money' | 'picker' | 'date' | 'time' | 'textarea' | 'attachment';
@@ -217,6 +216,10 @@ export interface ExpensePrecheckResult {
 
 export interface ApprovalDetail extends ApprovalDecorated {
   canCancel: boolean;
+  /** 申请人且非流程参与人时为 false：时间线与当前节点已裁剪，仅保留最终状态与驳回意见。 */
+  flowVisible: boolean;
+  /** 申请人视角下审批被驳回时的驳回意见。 */
+  finalComment?: string;
   aiRetryAvailable?: boolean;
   workflowAiStatus?: 'queued' | 'processing' | 'failed' | null;
   attachments?: Array<{ name: string; fileID: string }>;

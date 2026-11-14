@@ -5,7 +5,7 @@ import test from 'node:test';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
-test('请假使用后台指定审批人，董事长账号只能处理分配给自己的请假申请', async () => {
+test('请假使用后台指定审批人，只有被指定的审批人可以处理申请', async () => {
   const database = `yunqi_leave_test_${randomBytes(8).toString('hex')}`;
   const connection = await mysql.createConnection({
     host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306),
@@ -58,14 +58,6 @@ test('请假使用后台指定审批人，董事长账号只能处理分配给�
     const workerToken = issueTokens(worker.id).accessToken;
     const leaderToken = issueTokens(leader.id).accessToken;
     assert.equal((await request('/approvals', leaderToken, 'POST', validLeave)).status, 400);
-    assert.equal((await request('/admin/chairperson-account', workerToken, 'POST', { loginName: 'chair_test', password: 'test-password' })).status, 401);
-    const createdChair = await request('/admin/chairperson-account', admin, 'POST', { loginName: 'chair_test', password: 'test-password' });
-    assert.equal(createdChair.status, 200);
-    assert.equal((await request('/admin/chairperson-account', admin, 'POST', { loginName: 'chair_second', password: 'test-password' })).status, 400);
-    const login = await request('/auth/password-login', '', 'POST', { loginName: 'chair_test', password: 'test-password' });
-    assert.equal(login.status, 200);
-    const chairToken = login.payload.data.accessToken as string;
-    assert.equal(login.payload.data.user.position, '董事长');
     assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: leader.id })).status, 200);
     assert.equal((await request('/approvals/leave-approver', workerToken)).payload.data.id, leader.id);
     assert.equal((await request('/approvals/leave-approver', leaderToken)).payload.data.id, leader.id);
@@ -106,35 +98,31 @@ test('请假使用后台指定审批人，董事长账号只能处理分配给�
     assert.equal((await request('/approvals/' + leave.payload.data.id, strangerToken)).status, 404);
     await connection.query(`UPDATE \`${database}\`.approvals SET applicant_position = '旧岗位名称' WHERE id = ?`, [leave.payload.data.id]);
     assert.equal((await request('/approvals/' + leave.payload.data.id, workerToken)).payload.data.applicantPosition, worker.job_category);
-    assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: login.payload.data.user.id })).status, 200);
+    assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: stranger.id })).status, 200);
     const leaderLeave = await request('/approvals', leaderToken, 'POST', validLeave);
     assert.equal(leaderLeave.status, 200);
-    assert.equal(leaderLeave.payload.data.timeline[1].approverId, login.payload.data.user.id);
-    assert.equal((await request('/approvals/' + leave.payload.data.id, chairToken)).status, 404);
-    assert.equal((await request('/attendance/today', chairToken)).status, 403);
-    assert.equal((await request('/approvals/leave-approver', chairToken)).status, 403);
-    assert.equal((await request('/approvals', chairToken, 'POST', { type: 'leave' })).status, 403);
-    assert.equal((await request('/approvals/' + leaderLeave.payload.data.id + '/cancel', chairToken, 'POST', {})).status, 403);
-    const pending = await request('/approvals?tab=pending', chairToken);
+    assert.equal(leaderLeave.payload.data.timeline[1].approverId, stranger.id);
+    assert.equal((await request('/approvals/' + leave.payload.data.id, strangerToken)).status, 404);
+    const pending = await request('/approvals?tab=pending', strangerToken);
     assert.equal(pending.payload.data.length, 1);
     assert.equal(pending.payload.data[0].id, leaderLeave.payload.data.id);
     const actions = await Promise.all([
-      request(`/approvals/${leaderLeave.payload.data.id}/action`, chairToken, 'POST', { action: 'approve' }),
-      request(`/approvals/${leaderLeave.payload.data.id}/action`, chairToken, 'POST', { action: 'reject', comment: '请补充资料' }),
+      request(`/approvals/${leaderLeave.payload.data.id}/action`, strangerToken, 'POST', { action: 'approve' }),
+      request(`/approvals/${leaderLeave.payload.data.id}/action`, strangerToken, 'POST', { action: 'reject', comment: '请补充资料' }),
     ]);
     assert.equal(actions.filter((action) => action.payload.data.ok).length, 1);
     const secondLeave = await request('/approvals', leaderToken, 'POST', validLeave);
     const cancelAndApprove = await Promise.all([
-      request(`/approvals/${secondLeave.payload.data.id}/action`, chairToken, 'POST', { action: 'approve' }),
+      request(`/approvals/${secondLeave.payload.data.id}/action`, strangerToken, 'POST', { action: 'approve' }),
       request(`/approvals/${secondLeave.payload.data.id}/cancel`, leaderToken, 'POST', {}),
     ]);
     assert.equal(cancelAndApprove.filter((result) => result.payload.data.ok).length, 1);
-    assert.ok((await request('/approvals?tab=done', chairToken)).payload.data.every((item: { timeline: Array<{ approverId?: string }> }) => item.timeline.some((node) => node.approverId === login.payload.data.user.id)));
+    assert.ok((await request('/approvals?tab=done', strangerToken)).payload.data.every((item: { timeline: Array<{ approverId?: string }> }) => item.timeline.some((node) => node.approverId === stranger.id)));
     assert.equal((await request('/admin/approval-approvers/travel', admin, 'PUT', { employeeId: worker.id })).status, 200);
     const otherType = await request('/approvals', leaderToken, 'POST', { type: 'travel' });
     assert.equal(otherType.status, 200);
     assert.equal(otherType.payload.data.applicantPosition, leader.job_category);
-    assert.ok(otherType.payload.data.timeline.every((node: { approverId?: string }) => node.approverId !== login.payload.data.user.id));
+    assert.equal(otherType.payload.data.timeline[1].approverId, worker.id, '其他类型不受请假审批人配置影响');
     await connection.query(`UPDATE \`${database}\`.employees SET job_category = '业务员' WHERE id = ?`, [leader.id]);
     assert.equal((await request('/approvals/' + otherType.payload.data.id, leaderToken)).payload.data.applicantPosition, leader.job_category);
     const { resetDemoContent } = await import('../src/shared/db/seed');

@@ -26,7 +26,7 @@ Page<Data, Methods>({
       return;
     }
     void getCurrentUser().then(user => {
-      if (user.isChairperson || user.position !== '业务员') {
+      if (user.position !== '业务员') {
         wx.switchTab({ url: '/pages/index/index' });
         return;
       }
