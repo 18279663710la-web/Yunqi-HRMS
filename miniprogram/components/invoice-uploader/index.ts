@@ -40,6 +40,7 @@ interface UploaderInvoice {
   qrFrom: string;
   tempPath: string;
   fileID: string;
+  preview: string;
   status: UploaderStatus;
   statusText: string;
   result: Invoice | null;
@@ -129,6 +130,7 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
         qrFrom: '',
         tempPath: f.tempFilePath,
         fileID: '',
+        preview: '',
         status: 'pending',
         statusText: STATUS_TEXT.pending,
         result: null,
@@ -227,6 +229,7 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
             qrFrom: 'scan',
             tempPath: '',
             fileID: '',
+            preview: '',
             status: 'done',
             statusText: STATUS_TEXT.done,
             result: result,
@@ -294,13 +297,14 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
         qrResult.qrFrom = 'image';
 
         // 2) 保存图片附件，不调用 OCR。上传失败时不能提交临时文件路径。
-        const filePath = await uploadInvoiceImage(item.tempPath || item.fileID);
+        const uploaded = await uploadInvoiceImage(item.tempPath || item.fileID);
 
         this.patch(id, {
           status: 'done',
           statusText: STATUS_TEXT.done,
-          fileID: filePath,
-          result: { ...qrResult, fileID: filePath },
+          fileID: uploaded.fileUrl,
+          preview: uploaded.previewUrl,
+          result: { ...qrResult, fileID: uploaded.fileUrl },
           qr: parsed,
           qrFrom: 'image',
           errorMsg: '',
@@ -392,8 +396,8 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
         return;
       }
 
-      const urls = this.data.invoices.map((x) => x.fileID || x.tempPath).filter(Boolean);
-      const current = item ? item.fileID || item.tempPath : '';
+      const urls = this.data.invoices.map((x) => x.preview || x.tempPath).filter(Boolean);
+      const current = item ? item.preview || item.tempPath : '';
       if (!urls.length || !current) return;
       wx.previewImage({ current, urls });
     },

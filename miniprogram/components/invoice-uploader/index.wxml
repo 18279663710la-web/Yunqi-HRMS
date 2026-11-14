@@ -12,7 +12,7 @@
           <view class="iu-qrbox-icon"></view>
           <view class="iu-qrbox-label">扫码录入</view>
         </view>
-        <image wx:else class="iu-img" src="{{item.fileID || item.tempPath}}" mode="aspectFill" lazy-load />
+        <image wx:else class="iu-img" src="{{item.preview || item.tempPath}}" mode="aspectFill" lazy-load />
 
         <!-- 识别中 -->
         <view class="iu-overlay" wx:if="{{item.status === 'pending' || item.status === 'recognizing'}}">

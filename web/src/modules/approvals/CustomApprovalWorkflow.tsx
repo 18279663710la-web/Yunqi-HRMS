@@ -7,7 +7,8 @@ import { ExpenseFormDesigner } from './ExpenseFormDesigner';
 import { CustomApprovalNodeEditor } from './CustomApprovalNodeEditor';
 import { ApprovalTestCases } from './ApprovalTestCases';
 import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serializeApprovalWorkflow, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
-import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, getWorkflowTestFields, getWorkflowTestCases, testSavedWorkflow, publishWorkflow, type WorkflowTestCasesDocument, type WorkflowTestField, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
+import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, getWorkflowTestFields, getWorkflowTestCases, testSavedWorkflow, publishWorkflow, getWorkflowPublication, type WorkflowTestCasesDocument, type WorkflowTestField, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
+import { FallbackApproverSelect } from './FallbackApproverSelect';
 import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
 
 interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; saved: string; pendingApiKeys: Record<string, string> }
@@ -27,6 +28,7 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState<boolean | null>(null);
   const [testEditor, setTestEditor] = useState<{ fields: WorkflowTestField[]; document: WorkflowTestCasesDocument } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -40,6 +42,12 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   const draft = drafts[approvalType];
 
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    let active = true;
+    setPublished(null);
+    getWorkflowPublication(approvalType).then((result) => { if (active) setPublished(result !== null); }).catch(() => { if (active) setPublished(null); });
+    return () => { active = false; };
+  }, [approvalType]);
   useEffect(() => {
     if (drafts[approvalType]) { setLoading(false); setLoadError(''); return; }
     let active = true;
@@ -167,6 +175,7 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
     try {
       const cases = await getWorkflowTestCases(approvalType);
       await publishWorkflow(approvalType, version, cases.version);
+      setPublished(true);
       message.success('审批流程已发布');
     } catch (error) { message.error((error as Error).message || '发布失败'); }
     finally { setPublishing(false); }
@@ -183,6 +192,7 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)}>表单设计</button>
+      {published === false && <FallbackApproverSelect approvalType={approvalType} />}
       {toolbarExtra}
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || !dirty} onClick={() => void save()}>保存</button>

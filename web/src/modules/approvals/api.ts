@@ -24,6 +24,9 @@ export const getWorkflowTestCases = (type: CustomApprovalType) => request<Workfl
 export const saveWorkflowTestCases = (type: CustomApprovalType, document: WorkflowTestCasesDocument) => request<WorkflowTestCasesDocument>(`/admin/approval-workflows/${type}/test-cases`, { method: 'PUT', body: document });
 export const publishWorkflow = (type: CustomApprovalType, workflowVersion: number, caseVersion: number) => request<{ publicationVersion: number; workflowVersion: number; caseVersion: number }>(`/admin/approval-workflows/${type}/publish`, { method: 'POST', body: { workflowVersion, caseVersion } });
 export const testSavedWorkflow = (type: CustomApprovalType) => request<WorkflowTestReport & { workflowVersion: number; caseVersion: number }>(`/admin/approval-workflows/${type}/test`, { method: 'POST', body: {} });
+export const getWorkflowPublication = (type: CustomApprovalType) => request<{ publicationVersion: number } | null>(`/admin/approval-workflows/${type}/publication`);
+export const getApprovalApproverSettings = (type: CustomApprovalType) => request<{ approver: ExpenseApproverEmployee | null; candidates: ExpenseApproverEmployee[] }>(`/admin/approval-approvers/${type}`);
+export const setApprovalApprover = (type: CustomApprovalType, employeeId: string) => request<ExpenseApproverEmployee>(`/admin/approval-approvers/${type}`, { method: 'PUT', body: { employeeId } });
 
 export interface ExpenseApproverEmployee {
   id: string;

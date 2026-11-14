@@ -876,6 +876,7 @@ code {
 .salary-model-entry:focus-visible { outline: 2px solid #3d6ef7; outline-offset: 3px; border-radius: 2px; }
 .salary-model-entry:disabled { opacity: .45; cursor: not-allowed; }
 .salary-model-entry-danger:not(:disabled) { color: #c43838; }
+.approval-fallback-approver { width: 220px; flex: 0 0 auto; }
 .company-calendar-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 60px); margin-bottom: -36px; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .company-calendar-entries { display: flex; align-items: center; gap: 32px; min-height: 48px; margin: -24px -26px 0; padding: 0 26px; overflow-x: auto; background: #fff; border-bottom: 1px solid #dce3ee; }
 .company-calendar-entry { flex: 0 0 auto; padding: 4px 0; border: 0; background: none; color: #245bb8; font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; }

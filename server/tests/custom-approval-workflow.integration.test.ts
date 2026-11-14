@@ -330,7 +330,7 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       const detail = async (token: string) => (await (await fetch(`http://127.0.0.1:${address.port}/api/approvals/${expenseId}`, { headers: { Authorization: `Bearer ${token}` } })).json() as { data: any }).data;
       assert.equal((await detail(applicantToken)).aiRetryAvailable, true);
       const outsiderToken = issueTokens('U010').accessToken;
-      assert.equal((await detail(outsiderToken)).aiRetryAvailable, false);
+      assert.equal((await fetch(`http://127.0.0.1:${address.port}/api/approvals/${expenseId}`, { headers: { Authorization: `Bearer ${outsiderToken}` } })).status, 404);
       assert.equal((await approvalRequest(`/approvals/${expenseId}/retry-ai`, outsiderToken, {})).status, 400);
       const retries = await Promise.all([approvalRequest(`/approvals/${expenseId}/retry-ai`, applicantToken, {}), approvalRequest(`/approvals/${expenseId}/retry-ai`, applicantToken, {})]);
       assert.deepEqual(retries.map(item => item.status).sort(), [200, 400]);

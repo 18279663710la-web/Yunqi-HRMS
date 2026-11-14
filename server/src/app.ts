@@ -6,6 +6,7 @@ import { errorHandler, notFoundHandler } from './shared/middleware/error';
 import adminRoutes from './admin/adminRoutes';
 import hrRoutes from './admin/hr/hrRoutes';
 import approvalsRoutes from './miniprogram/approvals/approvalsRoutes';
+import approvalFileRoutes from './miniprogram/approvals/approvalFileRoutes';
 import attendanceRoutes from './miniprogram/attendance/attendanceRoutes';
 import authRoutes from './miniprogram/auth/authRoutes';
 import companyRoutes from './miniprogram/workbench/companyRoutes';
@@ -34,8 +35,7 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // 发票原图等静态资源
-  app.use('/uploads', express.static(config.uploadDir, { maxAge: '7d' }));
+  // 报销原图只通过短期签名地址提供，不公开 /uploads。
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'yunqi-office-server', time: new Date().toISOString() });
@@ -65,6 +65,8 @@ export function createApp(): express.Express {
   app.use('/api/onboarding-form', onboardingFormEmployee);
   app.use('/api/admin/hr', hrRoutes);
   app.use('/api', authRoutes);
+  // 签名地址不带登录头。必须排在会拦截全部 /api 请求的鉴权路由之前。
+  app.use('/api/approval-files', approvalFileRoutes);
   app.use('/api', companyRoutes);
   app.use('/api', orgRoutes);
   app.use('/api/attendance', attendanceRoutes);

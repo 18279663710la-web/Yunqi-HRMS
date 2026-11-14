@@ -8,7 +8,7 @@
 `customWorkflowService.ts` 按审批类型保存独立设计稿及表单、节点和条件配置，执行结构与版本校验并保护旧数据；未发布设计稿不改变实际审批。
 `customWorkflowSimulation.ts` 检查结构、模拟分支和测试 AI 地址连通性；`customWorkflowTestCases.ts`、`customWorkflowTestRunner.ts` 管理用例与测试版本；`customWorkflowPublication.ts` 保存发布快照，`customWorkflowExecutionPlan.ts` 固定单据路径。`workflowAdvance.ts` 和 `workflowAiWorker.ts` 处理顺序节点、异步 AI 建议和失败重试。
 `workflowCredentials.ts` 为报销 AI 节点的 API Key 加密；密文与流程同事务保存，明文不写入流程或日志。加密密钥由环境提供或首次保存时生成在运行时目录，备份数据库时须安全保留该密钥。
-审批人候选包含启用的董事长和员工；已发布报销流程可分配董事长，旧单保持原权限。未匹配分支阻止提交；旧单按原时间线处理。
+审批人候选包含启用的董事长和员工；已发布报销流程可分配董事长，旧单保持原权限。未匹配分支阻止提交；旧单按原时间线处理。列表、计数和详情按申请人或时间线审批人查询。已发布报销的金额分支使用发票价税合计。报销原图使用短期签名地址。
 
 ## 主要内容
 

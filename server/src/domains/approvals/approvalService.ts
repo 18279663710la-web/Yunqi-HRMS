@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { PoolConnection } from 'mysql2/promise';
 
 import { queryOne, queryRows, transaction } from '../../shared/db/pool';
@@ -15,7 +16,8 @@ import type {
 } from '../../shared/types/models';
 import { formatTime, toMinuteText } from '../../shared/utils/datetime';
 import { badRequest, conflict, notFound } from '../../shared/utils/errors';
-import { invoiceKey, randomDigits, round2 } from '../../shared/utils/invoice';
+import { invoiceKey, round2 } from '../../shared/utils/invoice';
+import { signExpenseFile } from './expenseFileAccess';
 import { calculateLeaveDays } from '../../shared/utils/leaveDuration';
 import { checkDuplicate, verifyInvoice } from '../invoices/invoiceService';
 import { ensureInvoicesVerified } from '../invoices/tencentInvoiceVerifier';
@@ -185,42 +187,37 @@ export function toApproval(
   };
 }
 
-async function loadApprovalRows(): Promise<ApprovalRow[]> {
-  return queryRows<ApprovalRow>(
-    `SELECT a.*, EXISTS (SELECT 1 FROM approval_workflow_instances i WHERE i.approval_id = a.id) AS is_custom_workflow, CASE WHEN a.applicant_position IN ('研发员', '业务员', '员工') OR EXISTS
+const APPROVAL_SELECT = `SELECT a.*, EXISTS (SELECT 1 FROM approval_workflow_instances i WHERE i.approval_id = a.id) AS is_custom_workflow, CASE WHEN a.applicant_position IN ('研发员', '业务员', '员工') OR EXISTS
        (SELECT 1 FROM job_titles t WHERE t.name = a.applicant_position)
        THEN a.applicant_position ELSE COALESCE(e.position, a.applicant_position) END AS applicant_position
-     FROM approvals a LEFT JOIN employees e ON e.id = a.applicant_id
-     ORDER BY a.urgent DESC, a.created_at DESC, a.id DESC`
-  );
+     FROM approvals a LEFT JOIN employees e ON e.id = a.applicant_id`;
+const CHAIR_TYPE_SQL = `(a.type IN ('leave', 'overtime', 'travel', 'purchase') OR (a.type = 'expense' AND EXISTS (SELECT 1 FROM approval_workflow_instances wi WHERE wi.approval_id = a.id)))`;
+
+function approvalVisibility(tab: 'pending' | 'mine' | 'done', user: CurrentUser): { sql: string; params: string[] } {
+  if (user.isChairperson) {
+    if (tab === 'pending') return { sql: `a.status = 'pending' AND ${CHAIR_TYPE_SQL} AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.state = 'current' AND t.approver_id = ?)`, params: [user.id] };
+    if (tab === 'mine') return { sql: `a.applicant_id = ? AND ${CHAIR_TYPE_SQL} AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.approver_id = ?)`, params: [user.id, user.id] };
+    return { sql: `a.status IN ('approved', 'rejected') AND ${CHAIR_TYPE_SQL} AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.approver_id = ?)`, params: [user.id] };
+  }
+  if (tab === 'pending') return { sql: `a.status = 'pending' AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.state = 'current' AND t.approver_id = ?)`, params: [user.id] };
+  if (tab === 'mine') return { sql: 'a.applicant_id = ?', params: [user.id] };
+  return { sql: `a.status IN ('approved', 'rejected') AND (a.applicant_id = ? OR EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.approver_id = ?))`, params: [user.id, user.id] };
 }
 
-async function loadTimelineRows(): Promise<TimelineRow[]> {
-  return queryRows<TimelineRow>(
-    'SELECT * FROM approval_timeline ORDER BY approval_id, step_no'
-  );
-}
-
-async function loadInvoiceRows(): Promise<InvoiceRow[]> {
-  return queryRows<InvoiceRow>(
-    'SELECT * FROM invoices WHERE approval_id IS NOT NULL ORDER BY created_at, id'
-  );
-}
-
-async function loadAllApprovals(): Promise<Approval[]> {
-  const [rows, timelineRows, invoiceRows] = await Promise.all([
-    loadApprovalRows(),
-    loadTimelineRows(),
-    loadInvoiceRows(),
+async function hydrateApprovals(rows: ApprovalRow[]): Promise<Approval[]> {
+  if (!rows.length) return [];
+  const ids = rows.map((row) => row.id);
+  const placeholders = ids.map(() => '?').join(',');
+  const [timelineRows, invoiceRows] = await Promise.all([
+    queryRows<TimelineRow>(`SELECT * FROM approval_timeline WHERE approval_id IN (${placeholders}) ORDER BY approval_id, step_no`, ids),
+    queryRows<InvoiceRow>(`SELECT * FROM invoices WHERE approval_id IN (${placeholders}) ORDER BY created_at, id`, ids),
   ]);
-
   const timelineMap = new Map<string, TimelineNode[]>();
   timelineRows.forEach((row) => {
     const list = timelineMap.get(row.approval_id) || [];
     list.push(mapTimeline(row));
     timelineMap.set(row.approval_id, list);
   });
-
   const invoiceMap = new Map<string, Invoice[]>();
   invoiceRows.forEach((row) => {
     if (!row.approval_id) return;
@@ -228,10 +225,17 @@ async function loadAllApprovals(): Promise<Approval[]> {
     list.push(mapInvoice(row));
     invoiceMap.set(row.approval_id, list);
   });
+  return rows.map((row) => toApproval(row, timelineMap.get(row.id) || [], invoiceMap.get(row.id) || []));
+}
 
-  return rows.map((row) =>
-    toApproval(row, timelineMap.get(row.id) || [], invoiceMap.get(row.id) || [])
-  );
+function canReadApproval(user: CurrentUser, approval: Approval): boolean {
+  const onTimeline = approval.timeline.some((node) => node.approverId === user.id);
+  if (user.isChairperson) return chairpersonCanAccessApproval(approval) && onTimeline;
+  return approval.applicantId === user.id || onTimeline;
+}
+
+export function expenseBranchAmount(invoices: Array<{ totalAmount: number }>): string {
+  return round2(invoices.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0)).toFixed(2);
 }
 
 function chairpersonCanAccessApproval(a: Approval): boolean {
@@ -278,73 +282,77 @@ export function decorateApproval(a: Approval, user: CurrentUser): ApprovalDecora
   };
 }
 
+async function countVisible(tab: 'pending' | 'mine' | 'done', user: CurrentUser): Promise<number> {
+  const filter = approvalVisibility(tab, user);
+  const row = await queryOne<{ total: number }>(`SELECT COUNT(*) AS total FROM approvals a WHERE ${filter.sql}`, filter.params);
+  return Number(row?.total || 0);
+}
+
 export async function getApprovalList(
   tab: 'pending' | 'mine' | 'done',
   user: CurrentUser
 ): Promise<ApprovalDecorated[]> {
-  const list = await loadAllApprovals();
-  const visible = user.isChairperson ? list.filter((a) => chairpersonCanAccessApproval(a) && a.timeline.some((n) => n.approverId === user.id)) : list;
-  let filtered: Approval[];
-
-  if (tab === 'pending') {
-    filtered = visible.filter((a) => isPendingForMe(a, user));
-  } else if (tab === 'mine') {
-    filtered = visible.filter((a) => a.applicantId === user.id);
-  } else {
-    filtered = visible.filter((a) => a.status === 'approved' || a.status === 'rejected');
-  }
-
-  filtered.sort((a, b) => {
-    if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
-    return b.createdAt.localeCompare(a.createdAt);
-  });
-
-  return filtered.map((a) => decorateApproval(a, user));
+  const filter = approvalVisibility(tab, user);
+  const rows = await queryRows<ApprovalRow>(`${APPROVAL_SELECT} WHERE ${filter.sql} ORDER BY a.urgent DESC, a.created_at DESC, a.id DESC`, filter.params);
+  const list = await hydrateApprovals(rows);
+  return list.map((item) => decorateApproval(item, user));
 }
 
 export async function getApprovalTabCounts(user: CurrentUser): Promise<ApprovalTabCounts> {
-  const all = await loadAllApprovals();
-  const list = user.isChairperson ? all.filter((a) => chairpersonCanAccessApproval(a) && a.timeline.some((n) => n.approverId === user.id)) : all;
-  return {
-    pending: list.filter((a) => isPendingForMe(a, user)).length,
-    mine: list.filter((a) => a.applicantId === user.id).length,
-    done: list.filter((a) => a.status === 'approved' || a.status === 'rejected').length,
-  };
+  const [pending, mine, done] = await Promise.all([
+    countVisible('pending', user),
+    countVisible('mine', user),
+    countVisible('done', user),
+  ]);
+  return { pending, mine, done };
 }
 
 export async function getPendingCount(user: CurrentUser): Promise<number> {
-  const list = await loadAllApprovals();
-  return list.filter((a) => (!user.isChairperson || chairpersonCanAccessApproval(a)) && isPendingForMe(a, user)).length;
+  return countVisible('pending', user);
 }
 
 export async function getApprovalDetail(id: string, user: CurrentUser): Promise<ApprovalDetail | null> {
-  const list = await loadAllApprovals();
-  const a = list.find((item) => item.id === id);
-  if (!a) return null;
-  if (user.isChairperson && (!chairpersonCanAccessApproval(a) || !a.timeline.some((n) => n.approverId === user.id))) return null;
-  const decorated = decorateApproval(a, user);
-  const attachments = a.type === 'expense' ? await queryRows<{ name: string; fileID: string }>('SELECT name, file_id AS fileID FROM expense_attachments WHERE approval_id = ? ORDER BY id', [a.id]) : [];
-  const isApprover = a.timeline.some((node) => node.approverId === user.id);
-  const workflowAi = a.workflowInstance ? await getWorkflowAiState(a.id, a.applicantId === user.id || isApprover, isApprover) : null;
-  const aiAdvice = workflowAi?.aiAdvice ?? (a.type === 'expense' && isApprover ? await getExpenseAiAdvice(a.id, user.id) : null);
+  const rows = await queryRows<ApprovalRow>(`${APPROVAL_SELECT} WHERE a.id = ?`, [id]);
+  const [approval] = await hydrateApprovals(rows);
+  if (!approval || !canReadApproval(user, approval)) return null;
+  const decorated = decorateApproval(approval, user);
+  const attachments = approval.type === 'expense' ? await queryRows<{ name: string; fileID: string }>('SELECT name, file_id AS fileID FROM expense_attachments WHERE approval_id = ? ORDER BY id', [approval.id]) : [];
+  const isApprover = approval.timeline.some((node) => node.approverId === user.id);
+  const workflowAi = approval.workflowInstance ? await getWorkflowAiState(approval.id, approval.applicantId === user.id || isApprover, isApprover) : null;
+  const aiAdvice = workflowAi?.aiAdvice ?? (approval.type === 'expense' && isApprover ? await getExpenseAiAdvice(approval.id, user.id) : null);
   return {
     ...decorated,
-    attachments,
+    invoices: decorated.invoices.map((invoice) => invoice.fileID ? { ...invoice, fileID: signExpenseFile(invoice.fileID) } : invoice),
+    attachments: attachments.map((item) => ({ ...item, fileID: item.fileID ? signExpenseFile(item.fileID) : item.fileID })),
     aiAdvice,
     ...(workflowAi ? { aiRetryAvailable: workflowAi.aiRetryAvailable, workflowAiStatus: workflowAi.workflowAiStatus } : {}),
-    canApprove: a.status === 'pending' && isPendingForMe(a, user),
-    canCancel: a.status === 'pending' && a.applicantId === user.id,
+    canApprove: approval.status === 'pending' && isPendingForMe(approval, user),
+    canCancel: approval.status === 'pending' && approval.applicantId === user.id,
   };
 }
 
-async function nextApprovalId(): Promise<string> {
-  const prefix = `FA${formatTime(new Date(), 'YYYYMMDD')}`;
-  for (let i = 0; i < 30; i += 1) {
-    const id = `${prefix}${randomDigits(3)}`;
-    const exists = await queryOne<{ id: string }>('SELECT id FROM approvals WHERE id = ?', [id]);
-    if (!exists) return id;
+function duplicateKey(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'ER_DUP_ENTRY';
+}
+
+async function insertApprovalRow(conn: PoolConnection, now: Date, values: unknown[]): Promise<string> {
+  const prefix = `FA${formatTime(now, 'YYYYMMDD')}`;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const id = `${prefix}${crypto.randomInt(0, 100_000_000).toString().padStart(8, '0')}`;
+    try {
+      await conn.query(
+        `INSERT INTO approvals
+          (id, type, type_name, title, status, urgent, applicant_id, applicant_name, applicant_dept,
+           applicant_position, node, summary, form_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        [id, ...values],
+      );
+      return id;
+    } catch (error) {
+      if (!duplicateKey(error) || attempt === 7) throw error;
+    }
   }
-  return `${prefix}${Date.now().toString().slice(-3)}`;
+  throw conflict('审批单号生成失败，请重试');
 }
 
 function normalizeInvoiceInput(
@@ -487,7 +495,6 @@ export async function createApproval(
 
   const now = new Date();
   const createdAt = formatTime(now, 'YYYY-MM-DD HH:mm');
-  const id = await nextApprovalId();
   let title = String(payload.title || '').trim() || `${typeRow.name}申请`;
   let summary = String(payload.summary || '').trim();
   const form = publication && values
@@ -538,7 +545,9 @@ export async function createApproval(
     return key;
   });
   if (new Set(invoiceKeys).size !== invoiceKeys.length) throw badRequest('同一张发票不能在一张报销单中重复添加');
-  const plan = publication && values ? planWorkflowExecution(approvalType, publication.workflow, values) : null;
+  const branchValues = values ? { ...values } : undefined;
+  if (branchValues && publication && typeKey === 'expense') branchValues.amount = expenseBranchAmount(invoices);
+  const plan = publication && branchValues ? planWorkflowExecution(approvalType, publication.workflow, branchValues) : null;
   const candidates = plan ? (await getCustomWorkflowApproverCandidates()).candidates : [];
   const candidateMap = new Map(candidates.map(candidate => [candidate.id, candidate]));
   if (plan?.steps.some(step => step.kind === 'approver' && !candidateMap.has(step.approverId))) throw badRequest('审批人账号不可用，请联系管理员');
@@ -574,6 +583,7 @@ export async function createApproval(
     timeline.push({ name: approverName, role: configuredApprover!.role, action: '审批中', time: '', state: 'current', approverId });
   }
 
+  let approvalId = '';
   await transaction(async (conn) => {
     // 与确认离职使用同一把员工行锁，避免离职后并发创建待处理审批。
     for (const employeeId of [...new Set([user.id, ...(plan ? planApprovers.map(step => step.approverId) : [approverId])].filter((id) => id && id !== CHAIRPERSON_ID))].sort()) {
@@ -586,10 +596,11 @@ export async function createApproval(
       const [chair] = await conn.query<RowDataPacket[]>("SELECT status FROM chairperson_account WHERE id = 1 FOR UPDATE");
       if (!chair.length || chair[0].status !== 'active') throw badRequest('审批人账号不可用，请联系管理员');
     }
+    let publishedCredentials: unknown = null;
     if (publication && plan) {
       const [published] = await conn.query<RowDataPacket[]>('SELECT publication_version, credentials_json FROM custom_approval_publications WHERE approval_type = ? FOR UPDATE', [typeKey]);
       if (!published.length || Number(published[0].publication_version) !== publication.publicationVersion) throw conflict('审批流程已更新，请重新打开申请页面');
-      await conn.execute('INSERT INTO approval_workflow_instances (approval_id, publication_version, outcome, plan_json, workflow_json, credentials_json, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())', [id, publication.publicationVersion, plan.outcome, JSON.stringify(plan), JSON.stringify(publication.workflow), typeof published[0].credentials_json === 'string' ? published[0].credentials_json : JSON.stringify(published[0].credentials_json)]);
+      publishedCredentials = published[0].credentials_json;
     }
     // 排序后逐一锁定，防止并发提交同一发票时同时通过查重。
     for (const key of [...invoiceKeys].sort()) {
@@ -599,28 +610,24 @@ export async function createApproval(
       const duplicate = await checkDuplicate(invoice, conn);
       if (duplicate.blocking) throw badRequest('该发票已在审批中或已通过的单据中使用，请勿重复报销');
     }
-    await conn.query(
-      `INSERT INTO approvals
-        (id, type, type_name, title, status, urgent, applicant_id, applicant_name, applicant_dept,
-         applicant_position, node, summary, form_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-      [
-        id,
-        typeRow.key,
-        typeRow.name,
-        title,
-        status,
-        payload.urgent ? 1 : 0,
-        user.id,
-        user.name,
-        applicantDept,
-        user.jobCategory,
-        node,
-        summary,
-        JSON.stringify(formWithInvoices),
-        createdAt,
-      ]
-    );
+    approvalId = await insertApprovalRow(conn, now, [
+      typeRow.key,
+      typeRow.name,
+      title,
+      status,
+      payload.urgent ? 1 : 0,
+      user.id,
+      user.name,
+      applicantDept,
+      user.jobCategory,
+      node,
+      summary,
+      JSON.stringify(formWithInvoices),
+      createdAt,
+    ]);
+    if (publication && plan) {
+      await conn.execute('INSERT INTO approval_workflow_instances (approval_id, publication_version, outcome, plan_json, workflow_json, credentials_json, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())', [approvalId, publication.publicationVersion, plan.outcome, JSON.stringify(plan), JSON.stringify(publication.workflow), typeof publishedCredentials === 'string' ? publishedCredentials : JSON.stringify(publishedCredentials)]);
+    }
 
     for (let i = 0; i < timeline.length; i += 1) {
       const n = timeline[i];
@@ -628,18 +635,18 @@ export async function createApproval(
         `INSERT INTO approval_timeline
           (approval_id, step_no, name, role, action, comment, time_text, state, approver_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, i + 1, n.name, n.role, n.action, n.comment ?? null, n.time || null, n.state, n.approverId ?? null]
+        [approvalId, i + 1, n.name, n.role, n.action, n.comment ?? null, n.time || null, n.state, n.approverId ?? null]
       );
     }
 
     for (const inv of invoices) {
-      await insertInvoice(conn, inv, id);
+      await insertInvoice(conn, inv, approvalId);
     }
     if (typeKey === 'expense') {
       for (const attachment of attachments) {
         const [owned] = await conn.query('SELECT file_id FROM expense_uploads WHERE file_id = ? AND owner_id = ?', [attachment.fileID, user.id]);
         if (!(owned as unknown[]).length) throw badRequest('附件无效，请重新上传');
-        await conn.query('INSERT INTO expense_attachments (approval_id, file_id, name) VALUES (?, ?, ?)', [id, attachment.fileID, attachment.name]);
+        await conn.query('INSERT INTO expense_attachments (approval_id, file_id, name) VALUES (?, ?, ?)', [approvalId, attachment.fileID, attachment.name]);
       }
       const aiInvoices = [];
       for (const invoice of invoices) {
@@ -650,13 +657,13 @@ export async function createApproval(
       const hasWorkflowAi = !!plan?.steps.some(step => step.kind === 'ai');
       if (plan && hasWorkflowAi) {
         for (const [index, step] of plan.steps.entries()) if (step.kind === 'ai') {
-          await conn.execute(`INSERT INTO approval_workflow_ai_jobs (approval_id, step_no, node_id, status, input_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())`, [id, index + 2, step.nodeId, index === firstActionIndex ? 'queued' : 'waiting', JSON.stringify(aiInput)]);
+          await conn.execute(`INSERT INTO approval_workflow_ai_jobs (approval_id, step_no, node_id, status, input_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())`, [approvalId, index + 2, step.nodeId, index === firstActionIndex ? 'queued' : 'waiting', JSON.stringify(aiInput)]);
         }
-      } else if (approverId) await enqueueExpenseAi(conn, id, approverId, aiInput);
+      } else if (approverId) await enqueueExpenseAi(conn, approvalId, approverId, aiInput);
     }
   });
 
-  const detail = await getApprovalDetail(id, user);
+  const detail = await getApprovalDetail(approvalId, user);
   if (!detail) throw notFound('审批单创建失败');
   return detail;
 }

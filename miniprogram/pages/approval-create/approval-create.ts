@@ -488,8 +488,8 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
         this.setData({ uploadingAttachments: true });
         try {
           for (const file of result.tempFiles) {
-            const uploaded = await upload<{ fileUrl: string }>({ url: '/invoices/image', filePath: file.tempFilePath, name: 'file' });
-            this.setData({ attachments: [...this.data.attachments, { name: '', fileID: uploaded.fileUrl, preview: resolveFileUrl(uploaded.fileUrl) }] });
+            const uploaded = await upload<{ fileUrl: string; previewUrl: string }>({ url: '/invoices/image', filePath: file.tempFilePath, name: 'file' });
+            this.setData({ attachments: [...this.data.attachments, { name: '', fileID: uploaded.fileUrl, preview: resolveFileUrl(uploaded.previewUrl) }] });
           }
         } finally { this.setData({ uploadingAttachments: false }); }
       })().catch(() => toast('材料上传失败，请重试'));

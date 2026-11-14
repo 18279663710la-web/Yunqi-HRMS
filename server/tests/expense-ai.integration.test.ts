@@ -79,7 +79,10 @@ test('真实校验通过的报销单异步生成建议，并只向指定审批�
     formData.append('file', new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' }), 'contract.png');
     const uploaded = await fetch(base + '/invoices/image', { method: 'POST', headers: { Authorization: `Bearer ${applicant}` }, body: formData });
     assert.equal(uploaded.status, 200);
-    const uploadData = await uploaded.json() as { data: { fileUrl: string } };
+    const uploadData = await uploaded.json() as { data: { fileUrl: string; previewUrl: string } };
+    const origin = base.replace(/\/api$/, '');
+    assert.equal((await fetch(origin + uploadData.data.fileUrl)).status, 404);
+    assert.equal((await fetch(origin + uploadData.data.previewUrl)).status, 200);
     const payload = { type: 'expense', title: '差旅报销', form: [{ label: '用途', value: '出差' }], invoices: [invoice], attachments: [{ name: '合同', fileID: uploadData.data.fileUrl }] };
     assert.equal((await request('/approvals/expense-precheck', applicant, 'POST', payload)).status, 400, '验伪失败时不触发预审');
     assert.equal((await request('/approvals', applicant, 'POST', payload)).status, 400);

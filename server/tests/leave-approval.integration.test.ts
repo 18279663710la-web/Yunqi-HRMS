@@ -95,6 +95,15 @@ test('请假使用后台指定审批人，董事长账号只能处理分配给�
     assert.equal(shortResponse.payload.data.form.find((item: { label: string }) => item.label === '请假时长（天）').value, '1');
     assert.equal(leave.payload.data.applicantPosition, worker.job_category);
     assert.equal(leave.payload.data.timeline[1].approverId, leader.id);
+    const stranger = employees.find((item) => item.id !== worker.id && item.id !== leader.id);
+    assert.ok(stranger);
+    const strangerToken = issueTokens(stranger.id).accessToken;
+    assert.equal((await request('/approvals/' + leave.payload.data.id, strangerToken)).status, 404);
+    assert.equal((await request(`/approvals/${leave.payload.data.id}/action`, leaderToken, 'POST', { action: 'approve' })).payload.data.ok, true);
+    assert.equal((await request('/approvals?tab=done', workerToken)).payload.data.some((item: { id: string }) => item.id === leave.payload.data.id), true);
+    assert.equal((await request('/approvals?tab=done', leaderToken)).payload.data.some((item: { id: string }) => item.id === leave.payload.data.id), true);
+    assert.equal((await request('/approvals?tab=done', strangerToken)).payload.data.some((item: { id: string }) => item.id === leave.payload.data.id), false);
+    assert.equal((await request('/approvals/' + leave.payload.data.id, strangerToken)).status, 404);
     await connection.query(`UPDATE \`${database}\`.approvals SET applicant_position = '旧岗位名称' WHERE id = ?`, [leave.payload.data.id]);
     assert.equal((await request('/approvals/' + leave.payload.data.id, workerToken)).payload.data.applicantPosition, worker.job_category);
     assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: login.payload.data.user.id })).status, 200);

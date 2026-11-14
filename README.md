@@ -418,7 +418,7 @@ npm run dev:web
 
 - 管理员 token 保存在 `localStorage`；401 清除并跳转 `/login`。
 - `AuthContext` 负责登录态、当前管理员、退出。
-- Vite 开发服务器把 `/api` 与 `/uploads` 代理到 `http://127.0.0.1:3100`。
+- Vite 开发服务器把 `/api` 代理到 `http://127.0.0.1:3100`。配置里仍有 `/uploads` 代理，服务端已不再提供该目录。
 - 生产部署：`npm run build:web` 生成 `web/dist`，用 Nginx 静态托管并把 `/api` 反向代理到后端；同时配置 `VITE_API_BASE`（默认 `/api`）。
 
 ---
@@ -514,4 +514,4 @@ A：可以。小程序登录页使用 `POST /api/auth/password-login`，账号�
 A：开发环境执行 `npm run db:reset` 会完整清空并重新播种，包括员工和账号。请仅用于开发环境。
 
 **Q：上传的发票图片在哪？**
-A：`server/uploads/`，通过 `/uploads/<文件名>` 访问；`npm run db:reset` 不会删除图片，可手动清理。
+A：文件在 `server/uploads/`。报销原图通过短期签名地址 `/api/approval-files/<文件名>` 读取，未签名的 `/uploads/<文件名>` 不能访问。`npm run db:reset` 不会删除图片，可手动清理。
