@@ -26,6 +26,7 @@ interface DetailData {
   id: string;
   detail: ApprovalDetailView | null;
   headClass: string;
+  showHeadNode: boolean;
   sheetVisible: boolean;
   actionType: 'approve' | 'reject';
   comment: string;
@@ -59,6 +60,7 @@ Page<DetailData, DetailCustom>({
     id: '',
     detail: null,
     headClass: 'head-pending',
+    showHeadNode: false,
     sheetVisible: false,
     actionType: 'approve',
     comment: '',
@@ -93,11 +95,12 @@ Page<DetailData, DetailCustom>({
       const raw = await approvalsApi.getApprovalDetail(this.data.id);
       raw.invoices = (raw.invoices || []).map((item) => ({ ...item, fileID: item.fileID ? resolveFileUrl(item.fileID) : '' }));
       raw.attachments = (raw.attachments || []).map((item) => ({ ...item, fileID: resolveFileUrl(item.fileID) }));
-      const timeline: TimelineViewNode[] = raw.timeline.map((n, i) => ({
+      const visibleTimeline = raw.timeline.filter((node) => node.role !== '系统查验' && node.role !== 'AI 审批');
+      const timeline: TimelineViewNode[] = visibleTimeline.map((n, i) => ({
         ...n,
         _k: `node${i}`,
         nodeClass: NODE_CLASS[n.state] || 'node-wait',
-        isLast: i === raw.timeline.length - 1,
+        isLast: i === visibleTimeline.length - 1,
       }));
 
       // 发票附件合计
@@ -106,9 +109,11 @@ Page<DetailData, DetailCustom>({
         .reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0)
         .toFixed(2);
 
+      const nodeText = raw.node || '';
       this.setData({
         detail: { ...raw, timeline, invoiceTotal },
         headClass: HEAD_CLASS[raw.status] || 'head-pending',
+        showHeadNode: Boolean(nodeText) && !nodeText.includes('AI') && !nodeText.includes('系统'),
       });
       if (this.aiTimer) clearTimeout(this.aiTimer);
       if (this.active && (raw.aiAdvice?.status === 'queued' || raw.aiAdvice?.status === 'processing' || raw.workflowAiStatus === 'queued' || raw.workflowAiStatus === 'processing')) {
@@ -124,7 +129,7 @@ Page<DetailData, DetailCustom>({
     this.setData({ retryingAi: true });
     try {
       await approvalsApi.retryWorkflowAi(this.data.id);
-      toast('已重新开始 AI 审批');
+      toast('已重新提交');
       await this.load();
     } catch {
       // 请求层已提示。

@@ -91,7 +91,6 @@
           <view class="row-title ellipsis">{{item.title}}</view>
           <view class="row-meta ellipsis">{{item.applicantName}} · {{item.applicantDept}} · {{item.timeText}}</view>
         </view>
-        <view class="tag tag-red row-flag" wx:if="{{item.urgent}}">加急</view>
         <view class="chevron"></view>
       </view>
     </view>

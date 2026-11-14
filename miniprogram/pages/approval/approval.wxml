@@ -37,7 +37,7 @@
           </view>
           <view class="appr-right">
             <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
-            <view class="tag tag-red appr-flag" wx:if="{{item.urgent}}">加急</view>
+
           </view>
         </view>
       </view>

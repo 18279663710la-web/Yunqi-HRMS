@@ -465,6 +465,49 @@ export async function getLeaveApprover(_user: CurrentUser): Promise<{ id: string
   return getApprovalApprover('leave');
 }
 
+export function approvalAssigneesFromSteps(
+  steps: Array<{ kind: string; approverId?: string }>,
+  candidates: Array<{ id: string; name: string }>,
+): Array<{ id: string; name: string; role: string }> | null {
+  const names = new Map(candidates.map((candidate) => [candidate.id, candidate.name]));
+  const approvers: Array<{ id: string; name: string; role: string }> = [];
+  for (const step of steps) {
+    if (step.kind !== 'approver' || !step.approverId) continue;
+    const name = names.get(step.approverId);
+    if (!name) return null;
+    approvers.push({ id: step.approverId, name, role: step.approverId === CHAIRPERSON_ID ? '董事长' : '审批人' });
+  }
+  return approvers;
+}
+
+/** 按当前表单预览将要出现的审批人。未发布类型返回原指定审批人，不创建单据。 */
+export async function previewApprovalAssignees(payload: {
+  type?: string;
+  workflowValues?: Record<string, string>;
+  invoices?: Array<{ totalAmount?: number }>;
+}): Promise<{ approvers: Array<{ id: string; name: string; role: string }> }> {
+  const approvalType = parseApproverType(String(payload.type || '').trim());
+  const publication = await readPublishedWorkflow(approvalType);
+  if (!publication) return { approvers: [await getApprovalApprover(approvalType)] };
+  const values = { ...(payload.workflowValues || {}) };
+  if (approvalType === 'leave') {
+    const days = calculateLeaveDays(values.startDate || '', values.startClock || '', values.endDate || '', values.endClock || '');
+    if (days === null) return { approvers: [] };
+    values.days = String(days);
+  }
+  const invoices = Array.isArray(payload.invoices) ? payload.invoices : [];
+  if (approvalType === 'expense' && !invoices.length) return { approvers: [] };
+  const branchValues = { ...values };
+  if (approvalType === 'expense') branchValues.amount = expenseBranchAmount(invoices.map((invoice) => ({ totalAmount: Number(invoice.totalAmount) || 0 })));
+  try {
+    const plan = planWorkflowExecution(approvalType, publication.workflow, branchValues);
+    const candidates = await getCustomWorkflowApproverCandidates();
+    return { approvers: approvalAssigneesFromSteps(plan.steps, candidates.candidates) ?? [] };
+  } catch {
+    return { approvers: [] };
+  }
+}
+
 export async function createApproval(
   payload: CreateApprovalPayload,
   user: CurrentUser

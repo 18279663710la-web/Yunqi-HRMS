@@ -3,7 +3,7 @@
   <view class="head {{headClass}}">
     <view class="head-status">{{detail.statusText}}</view>
     <view class="head-title">{{detail.title}}</view>
-    <view class="head-node" wx:if="{{detail.node}}">{{detail.node}}</view>
+    <view class="head-node" wx:if="{{showHeadNode}}">{{detail.node}}</view>
   </view>
 
   <view class="page-body {{detail.canApprove || detail.canCancel ? 'has-bottom-bar' : ''}}">
@@ -14,7 +14,6 @@
         <view class="applicant-name">{{detail.applicantName}}</view>
         <view class="applicant-meta">{{detail.applicantPosition}}</view>
       </view>
-      <view class="tag tag-red" wx:if="{{detail.urgent}}">加急</view>
     </view>
 
     <!-- ============ 申请内容 ============ -->
@@ -24,7 +23,7 @@
     </view>
 
     <view class="card">
-      <view class="detail-row" wx:for="{{detail.form}}" wx:key="label">
+      <view class="detail-row" wx:for="{{detail.form}}" wx:key="label" wx:if="{{item.label !== '补偿方式'}}">
         <view class="detail-label">{{item.label}}</view>
         <view class="detail-value">{{item.value}}</view>
       </view>
@@ -61,7 +60,6 @@
             </view>
           </view>
         </view>
-        <view class="inv-tip">点击发票可放大查看原图；扫码录入的发票将展示票面字段</view>
       </view>
     </block>
 
@@ -75,27 +73,8 @@
       </view>
     </block>
 
-    <!-- AI 仅提供建议，不改变审批状态 -->
-    <block wx:if="{{detail.aiAdvice}}">
-      <view class="section-head"><view class="section-title">AI 审批建议</view></view>
-      <view class="card ai-card">
-        <block wx:if="{{detail.aiAdvice.status === 'completed' && detail.aiAdvice.advice}}">
-          <view class="ai-result {{detail.aiAdvice.advice.recommendation === 'approve' ? 'is-approve' : detail.aiAdvice.advice.recommendation === 'reject' ? 'is-reject' : ''}}">
-            {{detail.aiAdvice.advice.recommendation === 'approve' ? '建议同意' : detail.aiAdvice.advice.recommendation === 'reject' ? '建议驳回' : '无法判断，请人工复核'}}
-          </view>
-          <view class="ai-line"><text class="ai-label">原因：</text>{{detail.aiAdvice.advice.reason}}</view>
-          <view class="ai-line" wx:if="{{detail.aiAdvice.advice.rule}}"><text class="ai-label">规则依据：</text>{{detail.aiAdvice.advice.rule}}</view>
-          <view class="ai-line" wx:if="{{detail.aiAdvice.advice.missingAttachments.length}}"><text class="ai-label">建议补充：</text><text wx:for="{{detail.aiAdvice.advice.missingAttachments}}" wx:key="*this">{{index ? '、' : ''}}{{item}}</text></view>
-          <view class="ai-line" wx:if="{{detail.aiAdvice.advice.attachmentIssues && detail.aiAdvice.advice.attachmentIssues.length}}"><text class="ai-label">材料问题：</text><view wx:for="{{detail.aiAdvice.advice.attachmentIssues}}" wx:key="index">{{item.name}}：{{item.issue}}</view></view>
-        </block>
-        <view class="ai-line" wx:else>{{detail.aiAdvice.status === 'no_rules' ? '审批规则尚未配置，请人工复核' : detail.aiAdvice.status === 'unconfigured' ? 'AI 服务尚未配置，请人工复核' : detail.aiAdvice.status === 'failed' ? 'AI 建议生成失败，请人工复核' : '正在生成建议，请稍候'}}</view>
-        <view class="ai-note">AI 建议仅供参考，最终由审批人决定</view>
-      </view>
-    </block>
-
-    <view class="card workflow-ai-status" wx:if="{{detail.workflowAiStatus}}">
-      <view>{{detail.workflowAiStatus === 'failed' ? 'AI 审批失败，等待重试' : 'AI 审批中'}}</view>
-      <button wx:if="{{detail.aiRetryAvailable}}" class="workflow-ai-retry" loading="{{retryingAi}}" disabled="{{retryingAi}}" bindtap="retryAi">重试</button>
+    <view class="card workflow-ai-status" wx:if="{{detail.aiRetryAvailable}}">
+      <button class="workflow-ai-retry" loading="{{retryingAi}}" disabled="{{retryingAi}}" bindtap="retryAi">重试</button>
     </view>
 
     <!-- ============ 审批流程 ============ -->

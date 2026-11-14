@@ -468,7 +468,7 @@ export interface CreateApprovalPayload {
   form: ApprovalFormItem[];
   invoices: Invoice[];
   attachments?: Array<{ name: string; fileID: string }>;
-  urgent: boolean;
+  urgent?: boolean;
   workflowPublicationVersion?: number;
   workflowValues?: Record<string, string>;
 }

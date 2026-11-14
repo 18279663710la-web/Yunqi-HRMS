@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 test('报销金额分支使用发票价税合计，签名地址过期后失效', async () => {
-  const { expenseBranchAmount } = await import('../src/domains/approvals/approvalService');
+  const { expenseBranchAmount, approvalAssigneesFromSteps } = await import('../src/domains/approvals/approvalService');
   const { planWorkflowExecution } = await import('../src/domains/approvals/customWorkflowExecutionPlan');
   const { signExpenseFile, verifyExpenseFileSignature } = await import('../src/domains/approvals/expenseFileAccess');
   const graph = {
@@ -26,6 +26,8 @@ test('报销金额分支使用发票价税合计，签名地址过期后失效',
   const amount = expenseBranchAmount([{ totalAmount: 80.5 }, { totalAmount: 40 }]);
   assert.equal(amount, '120.50');
   assert.deepEqual(planWorkflowExecution('expense', graph, { amount }).steps.map((step) => step.kind === 'approver' ? step.approverId : step.kind), ['U002']);
+  assert.deepEqual(approvalAssigneesFromSteps([{ kind: 'verify' }, { kind: 'approver', approverId: 'U002' }], [{ id: 'U002', name: '黄可欣' }]), [{ id: 'U002', name: '黄可欣', role: '审批人' }]);
+  assert.equal(approvalAssigneesFromSteps([{ kind: 'approver', approverId: 'U009' }], [{ id: 'U002', name: '黄可欣' }]), null);
 
   const now = 1_700_000_000_000;
   const signed = signExpenseFile('/uploads/123_abcdef.png', now);

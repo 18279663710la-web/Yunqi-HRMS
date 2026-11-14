@@ -86,7 +86,7 @@ Page<ApprovalData, ApprovalCustom>({
     try {
       const list = await approvalsApi.getApprovalList(this.data.activeTab);
       this.setData({
-        list: list.map((item) => ({ ...item, typeIcon: TYPE_ICON[item.type] || '审' })),
+        list: list.map((item) => ({ ...item, summary: item.summary.replace(/，补偿方式：加班费/g, ''), typeIcon: TYPE_ICON[item.type] || '审' })),
         loading: false,
       });
     } catch {

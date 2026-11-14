@@ -29,6 +29,10 @@ export function getApprovalApprover(type: string): Promise<{ id: string; name: s
   return get<{ id: string; name: string; role: string }>(`/approvals/approvers/${encodeURIComponent(type)}`, undefined, { silent: true });
 }
 
+export function previewApprovalAssignees(payload: { type: string; workflowValues?: Record<string, string>; invoices?: Array<{ totalAmount: number }> }): Promise<{ approvers: Array<{ id: string; name: string; role: string }> }> {
+  return post<{ approvers: Array<{ id: string; name: string; role: string }> }>('/approvals/assignees', payload, { silent: true });
+}
+
 export function getApprovalTabCounts(): Promise<ApprovalTabCounts> {
   return get<ApprovalTabCounts>('/approvals/counts');
 }

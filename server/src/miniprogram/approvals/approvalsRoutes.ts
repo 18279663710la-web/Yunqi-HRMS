@@ -7,6 +7,7 @@ import {
   cancelApproval,
   createApproval,
   getApprovalDetail,
+  previewApprovalAssignees,
   getApprovalList,
   getApprovalTabCounts,
   getPendingCount,
@@ -84,6 +85,16 @@ const createSchema = z.object({
   workflowPublicationVersion: z.number().int().min(1).optional(),
   workflowValues: z.record(z.string().max(40), z.string().max(2000)).optional(),
 });
+
+const assigneeSchema = z.object({
+  type: z.string().min(1).max(20),
+  workflowValues: z.record(z.string().max(40), z.string().max(2000)).optional(),
+  invoices: z.array(z.object({ totalAmount: z.number().optional() })).max(30).optional(),
+});
+
+router.post('/approvals/assignees', asyncHandler(async (req, res) => {
+  success(res, await previewApprovalAssignees(parse(assigneeSchema, req.body)));
+}));
 
 router.post('/approvals/expense-precheck', asyncHandler(async (req, res) => {
   const payload = parse(createSchema, req.body);
