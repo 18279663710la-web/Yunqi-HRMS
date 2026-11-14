@@ -13,7 +13,7 @@
 
 ## 维护约束
 
-沿用 `services/attendance/api.ts` 请求封装和页面定位、图片选择方式；定位权限与 `app.json` 的 `requiredPrivateInfos` 保持一致。
+沿用 `services/attendance/api.ts` 请求封装和页面定位、图片选择方式；定位权限与 `app.json` 的 `requiredPrivateInfos` 保持一致。考勤管理功能优化已完成，后续优化不得修改本页的现有行为，除非用户提出硬性且明确的修改要求。详见项目根目录 `AGENTS.md`。
 
 ## 相关文档
 
