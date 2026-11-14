@@ -8,6 +8,7 @@ const aliases: Record<string, string> = {
   '/models-formulas': '/models-formulas/attendance', '/approvals': '/approvals/leave',
   '/attendance': '/attendance/groups',
   '/models-formulas/payroll-workflow': '/approvals/leave', '/approvals/custom-workflow': '/approvals/leave',
+  '/models-formulas/offboarding-template': '/models-formulas/attendance',
 };
 const homeLocation: Location = { pathname: HOME_KEY, search: '', hash: '', state: null, key: 'workspace-home' };
 

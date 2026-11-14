@@ -7,12 +7,12 @@
 
 ## 主要内容
 
-- 子目录：[attendance/](attendance/README.md)、[company-calendar/](company-calendar/README.md)、[onboarding-template/](onboarding-template/README.md)、[offboarding-template/](offboarding-template/README.md)、[overtime/](overtime/README.md)、[salary/](salary/README.md)。
+- 子目录：[attendance/](attendance/README.md)、[company-calendar/](company-calendar/README.md)、[onboarding-template/](onboarding-template/README.md)、[overtime/](overtime/README.md)、[salary/](salary/README.md)。
 - 主要文件：`ModelsFormulas.tsx`。
 
 ## 维护约束
 
-按现有业务和子模块维护页面、专用组件及 API；保留路由、全局页签状态和既有权限边界。
+模型与公式功能优化已完成，后续优化不得修改本目录的页面、接口和行为，除非用户提出硬性且明确的修改要求。离职申请表设置已删除。详见项目根目录 `AGENTS.md`。
 
 ## 相关文档
 

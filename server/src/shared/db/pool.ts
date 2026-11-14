@@ -305,6 +305,9 @@ async function runMigrations(conn: Connection): Promise<void> {
     }
   }
 
+  await conn.query('DROP TABLE IF EXISTS `hr_offboarding_form_template_history`');
+  await conn.query('DROP TABLE IF EXISTS `hr_offboarding_form_templates`');
+  await conn.query("DELETE FROM hr_settings WHERE setting_key = 'self_offboarding_default'");
 }
 
 export async function queryRows<T = Record<string, unknown>>(

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import cors from 'cors';
 
 import { config } from './config';
@@ -14,14 +14,13 @@ import noticesRoutes from './miniprogram/notices/noticesRoutes';
 import orgRoutes from './miniprogram/contacts/orgRoutes';
 import todoRoutes from './miniprogram/workbench/todoRoutes';
 import onboardingFormAdmin from './admin/models-formulas/onboardingFormRoutes';
-import offboardingFormAdmin from './admin/models-formulas/offboardingFormRoutes';
 import companyCalendarAdmin from './admin/models-formulas/companyCalendarRoutes';
 import payslipRoutes from './miniprogram/workbench/payslipRoutes';
 import onboardingFormEmployee from './miniprogram/onboarding/onboardingFormRoutes';
 import { createU9AdminRouter } from './admin/employees/u9Routes';
 import { createU9BusinessRouter } from './miniprogram/business/u9Routes';
 import { createEmployeeU9Gateway } from './domains/u9/createGateway';
-import { requireAdmin } from './admin/admin-accounts/authMiddleware';
+import { requireAdmin, requireSuperAdmin } from './admin/admin-accounts/authMiddleware';
 
 export function createApp(): express.Express {
   const app = express();
@@ -57,7 +56,11 @@ export function createApp(): express.Express {
   app.use('/api/admin/u9', requireAdmin, createU9AdminRouter(u9Gateway));
   app.use('/api/business', createU9BusinessRouter(u9Gateway));
   app.use('/api/admin/onboarding-form', onboardingFormAdmin);
-  app.use('/api/admin/offboarding-form', offboardingFormAdmin);
+  const removedOffboardingForm = Router();
+  removedOffboardingForm.use(requireAdmin, requireSuperAdmin, (_req, res) => {
+    res.status(404).json({ code: 404, message: '接口不存在' });
+  });
+  app.use('/api/admin/offboarding-form', removedOffboardingForm);
   app.use('/api/admin/models-formulas', companyCalendarAdmin);
   app.use('/api/onboarding-form', onboardingFormEmployee);
   app.use('/api/admin/hr', hrRoutes);

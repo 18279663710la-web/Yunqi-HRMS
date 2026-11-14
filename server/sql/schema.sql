@@ -171,30 +171,6 @@ CREATE TABLE IF NOT EXISTS `hr_onboarding_form_template_history` (
   KEY `idx_onboarding_template_history_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `hr_offboarding_form_templates` (
-  `id` INT PRIMARY KEY AUTO_INCREMENT,
-  `name` VARCHAR(50) NOT NULL DEFAULT '',
-  `fields_json` JSON NOT NULL,
-  `version` INT NOT NULL DEFAULT 1,
-  `created_at` DATETIME NOT NULL,
-  `updated_at` DATETIME NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `hr_offboarding_form_template_history` (
-  `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
-  `template_id` INT NOT NULL,
-  `template_name` VARCHAR(50) NOT NULL,
-  `action` ENUM('create','update','delete') NOT NULL,
-  `before_json` JSON NULL,
-  `after_json` JSON NULL,
-  `changes_json` JSON NOT NULL,
-  `admin_id` INT NOT NULL,
-  `admin_name` VARCHAR(50) NOT NULL,
-  `created_at` DATETIME NOT NULL,
-  KEY `idx_offboarding_template_history` (`template_id`, `created_at`),
-  KEY `idx_offboarding_template_history_created` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `hr_self_onboarding_submissions` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
   `onboarding_id` BIGINT NOT NULL,

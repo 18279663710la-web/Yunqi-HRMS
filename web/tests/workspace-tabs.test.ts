@@ -19,6 +19,12 @@ test('首页固定，直接访问子模块时一并打开对应页签', () => {
   assert.equal(workspaceTabForLocation(loc('/approvals/expense')).label, '报销审批');
 });
 
+test('旧离职申请表地址回到出勤率绩效规则', () => {
+  const tab = workspaceTabForLocation(loc('/models-formulas/offboarding-template'));
+  assert.equal(tab.key, '/models-formulas/attendance');
+  assert.equal(tab.label, '出勤率绩效规则');
+});
+
 test('旧流程页面地址复用请假审批页签', () => {
   const oldTab = workspaceTabForLocation(loc('/models-formulas/payroll-workflow'));
   assert.equal(oldTab.key, '/approvals/leave');
