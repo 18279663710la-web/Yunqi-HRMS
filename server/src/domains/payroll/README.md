@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 主要文件：`overtimePayrollService.ts`、`payrollAttendanceService.ts`、`payrollAutoService.ts`、`payrollModelCalculation.ts`、`salaryModelRepository.ts`、`salaryModelSchema.ts`等。
+- 主要文件：`overtimePayrollService.ts`、`payrollAutoService.ts`、`payrollModelCalculation.ts`、`salaryModelRepository.ts`、`salaryModelSchema.ts`等。
 - `attendanceRuleConfig.ts` 与 `attendanceRuleConfigRepository.ts` 管理出勤绩效规则的区间/单位模式校验和存储。
 - `overtimePayrollService.ts` 与 `overtimeRuleConfigRepository.ts` 负责加班绩效规则校验、计算、兼容与存储；工资明细绑定加班费时保留规则与时长快照。
 - `attendanceRuleCalculation.ts` 按出勤或缺勤的比例、天数及区间或单位规则计算有符号绩效调整，保存工资明细时保留计算依据。
