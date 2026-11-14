@@ -178,7 +178,7 @@ Page<IndexData, IndexCustom>({
       });
 
       const [pendingList, noticeList] = await Promise.all([
-        approvalsApi.getApprovalList('pending'),
+        approvalsApi.getApprovalList('pending', { limit: 2 }),
         noticesApi.getNotices({}),
       ]);
       this.setData({

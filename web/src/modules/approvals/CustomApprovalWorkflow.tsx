@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DragOutlined, ExperimentOutlined, FileSearchOutlined, PlusOutlined, SelectOutlined } from '@ant-design/icons';
 import { Alert, App, Button } from 'antd';
 import { ReactFlowProvider, applyEdgeChanges, applyNodeChanges, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
@@ -20,7 +20,7 @@ function fromDocument(document: WorkflowDocument): Draft {
   return { version: document.version, nodes, edges, formFields, fieldsInitialized, saved: JSON.stringify(serializeApprovalWorkflow(document.version, nodes, edges, formFields, fieldsInitialized)), pendingApiKeys: {} };
 }
 
-export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approvalType: CustomApprovalType; toolbarExtra?: ReactNode }) {
+export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomApprovalType }) {
   const { message, modal } = App.useApp();
   const [mounted, setMounted] = useState(false);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
@@ -30,6 +30,8 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   const [testing, setTesting] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<boolean | null>(null);
+  const [publicationState, setPublicationState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [publicationRetry, setPublicationRetry] = useState(0);
   const [testEditor, setTestEditor] = useState<{ fields: WorkflowTestField[]; document: WorkflowTestCasesDocument } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -46,9 +48,12 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   useEffect(() => {
     let active = true;
     setPublished(null);
-    getWorkflowPublication(approvalType).then((result) => { if (active) setPublished(result !== null); }).catch(() => { if (active) setPublished(null); });
+    setPublicationState('loading');
+    getWorkflowPublication(approvalType)
+      .then((result) => { if (active) { setPublished(result !== null); setPublicationState('ready'); } })
+      .catch(() => { if (active) setPublicationState('failed'); });
     return () => { active = false; };
-  }, [approvalType]);
+  }, [approvalType, publicationRetry]);
   useEffect(() => {
     if (drafts[approvalType]) { setLoading(false); setLoadError(''); return; }
     let active = true;
@@ -97,7 +102,10 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
   const onEdgesChange: OnEdgesChange<ApprovalEdge> = changes => updateDraft(current => ({ ...current, edges: applyEdgeChanges(changes, current.edges) }));
   const onConnect: OnConnect = connection => {
     if (!draft || !connection.source || !connection.target) return;
-    if (!canConnectApprovalNodes(new Set(draft.nodes.map(node => node.id)), draft.edges, connection.source, connection.target)) { message.warning('无法连接这些节点'); return; }
+    if (!canConnectApprovalNodes(draft.nodes.map(node => ({ id: node.id, kind: node.data.kind })), draft.edges, connection.source, connection.target)) {
+      message.warning('无法连接：不能成环、重复连线，发起人不可被连入，结束节点与普通节点只能有一条后续连线');
+      return;
+    }
     if (draft.edges.length >= 400) { message.warning('最多添加 400 条连线'); return; }
     updateDraft(current => ({ ...current, edges: [...current.edges, createApprovalEdge(connection.source!, connection.target!)] }));
   };
@@ -197,12 +205,12 @@ export function CustomApprovalWorkflow({ approvalType, toolbarExtra }: { approva
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)}>表单设计</button>
       {published === false && <FallbackApproverSelect approvalType={approvalType} />}
-      {toolbarExtra}
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || !dirty} onClick={() => void save()}>保存</button>
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={publish}>发布</button>
     </div>
     {loadError && <Alert type="error" message="流程加载失败" action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
+    {publicationState === 'failed' && <Alert type="warning" message="发布状态加载失败，指定审批人入口暂不可用" action={<Button size="small" onClick={() => setPublicationRetry(value => value + 1)}>重试</Button>} />}
     <div className="payroll-workflow-editor">
       <div className="workflow-stage">
         <div className="workflow-rail" role="toolbar" aria-label="画布工具">

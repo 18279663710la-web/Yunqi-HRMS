@@ -44,6 +44,19 @@ export async function getCustomWorkflowApproverCandidates() {
   return { candidates: await listCandidates() };
 }
 
+/** 只读取路径上的启用账号，判定与全量候选相同：账号启用即视为可选。 */
+export async function getActiveApproverCandidates(ids: string[]): Promise<Candidate[]> {
+  const unique = [...new Set(ids.filter((id) => id))];
+  if (!unique.length) return [];
+  const rows = await queryRows<EmployeeRow>(
+    `SELECT e.id, e.name, e.employee_no, e.position AS job_category, a.status AS account_status
+     FROM employees e JOIN employee_accounts a ON a.employee_id = e.id
+     WHERE a.status = 'active' AND e.id IN (${unique.map(() => '?').join(',')})`,
+    unique,
+  );
+  return rows.map(mapEmployee);
+}
+
 export async function getApprovalApproverSettings(type: ApprovalApproverType) {
   const [configured, list] = await Promise.all([
     queryOne<{ employee_id: string }>('SELECT employee_id FROM approval_approvers WHERE type = ?', [type]),
@@ -73,8 +86,3 @@ export async function getApprovalApprover(type: ApprovalApproverType): Promise<{
   if (!candidate?.active) throw badRequest(`${LABELS[type]}审批人未配置或账号不可用，请联系超级管理员`);
   return { id: candidate.id, name: candidate.name, role: type === 'expense' ? '发票审批人' : candidate.jobCategory === '董事长' ? '董事长' : `${LABELS[type]}审批人` };
 }
-
-// 保留原报销接口，兼容已发布的小程序与管理后台。
-export const getExpenseApproverSettings = () => getApprovalApproverSettings('expense');
-export const setExpenseApprover = (employeeId: string, admin: AdminUser) => setApprovalApprover('expense', employeeId, admin);
-export const getExpenseApprover = () => getApprovalApprover('expense');

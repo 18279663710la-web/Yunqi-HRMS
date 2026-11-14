@@ -255,8 +255,10 @@ function parseInvoiceJson(value: string | Invoice | null): Invoice | null {
   return value;
 }
 
-export async function verifyInvoice(invoice: Invoice): Promise<VerifyResult & { cached?: boolean }> {
-  const duplicate = await checkDuplicate(invoice);
+export async function verifyInvoice(invoice: Invoice, options?: { skipDuplicate?: boolean }): Promise<VerifyResult & { cached?: boolean }> {
+  const duplicate = options?.skipDuplicate
+    ? { duplicated: false, blocking: false, hits: [], key: '' }
+    : await checkDuplicate(invoice);
   if (duplicate.blocking) {
     const hit = duplicate.hits.find((h) => h.blocking);
     return buildResult('duplicated', null, `该发票已在「${hit ? hit.title : '其他单据'}」中报销过`, { duplicate });

@@ -15,4 +15,5 @@ test('发票必须完成识别、查重和验真，同一单据不能添加重�
   assert.equal(getInvoiceCheckState([{ ...clear, status: 'failed' }], false).ready, false);
   assert.equal(getInvoiceCheckState([clear, { ...clear, id: 'b', result: { ...invoice, invoiceCode: '044031900111' } }], false).ready, false);
   assert.equal(getInvoiceCheckState([clear], true).ready, false);
+  assert.equal(getInvoiceCheckState([clear, { ...clear, id: 'b' }], false, { checkDuplicate: false }).ready, true);
 });

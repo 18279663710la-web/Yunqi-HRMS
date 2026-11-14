@@ -14,30 +14,19 @@ const conditionSchema = z.object({
   value: z.string().trim().min(1).max(100),
 });
 const approversSchema = z.array(z.string().trim().min(1).max(10)).min(1).max(20);
-const EXPENSE_TYPES = ['差旅费', '招待费', '办公用品', '交通费', '其他'];
 const workflowSchema = z.object({
   version: z.number().int().min(1),
   enabled: z.boolean(),
   fields: z.array(fieldSchema).max(40),
   branches: z.array(z.object({ conditions: z.array(conditionSchema).min(1).max(20), approvers: approversSchema })).max(30),
 });
-export type ExpenseWorkflow = z.infer<typeof workflowSchema>;
+type ExpenseWorkflow = z.infer<typeof workflowSchema>;
 export interface WorkflowFieldPolicy { reserved: string[]; labels: string[]; numericField?: string; choices: Record<string, string[]> }
-const EXPENSE_POLICY: WorkflowFieldPolicy = {
-  reserved: ['expenseType', 'amount', 'date', 'reason'], labels: ['报销类型', '报销金额（元）', '费用发生日期', '费用说明', '发票附件', '补充材料'],
-  numericField: 'amount', choices: { expenseType: EXPENSE_TYPES },
-};
 
 function cents(value: string, error = '请输入有效报销金额'): number {
   if (!/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(value)) throw badRequest(error);
   const [whole, fraction = ''] = value.split('.');
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
-}
-
-export function validateExpenseWorkflow(input: unknown): ExpenseWorkflow {
-  const workflow = validateWorkflowConditions(input, EXPENSE_POLICY);
-  if (!workflow.branches.length) throw badRequest('报销流程配置无效');
-  return workflow;
 }
 
 export function validateWorkflowConditions(input: unknown, policy: WorkflowFieldPolicy): ExpenseWorkflow {
@@ -82,24 +71,4 @@ export function validateWorkflowConditions(input: unknown, policy: WorkflowField
     ranges.push(range);
   }
   return workflow;
-}
-
-export function resolveExpenseWorkflow(workflow: ExpenseWorkflow, amount: string, values: Record<string, string>): string[] {
-  const amountCents = cents(amount);
-  for (const field of workflow.fields) {
-    const value = String(values[field.key] ?? '').trim();
-    if (field.required && !value) throw badRequest(`请填写${field.label}`);
-    if (!value) continue;
-    if (value.length > 2000) throw badRequest(`${field.label}过长`);
-    if (field.type === 'picker' && !field.options?.includes(value)) throw badRequest(`${field.label}选项无效`);
-    if (field.type === 'number' && !/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) throw badRequest(`${field.label}不是有效数字`);
-    if (field.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw badRequest(`${field.label}不是有效日期`);
-  }
-  const matching = workflow.branches.find(branch => branch.conditions.every(condition => {
-    if (condition.field !== 'amount') return values[condition.field] === condition.value;
-    const threshold = cents(condition.value);
-    return condition.operator === 'gte' ? amountCents >= threshold : amountCents < threshold;
-  }));
-  if (!matching) throw badRequest('报销未匹配审批流程，请联系管理员配置');
-  return [...matching.approvers];
 }

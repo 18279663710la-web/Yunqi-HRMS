@@ -12,8 +12,6 @@
  */
 
 import type { CurrentUser, LoginResponse } from '../types/models';
-import { AiStreamDecoder } from './expense-ai-stream';
-import type { AiStreamEvent } from './expense-ai-stream';
 import { toast } from './util';
 import { ensureApiOrigin, getApiOrigin, invalidateApiOrigin, isApiOriginReachable, noteRequestSuccess, noteRequestTimeout } from './apiOrigin';
 import { isOnboardingRoute } from '../services/onboarding/onboardingRoutes';
@@ -356,49 +354,6 @@ export async function downloadBusinessPdf(url: string): Promise<string> {
     throw { code: result.statusCode, message: '下载失败，请检查业务员绑定或重试' } as ApiError;
   }
   return result.tempFilePath;
-}
-
-/** 带登录态的流式请求，结束前必须收到服务端结果帧。 */
-export function streamPost(url: string, data: unknown, timeout: number, onEvent: (event: AiStreamEvent) => void): { promise: Promise<void>; abort: () => void } {
-  let task: WechatMiniprogram.RequestTask | undefined;
-  let cancelled = false;
-  const promise = ensureApiOrigin().then(() => new Promise<void>((resolve, reject) => {
-    const start = (retried: boolean): void => {
-      if (cancelled) { reject({ code: -1, message: '预审已取消' }); return; }
-      if (!isApiOriginReachable()) { reject(unreachableError()); return; }
-      const token = getToken();
-      if (!token) { redirectToLogin(); reject({ code: 401, message: '请先登录' }); return; }
-      let receivedResult = false;
-      let receivedChunk = false;
-      const decoder = new AiStreamDecoder((event) => {
-        if (event.type === 'result') receivedResult = true;
-        onEvent(event);
-      });
-      task = wx.request({
-        url: buildUrl(url), method: 'POST', data: data as Record<string, unknown>, timeout,
-        enableChunked: true, responseType: 'arraybuffer',
-        header: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        success: (res) => {
-          if (res.statusCode === 401 && !retried) {
-            void refreshTokens().then(() => { if (!cancelled) start(true); else reject({ code: -1, message: '预审已取消' }); }).catch(() => reject(authExpired({ url })));
-            return;
-          }
-          if (res.statusCode === 401) { reject(authExpired({ url })); return; }
-          if (res.statusCode < 200 || res.statusCode >= 300) { reject({ code: res.statusCode, message: '预审请求失败，请检查发票与材料' }); return; }
-          if (!receivedChunk && res.data instanceof ArrayBuffer) decoder.push(res.data);
-          if (receivedResult) resolve(); else reject({ code: -1, message: '预审连接中断，请重试' });
-        },
-        fail: (e) => {
-          if (!isTimeoutFailure(e)) invalidateApiOrigin();
-          reject({ code: -1, message: cancelled ? '预审已取消' : isTimeoutFailure(e) ? '预审响应超时，请重试' : '预审连接失败，请重试' });
-        },
-      });
-      if (typeof task.onChunkReceived !== 'function') { task.abort(); reject({ code: -1, message: '当前微信版本不支持流式预审' }); return; }
-      task.onChunkReceived((event) => { receivedChunk = true; decoder.push(event.data); });
-    };
-    start(false);
-  }));
-  return { promise, abort: () => { cancelled = true; task?.abort(); } };
 }
 
 export function put<T>(url: string, data?: unknown, options: Partial<RequestOptions> = {}): Promise<T> {

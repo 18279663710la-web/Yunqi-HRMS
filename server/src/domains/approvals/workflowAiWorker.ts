@@ -1,4 +1,5 @@
 import type { RowDataPacket } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import { execute, queryOne, queryRows, transaction } from '../../shared/db/pool';
 import { badRequest } from '../../shared/utils/errors';
 import { formatTime } from '../../shared/utils/datetime';
@@ -16,6 +17,16 @@ interface JobRow {
 function json<T>(value: string | T): T { return typeof value === 'string' ? JSON.parse(value) as T : value; }
 let busy = false;
 
+async function skipExhaustedAiNode(conn: PoolConnection, approvalId: string, stepNo: number, now: string): Promise<void> {
+  const [updated] = await conn.execute<import('mysql2').ResultSetHeader>(
+    "UPDATE approval_timeline SET state = 'done', action = '已跳过', time_text = ? WHERE approval_id = ? AND step_no = ? AND state = 'current' AND role = 'AI 审批'",
+    [now, approvalId, stepNo],
+  );
+  if (!updated.affectedRows) return;
+  await conn.execute("UPDATE approval_workflow_ai_jobs SET status = 'stopped', updated_at = NOW() WHERE approval_id = ? AND step_no = ?", [approvalId, stepNo]);
+  await advanceWorkflowTimeline(conn, approvalId, stepNo, now);
+}
+
 async function recoverStaleJobs(): Promise<void> {
   const stale = await queryRows<{ approval_id: string; step_no: number }>("SELECT approval_id, step_no FROM approval_workflow_ai_jobs WHERE status = 'processing' AND updated_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY updated_at LIMIT 50");
   for (const item of stale) await transaction(async conn => {
@@ -27,12 +38,11 @@ async function recoverStaleJobs(): Promise<void> {
       await conn.execute("UPDATE approval_workflow_ai_jobs SET status = 'stopped', updated_at = NOW() WHERE approval_id = ? AND step_no = ?", [item.approval_id, item.step_no]);
       return;
     }
-    const failed = Number(jobs[0].attempts) >= 3;
-    await conn.execute('UPDATE approval_workflow_ai_jobs SET status = ?, updated_at = NOW() WHERE approval_id = ? AND step_no = ?', [failed ? 'failed' : 'queued', item.approval_id, item.step_no]);
-    if (failed) {
-      await conn.execute("UPDATE approval_timeline SET action = 'AI 审批失败，等待重试' WHERE approval_id = ? AND step_no = ? AND state = 'current'", [item.approval_id, item.step_no]);
-      await conn.execute("UPDATE approvals SET node = 'AI 审批失败', updated_at = NOW() WHERE id = ?", [item.approval_id]);
+    if (Number(jobs[0].attempts) >= 3) {
+      await skipExhaustedAiNode(conn, item.approval_id, item.step_no, formatTime(new Date(), 'YYYY-MM-DD HH:mm'));
+      return;
     }
+    await conn.execute("UPDATE approval_workflow_ai_jobs SET status = 'queued', updated_at = NOW() WHERE approval_id = ? AND step_no = ?", [item.approval_id, item.step_no]);
   });
 }
 
@@ -77,12 +87,11 @@ export async function processWorkflowAiQueue(): Promise<void> {
         const [approval] = await conn.query<RowDataPacket[]>('SELECT status FROM approvals WHERE id = ? FOR UPDATE', [job.approval_id]);
         const [jobs] = await conn.query<RowDataPacket[]>('SELECT status, attempts FROM approval_workflow_ai_jobs WHERE approval_id = ? AND step_no = ? FOR UPDATE', [job.approval_id, job.step_no]);
         if (!approval.length || approval[0].status !== 'pending' || jobs[0]?.status !== 'processing') return;
-        const failed = Number(jobs[0].attempts) >= 3;
-        await conn.execute('UPDATE approval_workflow_ai_jobs SET status = ?, updated_at = NOW() WHERE approval_id = ? AND step_no = ?', [failed ? 'failed' : 'queued', job.approval_id, job.step_no]);
-        if (failed) {
-          await conn.execute("UPDATE approval_timeline SET action = 'AI 审批失败，等待重试' WHERE approval_id = ? AND step_no = ? AND state = 'current'", [job.approval_id, job.step_no]);
-          await conn.execute("UPDATE approvals SET node = 'AI 审批失败', updated_at = NOW() WHERE id = ?", [job.approval_id]);
+        if (Number(jobs[0].attempts) >= 3) {
+          await skipExhaustedAiNode(conn, job.approval_id, job.step_no, formatTime(new Date(), 'YYYY-MM-DD HH:mm'));
+          return;
         }
+        await conn.execute("UPDATE approval_workflow_ai_jobs SET status = 'queued', updated_at = NOW() WHERE approval_id = ? AND step_no = ?", [job.approval_id, job.step_no]);
       });
     }
   } finally { busy = false; }

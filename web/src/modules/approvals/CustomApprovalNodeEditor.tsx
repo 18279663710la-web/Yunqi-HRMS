@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App, Button, Empty, Input, Modal, Select, Space, Spin } from 'antd';
+import { App, Button, Empty, Input, Modal, Select, Space, Spin, Switch } from 'antd';
 import { getCustomWorkflowApproverCandidates, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type CustomApprovalType, type ExpenseApproverEmployee } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
 import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
@@ -15,6 +15,7 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const [loading, setLoading] = useState(node.data.kind === 'approver');
   const [loadError, setLoadError] = useState('');
   const [approvers, setApprovers] = useState<string[]>(node.data.config?.approverIds ?? []);
+  const approver = approvers[0];
   const [approverListOpen, setApproverListOpen] = useState(false);
   const [outcome, setOutcome] = useState<'approved' | 'rejected'>(node.data.config?.outcome ?? 'approved');
   const [provider, setProvider] = useState<'deepseek' | 'openai-compatible'>(node.data.config?.provider ?? 'deepseek');
@@ -22,6 +23,8 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const [baseUrl, setBaseUrl] = useState(node.data.config?.baseUrl ?? 'https://api.deepseek.com');
   const [rules, setRules] = useState(node.data.config?.rules ?? '');
   const [apiKey, setApiKey] = useState('');
+  const [checkDuplicate, setCheckDuplicate] = useState(node.data.config?.checkDuplicate !== false);
+  const [verifyInvoice, setVerifyInvoice] = useState(node.data.config?.verifyInvoice !== false);
   const outgoing = edges.filter(edge => edge.source === node.id);
   const [routes, setRoutes] = useState<Record<string, CustomApprovalCondition[]>>(() => Object.fromEntries(outgoing.map(edge => [edge.id, edge.data?.conditions?.map(item => ({ ...item })) ?? []])));
   const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
@@ -50,8 +53,8 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
     }
     if (node.data.kind === 'approver') {
       if (loading || loadError) return;
-      if (!approvers.length || new Set(approvers).size !== approvers.length) { message.error('请选择审批人'); return; }
-      onSave({ approverIds: approvers }); return;
+      if (!approver) { message.error('请选择审批人'); return; }
+      onSave({ approverIds: [approver] }); return;
     }
     if (node.data.kind === 'branch') {
       for (const edge of outgoing) {
@@ -65,13 +68,17 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
       }
       onSave(undefined, routes); return;
     }
+    if (node.data.kind === 'verify') { onSave({ checkDuplicate, verifyInvoice }); return; }
     onSave(node.data.kind === 'end' ? { outcome } : undefined);
   };
   const title: Record<string, string> = { start: '发起人', verify: '系统查验', ai: 'AI 审批', approver: '审批人', branch: '条件分支', end: '结束' };
   return <Modal title={title[node.data.kind] || '节点配置'} open centered onCancel={onCancel} onOk={save} okText="确定" cancelText="取消" width={760} destroyOnHidden
     className="approval-node-modal" wrapClassName="approval-node-modal-wrap" okButtonProps={{ disabled: loading || !!loadError }}>
     {node.data.kind === 'start' && <div className="approval-config-group"><div className="approval-config-heading">发起范围</div><Input aria-label="发起范围" value="所有在职员工" disabled /></div>}
-    {node.data.kind === 'verify' && <div className="approval-config-group"><div className="approval-config-heading">查验项目</div><Input aria-label="查验项目" value="发票查重与真伪查验" disabled /></div>}
+    {node.data.kind === 'verify' && <div className="approval-config-group"><div className="approval-config-heading">查验项目</div>
+      <label className="approval-verify-switch"><span>发票查重</span><Switch aria-label="发票查重" checked={checkDuplicate} onChange={setCheckDuplicate} /></label>
+      <label className="approval-verify-switch"><span>发票验伪</span><Switch aria-label="发票验伪" checked={verifyInvoice} onChange={setVerifyInvoice} /></label>
+    </div>}
     {node.data.kind === 'ai' && <div className="approval-ai-form">
       <label className="approval-ai-field"><span>模型服务</span><Select aria-label="模型服务" value={provider} onChange={value => { setProvider(value); setBaseUrl(value === 'deepseek' ? 'https://api.deepseek.com' : ''); }} options={[{ value: 'deepseek', label: 'DeepSeek' }, { value: 'openai-compatible', label: 'OpenAI 兼容接口' }]} /></label>
       <label className="approval-ai-field"><span>模型名称</span><Input aria-label="模型名称" value={model} maxLength={150} placeholder="输入模型名称" onChange={event => setModel(event.target.value)} /></label>
@@ -81,15 +88,12 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
     </div>}
     {node.data.kind === 'end' && <div className="approval-config-group"><div className="approval-config-heading">结束结果</div><Select aria-label="结束结果" value={outcome} onChange={setOutcome} options={[{ value: 'approved', label: '审批通过' }, { value: 'rejected', label: '审批驳回' }]} style={{ width: '100%' }} /></div>}
     {node.data.kind === 'approver' && <div className="approval-config-group">
-      <div className="approval-config-heading">审批人（按顺序审批）</div>
-      {loadError ? <Space><span>{loadError}</span><Button onClick={load}>重试</Button></Space> : <div className="approval-approver-select-anchor"><Spin spinning={loading}><Select aria-label="选择审批人" mode="multiple" showSearch optionFilterProp="label" placeholder="选择审批人" value={approvers} onChange={setApprovers} onOpenChange={setApproverListOpen} getPopupContainer={trigger => trigger.closest('.approval-approver-select-anchor') as HTMLElement} popupClassName="approval-approver-dropdown" listHeight={192} style={{ width: '100%' }} maxCount={20} options={[
+      <div className="approval-config-heading">审批人</div>
+      {loadError ? <Space><span>{loadError}</span><Button onClick={load}>重试</Button></Space> : <div className="approval-approver-select-anchor"><Spin spinning={loading}><Select aria-label="选择审批人" showSearch optionFilterProp="label" allowClear placeholder="选择审批人" value={approver || undefined} onChange={value => setApprovers(value ? [value] : [])} onOpenChange={setApproverListOpen} getPopupContainer={trigger => trigger.closest('.approval-approver-select-anchor') as HTMLElement} popupClassName="approval-approver-dropdown" listHeight={192} style={{ width: '100%' }} options={[
         ...candidates.map(person => ({ value: person.id, label: [person.name, person.employeeNo || '小程序账号', person.jobCategory === person.name ? '' : person.jobCategory].filter(Boolean).join(' · ') })),
-        ...approvers.filter(id => !names.has(id)).map(id => ({ value: id, label: `${id} · 账号不可用`, disabled: true })),
+        ...(approver && !names.has(approver) ? [{ value: approver, label: `${approver} · 账号不可用` }] : []),
       ]} /></Spin>{approverListOpen && <div className="approval-approver-dropdown-space" aria-hidden="true" />}</div>}
-      {approvers.map((id, index) => <div className="approval-approver-order" key={id}><span>{index + 1}. {names.get(id) || `${id} · 账号不可用`}</span><Space>
-        <Button size="small" disabled={index === 0} onClick={() => setApprovers(current => { const next = [...current]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return next; })}>上移</Button>
-        <Button size="small" disabled={index === approvers.length - 1} onClick={() => setApprovers(current => { const next = [...current]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; return next; })}>下移</Button>
-      </Space></div>)}
+      <div className="form-tip">需要多位审批人时，请添加多个审批人节点并按连线顺序审批。</div>
     </div>}
     {node.data.kind === 'branch' && <div className="approval-config-group">
       {!outgoing.length && <Empty description="请先连接分支目标节点" />}

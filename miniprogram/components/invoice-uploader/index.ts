@@ -81,6 +81,22 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
     disabled: { type: Boolean, value: false },
     /** 底部提示文案 */
     tip: { type: String, value: '' },
+    /** 跟随报销系统查验节点；缺省两项都做 */
+    checkDuplicate: { type: Boolean, value: true },
+    verifyInvoice: { type: Boolean, value: true },
+  },
+
+  observers: {
+    'checkDuplicate, verifyInvoice': function (this: { data: UploaderData; checkInvoice: (id: string) => Promise<void> }, checkDuplicate: boolean, verifyInvoice: boolean) {
+      const key = `${checkDuplicate !== false}:${verifyInvoice !== false}`;
+      const owner = this as { _checkKey?: string; _checkToken?: number };
+      if (owner._checkKey === key) return;
+      owner._checkKey = key;
+      owner._checkToken = (owner._checkToken || 0) + 1;
+      for (const item of this.data.invoices) {
+        if (item.status === 'done' && item.result) void this.checkInvoice(item.id);
+      }
+    },
   },
 
   data: {
@@ -293,7 +309,9 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
         if (!this.data.invoices.some((entry) => entry.id === id)) return;
         if (!parsed) throw { message: '未识别到左上角发票二维码，请重新拍摄或使用扫码录入' };
         const qrResult = ocr.buildFromQR(parsed);
-        if (!qrResult || !invoiceKey(qrResult)) throw { message: '二维码发票号码不完整，无法查重' };
+        const checkDuplicate = (this.data as { checkDuplicate?: boolean }).checkDuplicate !== false;
+        const verifyAuthenticity = (this.data as { verifyInvoice?: boolean }).verifyInvoice !== false;
+        if (!qrResult || ((checkDuplicate || verifyAuthenticity) && !invoiceKey(qrResult))) throw { message: '二维码发票号码不完整，无法查重' };
         qrResult.qrFrom = 'image';
 
         // 2) 保存图片附件，不调用 OCR。上传失败时不能提交临时文件路径。
@@ -317,33 +335,53 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
       }
     },
 
-    /** 识别后先查重，再查验真伪；任何阶段失败均不得提交。 */
+    /** 按当前查验开关查重、验伪。两项都关闭时识别完成即可提交；模拟发票始终拒绝。 */
     async checkInvoice(id: string): Promise<void> {
       const item = this.data.invoices.find((entry) => entry.id === id);
       if (!item || !item.result) return;
-      if (item.checkState === 'checking' || item.checkState === 'verifying') return;
+      const owner = this as { _checkToken?: number };
+      const token = owner._checkToken || 0;
+      const current = () => owner._checkToken === token && this.data.invoices.some((entry) => entry.id === id);
+      const checkDuplicate = (this.data as { checkDuplicate?: boolean }).checkDuplicate !== false;
+      const verifyAuthenticity = (this.data as { verifyInvoice?: boolean }).verifyInvoice !== false;
+      if (item.result.isMock) {
+        this.patch(id, { checkState: 'blocked', checkMessage: '模拟结果不能用于报销' });
+        return;
+      }
+      if (!checkDuplicate && !verifyAuthenticity) {
+        this.patch(id, { checkState: 'clear', checkMessage: '' });
+        return;
+      }
       if (!invoiceKey(item.result)) {
         this.patch(id, { checkState: 'error', checkMessage: '发票号码或代码不完整，无法查重' });
         return;
       }
-      this.patch(id, { checkState: 'checking', checkMessage: '正在查重' });
       try {
-        const dup = await verify.checkDuplicate(item.result);
-        if (!this.data.invoices.some((entry) => entry.id === id)) return;
-        if (dup.blocking) {
-          this.patch(id, { checkState: 'blocked', checkMessage: '已在审批中或已通过的单据中使用，请移除' });
+        let duplicated = false;
+        if (checkDuplicate) {
+          this.patch(id, { checkState: 'checking', checkMessage: '正在查重' });
+          const dup = await verify.checkDuplicate(item.result);
+          if (!current()) return;
+          if (dup.blocking) {
+            this.patch(id, { checkState: 'blocked', checkMessage: '已在审批中或已通过的单据中使用，请移除' });
+            return;
+          }
+          const key = invoiceKey(item.result);
+          if (this.data.invoices.some((entry) => entry.id !== id && entry.result && invoiceKey(entry.result) === key)) {
+            this.patch(id, { checkState: 'blocked', checkMessage: '本单重复，请移除重复发票' });
+            return;
+          }
+          duplicated = dup.duplicated;
+        }
+        if (!verifyAuthenticity) {
+          this.patch(id, { checkState: 'clear', checkMessage: duplicated ? '查重通过；历史单据已退回或撤销' : '查重通过' });
           return;
         }
-        const key = invoiceKey(item.result);
-        if (this.data.invoices.some((entry) => entry.id !== id && entry.result && invoiceKey(entry.result) === key)) {
-          this.patch(id, { checkState: 'blocked', checkMessage: '本单重复，请移除重复发票' });
-          return;
-        }
-        this.patch(id, { checkState: 'verifying', checkMessage: '查重通过，正在查验真伪' });
-        const result = await verify.verifyInvoice(item.result);
-        if (!this.data.invoices.some((entry) => entry.id === id)) return;
+        this.patch(id, { checkState: 'verifying', checkMessage: checkDuplicate ? '查重通过，正在查验真伪' : '正在查验真伪' });
+        const result = await verify.verifyInvoice(item.result, { skipDuplicate: !checkDuplicate });
+        if (!current()) return;
         if (result.status === 'valid' && result.mock === false) {
-          this.patch(id, { checkState: 'clear', checkMessage: dup.duplicated ? '查验通过；历史单据已退回或撤销' : '查重及真伪查验通过' });
+          this.patch(id, { checkState: 'clear', checkMessage: checkDuplicate ? (duplicated ? '查验通过；历史单据已退回或撤销' : '查重及真伪查验通过') : '真伪查验通过' });
         } else {
           this.patch(id, { checkState: result.status === 'duplicated' ? 'blocked' : 'error', checkMessage: result.mock ? '模拟结果不能用于报销' : (result.message || '发票查验未通过，请重试') });
         }
@@ -413,7 +451,7 @@ Component<UploaderData, Record<string, any>, Record<string, any>, never[]>({
     /** 重新计算汇总、展开面板，并向父组件广播 */
     syncState(removed = false) {
       const { invoices, expandedId } = this.data;
-      const check = getInvoiceCheckState(invoices, this.data.scanning);
+      const check = getInvoiceCheckState(invoices, this.data.scanning, { checkDuplicate: (this.data as { checkDuplicate?: boolean }).checkDuplicate !== false });
       const done = invoices.filter((x) => x.status === 'done' && x.result);
       const sum = ocr.sumInvoices(done.map((x) => x.result as Invoice));
 

@@ -33,6 +33,7 @@ export function validateExecutableWorkflow(type: ApprovalApproverType, workflow:
     if (node.kind === 'branch' && (!edges.length || edges.some(edge => !edge.conditions?.length))) errors.push('条件分支的每条连线都须配置条件');
     if (!['branch', 'end'].includes(node.kind) && edges.length !== 1) errors.push('非分支节点必须连接一个后续节点');
     if (node.kind === 'approver' && !node.config?.approverIds?.length) errors.push('审批人节点未配置审批人');
+    if (node.kind === 'approver' && (node.config?.approverIds?.length ?? 0) > 1) errors.push('审批人节点只能选择一名审批人，需要多人审批时请添加多个审批人节点');
     if (node.kind === 'ai' && (type !== 'expense' || !node.config?.provider || !node.config.model?.trim() || !node.config.baseUrl?.trim() || !node.config.rules?.trim() || !node.config.hasApiKey)) errors.push('AI 审批节点配置不完整');
     if (node.kind === 'verify' && type !== 'expense') errors.push('系统查验节点仅支持报销');
   }

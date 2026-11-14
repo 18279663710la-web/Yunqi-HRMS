@@ -9,7 +9,7 @@ const workflow: CustomWorkflow = {
   nodes: [
     { id: 'start', kind: 'start', position: { x: 0, y: 0 } },
     { id: 'branch', kind: 'branch', position: { x: 1, y: 0 } },
-    { id: 'review', kind: 'approver', position: { x: 2, y: 0 }, config: { approverIds: ['U001', 'U002'] } },
+    { id: 'review', kind: 'approver', position: { x: 2, y: 0 }, config: { approverIds: ['U001'] } },
     { id: 'end', kind: 'end', position: { x: 3, y: 0 }, config: { outcome: 'approved' } },
   ],
   edges: [
@@ -24,7 +24,7 @@ test('测试用例匹配分支并按顺序到达审批人及结束节点', () =>
   const result = simulateApprovalWorkflow(workflow, { project: '客户' });
   assert.equal(result.passed, true);
   assert.deepEqual(result.path, ['start', 'branch', 'review', 'end']);
-  assert.deepEqual(result.approverIds, ['U001', 'U002']);
+  assert.deepEqual(result.approverIds, ['U001']);
   assert.equal(result.outcome, 'approved');
 });
 
@@ -37,6 +37,8 @@ test('分支不匹配不得视为测试通过', () => {
 test('不可执行的画布不能通过结构检查', () => {
   const unconfigured = { ...workflow, nodes: workflow.nodes.map(node => node.id === 'review' ? { ...node, config: undefined } : node) };
   assert.ok(validateExecutableWorkflow('leave', unconfigured).some(error => error.includes('审批人')));
+  const multiApprover = { ...workflow, nodes: workflow.nodes.map(node => node.id === 'review' ? { ...node, config: { approverIds: ['U001', 'U002'] } } : node) };
+  assert.ok(validateExecutableWorkflow('leave', multiApprover).some(error => error.includes('只能选择一名审批人')));
   const cycle = { ...workflow, edges: [...workflow.edges, { id: 'd', source: 'end', target: 'start' }] };
   assert.ok(validateExecutableWorkflow('leave', cycle).length > 0);
   const disconnected = { ...workflow, nodes: [...workflow.nodes, { id: 'orphan', kind: 'end' as const, position: { x: 5, y: 0 } }] };
@@ -102,7 +104,7 @@ test('将匹配路径展开成顺序审批人与 AI 节点执行计划', async (
     edges: workflow.edges.map(edge => edge.id === 'b' ? { ...edge, target: 'ai' } : edge).concat([{ id: 'd', source: 'ai', target: 'review' }]),
   };
   assert.deepEqual(planWorkflowExecution('expense', graph, { project: '客户' }), {
-    steps: [{ kind: 'ai', nodeId: 'ai' }, { kind: 'approver', nodeId: 'review', approverId: 'U001' }, { kind: 'approver', nodeId: 'review', approverId: 'U002' }],
+    steps: [{ kind: 'ai', nodeId: 'ai' }, { kind: 'approver', nodeId: 'review', approverId: 'U001' }],
     outcome: 'approved',
   });
   assert.throws(() => planWorkflowExecution('expense', graph, { project: '内部' }), /未匹配/);
@@ -132,10 +134,19 @@ test('多个节点配置相同地址时只检测一次连通性', async () => {
 });
 
 
-test('执行计划保留系统查验节点的顺序', async () => {
-  const { planWorkflowExecution } = await import('../src/domains/approvals/customWorkflowExecutionPlan');
+test('执行计划保留系统查验节点的顺序和查验开关，缺省时两项都做', async () => {
+  const { planWorkflowExecution, expenseVerificationSelection } = await import('../src/domains/approvals/customWorkflowExecutionPlan');
   const graph: CustomWorkflow = { ...workflow, nodes: [...workflow.nodes, { id: 'verify', kind: 'verify', position: { x: 1, y: 1 } }],
     edges: workflow.edges.map(edge => edge.id === 'a' ? { ...edge, target: 'verify' } : edge).concat([{ id: 'vb', source: 'verify', target: 'branch' }]) };
   const plan = planWorkflowExecution('expense', graph, { project: '客户' });
-  assert.deepEqual(plan.steps[0], { kind: 'verify', nodeId: 'verify' });
+  assert.deepEqual(plan.steps[0], { kind: 'verify', nodeId: 'verify', checkDuplicate: true, verifyInvoice: true });
+  assert.deepEqual(expenseVerificationSelection(plan.steps), { checkDuplicate: true, verifyInvoice: true });
+  assert.deepEqual(expenseVerificationSelection([]), { checkDuplicate: true, verifyInvoice: true });
+  const skipped: CustomWorkflow = { ...graph, nodes: graph.nodes.map(node => node.id === 'verify' ? { ...node, config: { checkDuplicate: false, verifyInvoice: false } } : node) };
+  const off = planWorkflowExecution('expense', skipped, { project: '客户' });
+  assert.deepEqual(off.steps[0], { kind: 'verify', nodeId: 'verify', checkDuplicate: false, verifyInvoice: false });
+  assert.deepEqual(expenseVerificationSelection(off.steps), { checkDuplicate: false, verifyInvoice: false });
+  const mixed: CustomWorkflow = { ...skipped, nodes: [...skipped.nodes, { id: 'verify2', kind: 'verify', position: { x: 1, y: 2 }, config: { checkDuplicate: true, verifyInvoice: false } }],
+    edges: skipped.edges.map(edge => edge.id === 'vb' ? { ...edge, target: 'verify2' } : edge).concat([{ id: 'v2', source: 'verify2', target: 'branch' }]) };
+  assert.deepEqual(expenseVerificationSelection(planWorkflowExecution('expense', mixed, { project: '客户' }).steps), { checkDuplicate: true, verifyInvoice: false });
 });

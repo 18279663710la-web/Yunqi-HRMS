@@ -42,3 +42,25 @@ test('报销单中每张发票都要通过真实查验，任何异常或模拟�
   await assert.rejects(() => ensureInvoicesVerified([digital], async () => ({ status: 'valid', mock: true, message: '模拟结果' })), /模拟结果/);
   await assert.rejects(() => ensureInvoicesVerified([digital], async () => ({ status: 'notFound', mock: false, message: '查无此票' })), /查无此票/);
 });
+
+test('多张发票有限并行查验，失败时报告原顺序中更靠前的那张，且不再开始更后面的查验', async () => {
+  const invoices = [0, 1, 2, 3, 4, 5].map((index) => ({ ...digital, id: String(index) }));
+  const started: number[] = [];
+  let release = (): void => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let failure: unknown;
+  const pending = ensureInvoicesVerified(invoices, async (invoice) => {
+    const index = Number(invoice.id);
+    started.push(index);
+    if (index === 0) return { status: 'notFound', mock: false, message: '第一张失败' };
+    if (index >= 3) return { status: 'notFound', mock: false, message: `不应开始${index}` };
+    await gate;
+    return { status: 'valid', mock: false, message: '通过' };
+  }).then(() => { throw new Error('应拒绝查验'); }, (error: unknown) => { failure = error; });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual([...started].sort((a, b) => a - b), [0, 1, 2]);
+  release();
+  await pending;
+  assert.match(failure instanceof Error ? failure.message : '', /第一张失败/);
+  assert.deepEqual([...started].sort((a, b) => a - b), [0, 1, 2]);
+});

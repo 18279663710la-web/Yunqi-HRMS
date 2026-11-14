@@ -107,7 +107,7 @@
         <view class="section-head">
           <view class="section-title">发票附件</view>
         </view>
-        <invoice-uploader id="invoiceUploader" max="{{9}}" bind:change="onInvoiceChange" />
+        <invoice-uploader id="invoiceUploader" max="{{9}}" check-duplicate="{{expenseCheckDuplicate}}" verify-invoice="{{expenseCheckVerify}}" bind:change="onInvoiceChange" />
         <view class="form-tip" wx:if="{{!invoiceCheckReady}}">{{invoiceCheckMessage}}</view>
       </block>
 

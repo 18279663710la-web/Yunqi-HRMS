@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canConnectApprovalNodes, createApprovalNode, serializeApprovalWorkflow } from '../src/modules/approvals/customApprovalWorkflowGraph';
+import { canConnectApprovalNodes, createApprovalNode, serializeApprovalWorkflow, verifyNodeSummary } from '../src/modules/approvals/customApprovalWorkflowGraph';
 import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from '../src/modules/approvals/approvalTypeDefinitions';
 import { composeApprovalFormFields } from '../src/modules/approvals/approvalBuiltinFields';
 
@@ -15,12 +15,13 @@ test('审批节点和连线只保存独立设计稿需要的结构', () => {
 });
 
 test('审批设计稿禁止连接自身、重复连线或未知节点', () => {
-  const nodes = new Set(['a', 'b']);
+  const nodes = [{ id: 'a', kind: 'approver' as const }, { id: 'b', kind: 'approver' as const }];
   const edges = [{ source: 'a', target: 'b' }];
   assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'b'), false);
   assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'a'), false);
   assert.equal(canConnectApprovalNodes(nodes, edges, 'a', 'c'), false);
-  assert.equal(canConnectApprovalNodes(nodes, edges, 'b', 'a'), true);
+  assert.equal(canConnectApprovalNodes(nodes, edges, 'b', 'a'), false);
+  assert.equal(canConnectApprovalNodes(nodes, [], 'b', 'a'), true);
 });
 
 test('表单、审批人和分支条件随设计稿一起序列化', () => {
@@ -37,16 +38,23 @@ test('表单、审批人和分支条件随设计稿一起序列化', () => {
 test('各审批显示各自固定字段，发票查验节点仅供报销添加', () => {
   assert.deepEqual(APPROVAL_TYPE_DEFINITIONS.expense.fixedFields, ['发票附件', '补充材料']);
   assert.deepEqual(APPROVAL_TYPE_DEFINITIONS.leave.fixedFields, []);
-  assert.deepEqual(APPROVAL_TYPE_DEFINITIONS.overtime.fixedFields, []);
   const leave = composeApprovalFormFields('leave', [], false);
   assert.ok(leave.some(field => field.label === '请假类型' && field.key === 'leaveType'));
-  const overtime = composeApprovalFormFields('overtime', [{ key: 'reason', label: '加班说明', type: 'textarea', required: true }], true);
-  assert.deepEqual(overtime.map(field => field.label), ['加班说明']);
+  const overtime = composeApprovalFormFields('overtime', [
+    { key: 'date', label: '加班日', type: 'text', required: false },
+    { key: 'reason', label: '加班说明', type: 'textarea', required: true },
+  ], true);
+  assert.deepEqual(overtime.filter(field => field.locked).map(field => field.label), ['加班日期', '开始时间', '结束时间']);
+  assert.equal(overtime.find(field => field.key === 'reason')?.locked, undefined);
+  assert.deepEqual(APPROVAL_TYPE_DEFINITIONS.overtime.fixedFields, ['加班日期', '开始时间', '结束时间']);
   const expense = composeApprovalFormFields('expense', [], false);
   assert.deepEqual(expense.filter(field => field.locked).map(field => field.label), ['发票附件', '补充材料']);
   assert.ok(expense.some(field => field.key === 'amount' && field.type === 'money'));
   assert.equal(APPROVAL_TYPE_DEFINITIONS.travel.numericCondition?.value, 'budget');
   assert.equal(APPROVAL_TYPE_DEFINITIONS.purchase.numericCondition?.value, 'amount');
+  assert.equal(verifyNodeSummary(undefined), '发票查重、发票验伪');
+  assert.equal(verifyNodeSummary({ checkDuplicate: false, verifyInvoice: true }), '发票验伪');
+  assert.equal(verifyNodeSummary({ checkDuplicate: false, verifyInvoice: false }), '不查验');
   assert.equal(isNodeAvailable('expense', 'verify'), true);
   assert.equal(isNodeAvailable('expense', 'ai'), true);
   for (const type of ['leave', 'overtime', 'travel', 'purchase'] as const) {

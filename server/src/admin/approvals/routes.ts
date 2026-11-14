@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { getApprovalApproverSettings,getCustomWorkflowApproverCandidates,getExpenseApproverSettings,parseApproverType,setApprovalApprover,setExpenseApprover } from '../../domains/approvals/expenseApproverService';
-import { getExpenseRules,saveExpenseRules } from '../../domains/approvals/expenseRulesService';
+import { getApprovalApproverSettings,getCustomWorkflowApproverCandidates,parseApproverType,setApprovalApprover } from '../../domains/approvals/expenseApproverService';
 import { customWorkflowSchema, readCustomWorkflow, saveCustomWorkflow } from '../../domains/approvals/customWorkflowService';
 import { runSavedWorkflowTests } from '../../domains/approvals/customWorkflowTestRunner';
 import { publishCustomWorkflow, readPublishedWorkflow } from '../../domains/approvals/customWorkflowPublication';
@@ -66,15 +65,6 @@ router.put('/approval-workflows/:type', requireSuperAdmin, asyncHandler(async (r
   success(res, saved);
 }));
 
-router.get('/expense-approver', requireSuperAdmin, asyncHandler(async (_req, res) => {
-  success(res, await getExpenseApproverSettings());
-}));
-
-router.put('/expense-approver', requireSuperAdmin, asyncHandler(async (req, res) => {
-  const body = parse(z.object({ employeeId: z.string().trim().min(1).max(10) }), req.body);
-  success(res, await setExpenseApprover(body.employeeId, adminOf(req)));
-}));
-
 router.get('/approval-approvers/:type', requireSuperAdmin, asyncHandler(async (req, res) => {
   success(res, await getApprovalApproverSettings(parseApproverType(req.params.type)));
 }));
@@ -83,15 +73,5 @@ router.put('/approval-approvers/:type', requireSuperAdmin, asyncHandler(async (r
   const body = parse(z.object({ employeeId: z.string().trim().min(1).max(10) }), req.body);
   success(res, await setApprovalApprover(parseApproverType(req.params.type), body.employeeId, adminOf(req)));
 }));
-
-router.get('/expense-rules', requireSuperAdmin, asyncHandler(async (_req, res) => {
-  success(res, await getExpenseRules());
-}));
-
-router.put('/expense-rules', requireSuperAdmin, asyncHandler(async (req, res) => {
-  const body = parse(z.object({ content: z.string().max(10000) }), req.body);
-  success(res, await saveExpenseRules(body.content, adminOf(req)));
-}));
-
 
 export default router;

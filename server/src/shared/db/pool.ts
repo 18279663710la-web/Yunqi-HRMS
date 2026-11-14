@@ -91,6 +91,16 @@ async function runMigrations(conn: Connection): Promise<void> {
     return (rows as unknown[]).length > 0;
   };
 
+  if (!(await hasIndex('approvals', 'idx_approvals_applicant_sort'))) {
+    await conn.query('ALTER TABLE `approvals` ADD INDEX `idx_approvals_applicant_sort` (`applicant_id`, `urgent`, `created_at`, `id`)');
+  }
+  if (!(await hasIndex('approvals', 'idx_approvals_type_status_applicant'))) {
+    await conn.query('ALTER TABLE `approvals` ADD INDEX `idx_approvals_type_status_applicant` (`type`, `status`, `applicant_id`)');
+  }
+  if (!(await hasIndex('approval_timeline', 'idx_timeline_approver_approval'))) {
+    await conn.query('ALTER TABLE `approval_timeline` ADD INDEX `idx_timeline_approver_approval` (`approver_id`, `state`, `approval_id`)');
+  }
+
   const [batchMonthIndexes] = await conn.query<mysql.RowDataPacket[]>(
     `SELECT NON_UNIQUE AS nonUnique FROM information_schema.statistics
      WHERE table_schema = ? AND table_name = 'hr_payroll_batches' AND index_name = 'idx_hr_batch_month' LIMIT 1`, [database]
@@ -321,6 +331,11 @@ async function runMigrations(conn: Connection): Promise<void> {
     if (chairEmployeeId) {
       await conn.query('UPDATE `approval_approvers` SET employee_id = ? WHERE employee_id = ?', [chairEmployeeId, 'CHAIR001']);
       await conn.query('UPDATE `approval_timeline` SET approver_id = ? WHERE approver_id = ?', [chairEmployeeId, 'CHAIR001']);
+      // 流程设计稿里引用 CHAIR001 的审批人节点同样改派，并递增版本号让已打开的编辑器因乐观锁刷新到新内容。
+      await conn.query(
+        'UPDATE `custom_approval_workflows` SET graph_json = REPLACE(CAST(graph_json AS CHAR), \'CHAIR001\', ?), version = version + 1 WHERE graph_json LIKE \'%CHAIR001%\'',
+        [chairEmployeeId]
+      );
     }
     await conn.query('DROP TABLE IF EXISTS `chairperson_account`');
   }

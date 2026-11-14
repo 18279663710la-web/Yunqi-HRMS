@@ -92,9 +92,9 @@ export async function preCheck(
   };
 }
 
-/** 查验真伪（服务端会先查重，再调核验通道 / mock 规则） */
-export function verifyInvoice(invoice: Partial<Invoice>): Promise<VerifyResult> {
-  return post<VerifyResult>('/invoices/verify', { invoice }, { timeout: 25000 });
+/** 查验真伪。skipDuplicate 时不再因重复报销提前返回，供已关闭查重的报销节点使用。 */
+export function verifyInvoice(invoice: Partial<Invoice>, options?: { skipDuplicate?: boolean }): Promise<VerifyResult> {
+  return post<VerifyResult>('/invoices/verify', { invoice, ...(options?.skipDuplicate ? { skipDuplicate: true } : {}) }, { timeout: 25000 });
 }
 
 /** 批量查验（串行，避免触发频次限制） */

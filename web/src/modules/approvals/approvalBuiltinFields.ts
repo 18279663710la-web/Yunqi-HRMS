@@ -2,6 +2,11 @@ import type { CustomApprovalField, CustomApprovalType } from './api';
 
 export const INVOICE_FIELD: CustomApprovalField = { key: 'invoiceFiles', label: '发票附件', type: 'attachment', required: true, locked: true };
 export const SUPPLEMENT_FIELD: CustomApprovalField = { key: 'supplementFiles', label: '补充材料', type: 'attachment', required: false, locked: true };
+const OVERTIME_LOCKED: CustomApprovalField[] = [
+  { key: 'date', label: '加班日期', type: 'date', required: true, locked: true },
+  { key: 'startTime', label: '开始时间', type: 'time', required: true, locked: true },
+  { key: 'endTime', label: '结束时间', type: 'time', required: true, locked: true },
+];
 
 const BUILTIN_FIELDS: Record<CustomApprovalType, CustomApprovalField[]> = {
   expense: [
@@ -40,11 +45,18 @@ const BUILTIN_FIELDS: Record<CustomApprovalType, CustomApprovalField[]> = {
   ],
 };
 
-/** 未初始化的设计稿补上原固定字段。已保存过的字段列表保持原样，报销的两个附件字段始终保留。 */
+/** 未初始化的设计稿补上原固定字段。报销附件和加班起止时间始终按固定规格保留。 */
 export function composeApprovalFormFields(type: CustomApprovalType, saved: CustomApprovalField[], initialized: boolean): CustomApprovalField[] {
   const keys = new Set(saved.map(field => field.key));
   const seeded = initialized ? [] : BUILTIN_FIELDS[type].filter(field => !keys.has(field.key));
   const next = [...seeded, ...saved.map(field => ({ ...field, ...(field.options ? { options: [...field.options] } : {}) }))];
+  if (type === 'overtime') {
+    for (const spec of OVERTIME_LOCKED) {
+      const index = next.findIndex(field => field.key === spec.key);
+      if (index >= 0) next[index] = { ...spec };
+      else next.push({ ...spec });
+    }
+  }
   if (type !== 'expense') return next.filter(field => field.key !== INVOICE_FIELD.key && field.key !== SUPPLEMENT_FIELD.key);
   for (const spec of [INVOICE_FIELD, SUPPLEMENT_FIELD]) {
     const index = next.findIndex(field => field.key === spec.key);

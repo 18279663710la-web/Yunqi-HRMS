@@ -25,14 +25,44 @@ function toPublishedWorkflow(row: PublishedRow): PublishedWorkflow {
   return { publicationVersion: Number(row.publication_version), workflowVersion: Number(row.workflow_version), caseVersion: Number(row.case_version), workflow, fixedFields };
 }
 
+const publishedCache = new Map<string, PublishedWorkflow>();
+const PUBLISHED_ROW_SQL = 'SELECT approval_type, publication_version, workflow_version, case_version, graph_json, fixed_fields_json, credentials_json FROM custom_approval_publications';
+
+async function rememberPublished(rows: Array<PublishedRow & { approval_type: string }>): Promise<void> {
+  for (const row of rows) publishedCache.set(row.approval_type, toPublishedWorkflow(row));
+}
+
+/** 发布版本未变时复用解析结果。版本号单独读取，其他进程发布后会重新解析。 */
 export async function readPublishedWorkflow(type: ApprovalApproverType): Promise<PublishedWorkflow | null> {
-  const row = await queryOne<PublishedRow>('SELECT publication_version, workflow_version, case_version, graph_json, fixed_fields_json, credentials_json FROM custom_approval_publications WHERE approval_type = ?', [type]);
-  return row ? toPublishedWorkflow(row) : null;
+  const current = await queryOne<{ publication_version: number }>('SELECT publication_version FROM custom_approval_publications WHERE approval_type = ?', [type]);
+  if (!current) {
+    publishedCache.delete(type);
+    return null;
+  }
+  const cached = publishedCache.get(type);
+  if (cached && cached.publicationVersion === Number(current.publication_version)) return cached;
+  const row = await queryOne<PublishedRow & { approval_type: string }>(`${PUBLISHED_ROW_SQL} WHERE approval_type = ?`, [type]);
+  if (!row) {
+    publishedCache.delete(type);
+    return null;
+  }
+  await rememberPublished([row]);
+  return publishedCache.get(type) ?? null;
 }
 
 export async function readPublishedWorkflows(): Promise<Map<string, PublishedWorkflow>> {
-  const rows = await queryRows<PublishedRow & { approval_type: string }>('SELECT approval_type, publication_version, workflow_version, case_version, graph_json, fixed_fields_json, credentials_json FROM custom_approval_publications');
-  return new Map(rows.map(row => [row.approval_type, toPublishedWorkflow(row)]));
+  const versions = await queryRows<{ approval_type: string; publication_version: number }>('SELECT approval_type, publication_version FROM custom_approval_publications');
+  const missing = versions.filter((row) => publishedCache.get(row.approval_type)?.publicationVersion !== Number(row.publication_version)).map((row) => row.approval_type);
+  if (missing.length) {
+    const rows = await queryRows<PublishedRow & { approval_type: string }>(`${PUBLISHED_ROW_SQL} WHERE approval_type IN (${missing.map(() => '?').join(',')})`, missing);
+    await rememberPublished(rows);
+  }
+  const alive = new Set(versions.map((row) => row.approval_type));
+  for (const type of publishedCache.keys()) if (!alive.has(type)) publishedCache.delete(type);
+  return new Map(versions.flatMap((row) => {
+    const published = publishedCache.get(row.approval_type);
+    return published ? [[row.approval_type, published] as const] : [];
+  }));
 }
 
 /** 仅发布通过测试的版本，并在事务中固定流程和凭据快照。 */

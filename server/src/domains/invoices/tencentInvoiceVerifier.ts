@@ -6,11 +6,31 @@ type Request = { InvoiceNo: string; InvoiceDate: string; InvoiceCode?: string; I
 type TencentInvoice = { Number?: string | null; IsAbandoned?: string | null; RedLetterInvoiceMark?: boolean | null; AmountWithTax?: string | null; AmountWithoutTax?: string | null; TaxAmount?: string | null; SellerName?: string | null; SellerTaxCode?: string | null; BuyerName?: string | null };
 type Outcome = { status: VerifyStatus; message: string; invoice?: Invoice };
 
+const VERIFY_CONCURRENCY = 3;
+
 export async function ensureInvoicesVerified(invoices: Invoice[], verify: (invoice: Invoice) => Promise<{ status: VerifyStatus; mock: boolean; message: string }>): Promise<void> {
-  for (const invoice of invoices) {
-    const result = await verify(invoice);
-    if (result.status !== 'valid' || result.mock) throw badRequest(result.message || '发票尚未通过真实查验');
-  }
+  const failures: Array<{ index: number; error: unknown }> = [];
+  let next = 0;
+  let failedAt = invoices.length;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      if (next >= invoices.length || next >= failedAt) return;
+      const index = next;
+      next += 1;
+      try {
+        const result = await verify(invoices[index]);
+        if (result.status !== 'valid' || result.mock) throw badRequest(result.message || '发票尚未通过真实查验');
+      } catch (error) {
+        failures.push({ index, error });
+        if (index < failedAt) failedAt = index;
+        return;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(VERIFY_CONCURRENCY, invoices.length) }, () => worker()));
+  if (!failures.length) return;
+  failures.sort((left, right) => left.index - right.index);
+  throw failures[0].error;
 }
 
 export function buildTencentInvoiceRequest(invoice: Invoice): Request {

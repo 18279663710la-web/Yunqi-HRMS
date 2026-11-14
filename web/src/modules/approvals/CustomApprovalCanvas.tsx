@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, type DragEvent }
 import { CheckCircleOutlined, DeleteOutlined, FileProtectOutlined, FileTextOutlined, ForkOutlined, PlayCircleOutlined, RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { Background, BackgroundVariant, Controls, Handle, Position, ReactFlow, useReactFlow, type NodeProps, type NodeTypes, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
 import type { CustomApprovalField, CustomApprovalNodeKind, CustomApprovalType } from './api';
-import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
+import { verifyNodeSummary, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
 import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
 
 export const APPROVAL_NODE_PRESETS = [
@@ -66,7 +66,7 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
       const summary = node.data.kind === 'approver' ? (node.data.config?.approverIds?.length ? `已选 ${node.data.config.approverIds.length} 人` : '未配置审批人')
         : node.data.kind === 'branch' ? (outgoing.length ? `已配置 ${outgoing.filter(edge => edge.data?.conditions?.length).length}/${outgoing.length} 条分支` : '未连接分支')
         : node.data.kind === 'start' ? '所有在职员工'
-        : node.data.kind === 'verify' ? '发票查重与验真'
+        : node.data.kind === 'verify' ? verifyNodeSummary(node.data.config)
         : node.data.kind === 'ai' ? (node.data.config?.model || '未配置模型')
         : node.data.kind === 'end' ? (node.data.config?.outcome === 'rejected' ? '审批驳回' : '审批通过')
         : '表单设计';

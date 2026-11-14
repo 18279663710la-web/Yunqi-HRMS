@@ -26,18 +26,29 @@ const LOCKED: EditableApprovalField[] = [
   { key: 'supplementFiles', label: '补充材料', type: 'attachment', required: false, locked: true },
 ];
 
-/** 报销的发票附件和补充材料保持固定内容。已初始化的设计稿若缺了这两项，补回列表末尾。 */
+const OVERTIME_LOCKED: EditableApprovalField[] = [
+  { key: 'date', label: '加班日期', type: 'date', required: true, locked: true },
+  { key: 'startTime', label: '开始时间', type: 'time', required: true, locked: true },
+  { key: 'endTime', label: '结束时间', type: 'time', required: true, locked: true },
+];
+
+function forceLocked(fields: EditableApprovalField[], specs: EditableApprovalField[], initialized: boolean): void {
+  for (const spec of specs) {
+    const index = fields.findIndex(field => field.key === spec.key);
+    if (index >= 0) fields[index] = { ...spec };
+    else if (initialized) fields.push({ ...spec });
+  }
+}
+
+/** 报销附件和加班起止时间保持固定内容。已初始化的设计稿若缺了这些项，补回列表末尾。 */
 export function normalizeEditableFormFields(type: ApprovalApproverType, fields: EditableApprovalField[], initialized: boolean): EditableApprovalField[] {
   const next = fields.map(field => ({ ...field }));
+  if (type === 'overtime') forceLocked(next, OVERTIME_LOCKED, initialized);
   if (type !== 'expense') {
     if (next.some(field => LOCKED.some(spec => spec.key === field.key) || field.type === 'attachment')) throw badRequest('字段名称或标识重复');
     return next;
   }
-  for (const spec of LOCKED) {
-    const index = next.findIndex(field => field.key === spec.key);
-    if (index >= 0) next[index] = { ...spec };
-    else if (initialized) next.push({ ...spec });
-  }
+  forceLocked(next, LOCKED, initialized);
   if (next.some(field => field.type === 'attachment' && !LOCKED.some(spec => spec.key === field.key))) throw badRequest('字段类型无效');
   return next;
 }

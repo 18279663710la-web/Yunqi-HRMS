@@ -4,7 +4,7 @@ export type CustomApprovalType = 'leave' | 'expense' | 'overtime' | 'travel' | '
 export type CustomApprovalNodeKind = 'form' | 'start' | 'verify' | 'approver' | 'branch' | 'end' | 'ai';
 export interface CustomApprovalField { key: string; label: string; type: 'text' | 'textarea' | 'number' | 'money' | 'date' | 'time' | 'picker' | 'attachment'; required: boolean; options?: string[]; locked?: boolean }
 export interface CustomApprovalCondition { field: string; operator: 'eq' | 'gte' | 'lt'; value: string }
-export interface CustomApprovalNodeConfig { approverIds?: string[]; outcome?: 'approved' | 'rejected'; provider?: 'deepseek' | 'openai-compatible'; model?: string; baseUrl?: string; rules?: string; hasApiKey?: boolean }
+export interface CustomApprovalNodeConfig { approverIds?: string[]; outcome?: 'approved' | 'rejected'; provider?: 'deepseek' | 'openai-compatible'; model?: string; baseUrl?: string; rules?: string; hasApiKey?: boolean; checkDuplicate?: boolean; verifyInvoice?: boolean }
 export interface CustomApprovalWorkflow {
   version: number;
   fieldsInitialized?: boolean;
@@ -35,17 +35,4 @@ export interface ExpenseApproverEmployee {
   employeeNo: string;
   jobCategory: string;
   active: boolean;
-}
-
-export interface ExpenseRules {
-  content: string;
-  updatedAt: string | null;
-}
-
-export function fetchExpenseRules(): Promise<ExpenseRules> {
-  return request('/admin/expense-rules');
-}
-
-export function saveExpenseRules(content: string): Promise<ExpenseRules> {
-  return request('/admin/expense-rules', { method: 'PUT', body: { content } });
 }

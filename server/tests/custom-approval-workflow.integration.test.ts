@@ -74,7 +74,7 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
         { id: 'start', kind: 'start', position: { x: 0, y: 0 } },
         { id: 'verify', kind: 'verify', position: { x: 200, y: 0 } },
         { id: 'branch', kind: 'branch', position: { x: 400, y: 0 } },
-        { id: 'review', kind: 'approver', position: { x: 600, y: 0 }, config: { approverIds: ['U005', 'U011'] } },
+        { id: 'review', kind: 'approver', position: { x: 600, y: 0 }, config: { approverIds: ['U005'] } },
         { id: 'end', kind: 'end', position: { x: 800, y: 0 }, config: { outcome: 'approved' } },
       ],
       edges: [
@@ -87,7 +87,7 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     assert.equal(withConfig.status, 200);
     const loaded = (await request('expense')).body.data;
     assert.deepEqual(loaded.formFields, configured.formFields);
-    assert.deepEqual(loaded.nodes.find((node: any) => node.id === 'review').config, { approverIds: ['U005', 'U011'] });
+    assert.deepEqual(loaded.nodes.find((node: any) => node.id === 'review').config, { approverIds: ['U005'] });
     assert.deepEqual(loaded.edges.find((edge: any) => edge.id === 'three').conditions, configured.edges[2].conditions);
     assert.equal((await request('expense', 'PUT', { ...graph, version: 2 })).status, 409, '旧客户端不能覆盖已保存的节点配置');
     const overlap = { ...configured, version: 3, edges: [...configured.edges, { id: 'overlap', source: 'branch', target: 'end', conditions: [{ field: 'project', operator: 'eq', value: '客户' }] }] };
@@ -155,12 +155,14 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     const executable = { version: 0, formFields: [{ key: 'customMemo', label: '补充说明', type: 'text', required: false }], nodes: [
       { id: 's', kind: 'start', position: { x: 0, y: 0 } },
       { id: 'b', kind: 'branch', position: { x: 10, y: 0 } },
-      { id: 'a', kind: 'approver', position: { x: 20, y: 0 }, config: { approverIds: ['U005', 'U011'] } },
+      { id: 'a', kind: 'approver', position: { x: 20, y: 0 }, config: { approverIds: ['U005'] } },
+      { id: 'a2', kind: 'approver', position: { x: 25, y: 0 }, config: { approverIds: ['U011'] } },
       { id: 'e', kind: 'end', position: { x: 30, y: 0 }, config: { outcome: 'approved' } },
     ], edges: [
       { id: 'sb', source: 's', target: 'b' },
       { id: 'ba', source: 'b', target: 'a', conditions: [{ field: 'leaveType', operator: 'eq', value: '事假' }] },
-      { id: 'ae', source: 'a', target: 'e' },
+      { id: 'aa2', source: 'a', target: 'a2' },
+      { id: 'ae', source: 'a2', target: 'e' },
     ] };
     const savedExecutable = await request('leave', 'PUT', { ...executable, version: 1 });
     assert.equal(savedExecutable.status, 200);
@@ -178,9 +180,9 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     await assert.rejects(() => publishCustomWorkflow('leave', 2, 1, adminRow.id), /表单/);
     const fixedJson = typeof fixedBefore[0].fields_json === 'string' ? fixedBefore[0].fields_json : JSON.stringify(fixedBefore[0].fields_json);
     await conn.query(`UPDATE \`${database}\`.approval_types SET fields_json = ? WHERE \`key\` = 'leave'`, [fixedJson]);
-    await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'disabled' WHERE employee_id = 'U011'`);
+    await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'disabled' WHERE employee_id = 'U005'`);
     assert.equal((await request('leave/publish', 'POST', { workflowVersion: 2, caseVersion: 1 })).status, 400, '测试后审批人停用不得发布');
-    await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'active' WHERE employee_id = 'U011'`);
+    await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'active' WHERE employee_id = 'U005'`);
     const { issueTokens } = await import('../src/miniprogram/auth/authService');
     await conn.query(`INSERT INTO \`${database}\`.approval_approvers (type, employee_id, updated_by, updated_at) VALUES ('leave','U011',1,NOW())`);
     const legacyForm = [
@@ -328,20 +330,20 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       for (let i = 0; i < 3; i++) await aiWorker.processWorkflowAiQueue();
       const expenseId = expenseCreated.body.data.id;
       const detail = async (token: string) => (await (await fetch(`http://127.0.0.1:${address.port}/api/approvals/${expenseId}`, { headers: { Authorization: `Bearer ${token}` } })).json() as { data: any }).data;
-      assert.equal((await detail(applicantToken)).aiRetryAvailable, true);
+      assert.equal((await detail(applicantToken)).aiRetryAvailable, false);
       const outsiderToken = issueTokens('U010').accessToken;
       assert.equal((await fetch(`http://127.0.0.1:${address.port}/api/approvals/${expenseId}`, { headers: { Authorization: `Bearer ${outsiderToken}` } })).status, 404);
       assert.equal((await approvalRequest(`/approvals/${expenseId}/retry-ai`, outsiderToken, {})).status, 400);
-      const retries = await Promise.all([approvalRequest(`/approvals/${expenseId}/retry-ai`, applicantToken, {}), approvalRequest(`/approvals/${expenseId}/retry-ai`, applicantToken, {})]);
-      assert.deepEqual(retries.map(item => item.status).sort(), [200, 400]);
-      modelFails = false;
-      await aiWorker.processWorkflowAiQueue();
+      assert.equal((await approvalRequest(`/approvals/${expenseId}/retry-ai`, applicantToken, {})).status, 400);
       const reviewerToken = issueTokens('U005').accessToken;
       const reviewerDetail = await detail(reviewerToken);
       assert.equal(reviewerDetail.canApprove, true);
-      assert.equal(reviewerDetail.aiAdvice.status, 'completed');
-      assert.equal(reviewerDetail.aiAdvice.advice.recommendation, 'approve');
-      assert.ok(seenModels.every(model => model === 'test-model'), '旧单应使用提交时的 AI 模型快照');
+      assert.equal(reviewerDetail.aiAdvice, null);
+      const skippedAi = reviewerDetail.timeline.find((node: { role: string }) => node.role === 'AI 审批');
+      assert.equal(skippedAi.state, 'done');
+      assert.equal(skippedAi.action, '已跳过');
+      assert.equal(seenModels.length, 3);
+      assert.ok(seenModels.every(model => model === 'test-model'), '失败调用仍使用提交时的 AI 模型快照');
       assert.equal((await approvalRequest(`/approvals/${expenseId}/action`, reviewerToken, { action: 'approve' })).body.data.ok, true);
       const secondApproverToken = issueTokens('U012').accessToken;
       const afterHumanAi = { ...expenseGraph, version: 9, nodes: [expenseGraph.nodes[0],
@@ -371,14 +373,16 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       assert.deepEqual(applicantHandoffDetail.timeline, []);
       assert.equal(applicantHandoffDetail.node, '');
       modelFails = true;
+      const callsBeforeSecondAi = modelRequests;
       for (let i = 0; i < 3; i++) await aiWorker.processWorkflowAiQueue();
+      assert.equal(modelRequests, callsBeforeSecondAi + 3);
       const secondApproverRetry = await approvalRequest(`/approvals/${secondId}/retry-ai`, secondApproverToken, {});
-      assert.equal(secondApproverRetry.status, 200);
-      modelFails = false;
-      await aiWorker.processWorkflowAiQueue();
+      assert.equal(secondApproverRetry.status, 400);
       const secondApproverDetail = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${secondId}`, { headers: { Authorization: `Bearer ${secondApproverToken}` } });
       assert.equal(secondApproverDetail.status, 200);
-      assert.equal((await secondApproverDetail.json() as { data: any }).data.canApprove, true);
+      const secondData = (await secondApproverDetail.json() as { data: any }).data;
+      assert.equal(secondData.canApprove, true);
+      assert.equal(secondData.timeline.find((node: { role: string }) => node.role === 'AI 审批').action, '已跳过');
       assert.equal((await approvalRequest(`/approvals/${secondId}/action`, secondApproverToken, { action: 'approve' })).body.data.ok, true);
       const cancelledExpense = await approvalRequest('/approvals', applicantToken, { ...expensePayload, workflowPublicationVersion: secondPublication.publicationVersion,
         invoices: [{ ...expensePayload.invoices[0], id: 'cancelled-runtime-invoice', invoiceNumber: '12345678901234567892' }] });
@@ -404,8 +408,12 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       const callsBeforeRecovery = modelRequests;
       await aiWorker.processWorkflowAiQueue();
       const recovered = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${interruptedId}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
-      assert.equal((await recovered.json() as { data: any }).data.aiRetryAvailable, true);
-      assert.equal(modelRequests, callsBeforeRecovery, '耗尽次数的中断任务等待手动重试');
+      assert.equal((await recovered.json() as { data: any }).data.aiRetryAvailable, false);
+      assert.equal(modelRequests, callsBeforeRecovery, '耗尽次数的中断任务直接跳过 AI 节点');
+      const recoveredChair = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${interruptedId}`, { headers: { Authorization: `Bearer ${secondApproverToken}` } });
+      const recoveredChairData = (await recoveredChair.json() as { data: any }).data;
+      assert.equal(recoveredChairData.canApprove, true);
+      assert.equal(recoveredChairData.timeline.find((node: { role: string }) => node.role === 'AI 审批').action, '已跳过');
       assert.equal((await approvalRequest(`/approvals/${interruptedId}/cancel`, applicantToken, {})).body.data.ok, true);
       const missingFile = '/uploads/workflow-missing-test.jpg';
       await conn.query(`INSERT INTO \`${database}\`.expense_uploads (file_id, owner_id, created_at) VALUES (?, 'U001', NOW())`, [missingFile]);
@@ -417,8 +425,10 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
       const beforeMissingFile = modelRequests;
       for (let i = 0; i < 3; i++) await aiWorker.processWorkflowAiQueue();
       const missingDetail = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${missingFileId}`, { headers: { Authorization: `Bearer ${applicantToken}` } });
-      assert.equal((await missingDetail.json() as { data: any }).data.aiRetryAvailable, true, '无法读取材料时不应跳过 AI 节点');
+      assert.equal((await missingDetail.json() as { data: any }).data.aiRetryAvailable, false, '无法读取材料时三次失败后跳过 AI 节点');
       assert.equal(modelRequests, beforeMissingFile);
+      const missingChair = await fetch(`http://127.0.0.1:${address.port}/api/approvals/${missingFileId}`, { headers: { Authorization: `Bearer ${secondApproverToken}` } });
+      assert.equal((await missingChair.json() as { data: any }).data.canApprove, true);
       assert.equal((await approvalRequest(`/approvals/${missingFileId}/cancel`, applicantToken, {})).body.data.ok, true);
 
       const rejectedExpense = await approvalRequest('/approvals', applicantToken, { ...expensePayload, workflowPublicationVersion: secondPublication.publicationVersion,

@@ -1135,6 +1135,7 @@ code {
 .approval-form-field-row > .ant-select { flex: 0 0 120px; }
 .approval-field-required { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .approval-config-group { display: flex; flex-direction: column; gap: 12px; }
+.approval-verify-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .approval-approver-order { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .approval-condition-row > .ant-select, .approval-condition-row > .ant-input { flex: 1 1 0; min-width: 0; }
 @media (max-width: 640px) { .approval-form-field-row, .approval-condition-row { flex-wrap: wrap; } .approval-form-field-row > .ant-input { flex-basis: 100%; } .approval-condition-row > .ant-select, .approval-condition-row > .ant-input { min-width: 100px; } }

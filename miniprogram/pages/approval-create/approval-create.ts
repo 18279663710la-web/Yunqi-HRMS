@@ -75,6 +75,8 @@ interface ApprovalCreateData {
   recognizingInvoices: boolean;
   invoiceCheckReady: boolean;
   invoiceCheckMessage: string;
+  expenseCheckDuplicate: boolean;
+  expenseCheckVerify: boolean;
   attachments: Array<{ name: string; fileID: string; preview: string }>;
   uploadingAttachments: boolean;
 }
@@ -129,6 +131,8 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     recognizingInvoices: false,
     invoiceCheckReady: true,
     invoiceCheckMessage: '',
+    expenseCheckDuplicate: true,
+    expenseCheckVerify: true,
     attachments: [],
     uploadingAttachments: false,
   },
@@ -207,6 +211,8 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       recognizingInvoices: false,
       invoiceCheckReady: type.key !== 'expense',
       invoiceCheckMessage: type.key === 'expense' ? '请先添加至少一张发票' : '',
+      expenseCheckDuplicate: true,
+      expenseCheckVerify: true,
       attachments: [],
       approvers: [],
       approverReady: false,
@@ -234,10 +240,24 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       });
       if (generation !== this.approverGeneration) return;
       const approvers = result.approvers || [];
-      this.setData({ approvers, approverReady: approvers.length > 0, approverHint: approvers.length ? '' : '未匹配到审批人，请联系管理员' });
+      const checks = result.expenseChecks;
+      this.setData({
+        approvers,
+        approverReady: approvers.length > 0,
+        approverHint: approvers.length ? '' : '未匹配到审批人，请联系管理员',
+        ...(type.key === 'expense' ? {
+          expenseCheckDuplicate: checks ? checks.checkDuplicate !== false : true,
+          expenseCheckVerify: checks ? checks.verifyInvoice !== false : true,
+        } : {}),
+      });
     } catch (error) {
       if (generation !== this.approverGeneration) return;
-      this.setData({ approvers: [], approverReady: false, approverHint: (error as { message?: string }).message || '审批人不可用，请联系管理员' });
+      this.setData({
+        approvers: [],
+        approverReady: false,
+        approverHint: (error as { message?: string }).message || '审批人不可用，请联系管理员',
+        ...(type.key === 'expense' ? { expenseCheckDuplicate: true, expenseCheckVerify: true } : {}),
+      });
     }
   },
 

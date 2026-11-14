@@ -10,6 +10,8 @@ const TYPE_ICON: Record<string, string> = {
   purchase: '采',
 };
 
+const PAGE_SIZE = 20;
+
 type ApprovalTab = 'pending' | 'mine' | 'done';
 
 interface ApprovalTabItem {
@@ -26,9 +28,15 @@ interface ApprovalData {
 }
 
 interface ApprovalCustom {
+  loadGeneration: number;
+  page: number;
+  hasMore: boolean;
+  loadingMore: boolean;
   loadCounts(): Promise<void>;
   loadList(silent?: boolean): Promise<void>;
+  loadMore(): Promise<void>;
   onTab(e: TapEvent): void;
+  onReachBottom(): void;
   goDetail(e: TapEvent): void;
   goCreate(): void;
 }
@@ -44,6 +52,11 @@ Page<ApprovalData, ApprovalCustom>({
     list: [],
     loading: true,
   },
+
+  loadGeneration: 0,
+  page: 1,
+  hasMore: false,
+  loadingMore: false,
 
   onShow() {
     const tabBar = getCustomTabBar(this);
@@ -75,21 +88,54 @@ Page<ApprovalData, ApprovalCustom>({
   },
 
   async loadList(silent = false): Promise<void> {
+    // 代际保护：快速切换页签时丢弃旧请求的响应，避免慢返回覆盖新页签数据
+    const generation = ++this.loadGeneration;
+    this.page = 1;
+    this.hasMore = false;
     if (!silent) this.setData({ loading: true });
     try {
-      const list = await approvalsApi.getApprovalList(this.data.activeTab);
+      const list = await approvalsApi.getApprovalList(this.data.activeTab, { page: 1, pageSize: PAGE_SIZE });
+      if (generation !== this.loadGeneration) return;
+      this.hasMore = list.length === PAGE_SIZE;
       this.setData({
         list: list.map((item) => ({ ...item, summary: item.summary.replace(/，补偿方式：加班费/g, ''), typeIcon: TYPE_ICON[item.type] || '审' })),
         loading: false,
       });
     } catch {
+      if (generation !== this.loadGeneration) return;
       this.setData({ loading: false });
+    }
+  },
+
+  onReachBottom() {
+    if (this.loadingMore || !this.hasMore || this.data.loading) return;
+    void this.loadMore();
+  },
+
+  async loadMore(): Promise<void> {
+    if (this.loadingMore || !this.hasMore) return;
+    const generation = this.loadGeneration;
+    const page = this.page + 1;
+    this.loadingMore = true;
+    try {
+      const list = await approvalsApi.getApprovalList(this.data.activeTab, { page, pageSize: PAGE_SIZE });
+      if (generation !== this.loadGeneration) return;
+      this.page = page;
+      this.hasMore = list.length === PAGE_SIZE;
+      this.setData({
+        list: this.data.list.concat(list.map((item) => ({ ...item, summary: item.summary.replace(/，补偿方式：加班费/g, ''), typeIcon: TYPE_ICON[item.type] || '审' }))),
+      });
+    } catch {
+      // 请求层已提示
+    } finally {
+      if (generation === this.loadGeneration) this.loadingMore = false;
     }
   },
 
   onTab(e: TapEvent) {
     const key = e.currentTarget.dataset.key as ApprovalTab;
     if (key === this.data.activeTab) return;
+    this.hasMore = false;
     this.setData({ activeTab: key, list: [] });
     void this.loadList();
   },

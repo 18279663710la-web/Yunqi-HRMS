@@ -29,7 +29,7 @@ function parseJson<T>(value: string | T): T { return typeof value === 'string' ?
 
 /** 随报销单提交的事务保存规则和输入快照。 */
 export async function enqueueExpenseAi(conn: PoolConnection, approvalId: string, approverId: string, input: AiInput): Promise<void> {
-  const [rows] = await conn.query("SELECT content FROM approval_rules WHERE type = 'expense' FOR UPDATE");
+  const [rows] = await conn.query("SELECT content FROM approval_rules WHERE type = 'expense'");
   const rules = String((rows as Array<{ content: string }>)[0]?.content || '').trim();
   await conn.query(`INSERT INTO expense_ai_jobs (approval_id, approver_id, status, rules_snapshot, input_json, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, NOW(), NOW())`, [approvalId, approverId, rules ? 'queued' : 'no_rules', rules, JSON.stringify(input)]);

@@ -59,6 +59,7 @@ router.get(
 
 const invoiceSchema = z.object({
   invoice: z.record(z.string(), z.any()),
+  skipDuplicate: z.boolean().optional(),
 });
 
 router.post(
@@ -74,7 +75,7 @@ router.post(
   '/invoices/verify',
   asyncHandler(async (req, res) => {
     const body = parse(invoiceSchema, req.body);
-    const result = await verifyInvoice(body.invoice as unknown as Invoice);
+    const result = await verifyInvoice(body.invoice as unknown as Invoice, { skipDuplicate: body.skipDuplicate === true });
     success(res, result);
   })
 );

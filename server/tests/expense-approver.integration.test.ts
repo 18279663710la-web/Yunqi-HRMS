@@ -45,15 +45,12 @@ test('仅超级管理员设置有效的报销审批人，审批人可以审批�
     }
     const invoice = { id: 'test-invoice', invoiceCode: '', invoiceNumber: '12345678901234567890', invoiceDate: '2026-10-28', invoiceType: '普通发票', checkCode: '', amount: 10, taxAmount: 0, totalAmount: 10 };
     const expense = { type: 'expense', title: '报销', invoices: [invoice] };
-    assert.equal((await request('/approvals/expense-approver', applicant)).status, 400);
     assert.equal((await request('/approvals', applicant, 'POST', expense)).status, 400);
-    assert.equal((await request('/admin/expense-approver', hr, 'PUT', { employeeId: 'U011' })).status, 403);
-    assert.equal((await request('/admin/expense-approver', hr)).status, 403);
-    assert.equal((await request('/admin/expense-approver', applicant, 'PUT', { employeeId: 'U011' })).status, 401);
-    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'missing' })).status, 400);
-    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'U011' })).status, 200);
-    assert.equal((await request('/approvals/expense-approver', applicant)).body.data.id, 'U011');
-    assert.equal((await request('/approvals/expense-approver', reviewer)).body.data.id, 'U011');
+    assert.equal((await request('/admin/approval-approvers/expense', hr, 'PUT', { employeeId: 'U011' })).status, 403);
+    assert.equal((await request('/admin/approval-approvers/expense', hr)).status, 403);
+    assert.equal((await request('/admin/approval-approvers/expense', applicant, 'PUT', { employeeId: 'U011' })).status, 401);
+    assert.equal((await request('/admin/approval-approvers/expense', admin, 'PUT', { employeeId: 'missing' })).status, 400);
+    assert.equal((await request('/admin/approval-approvers/expense', admin, 'PUT', { employeeId: 'U011' })).status, 200);
     const ownExpense = await request('/approvals', reviewer, 'POST', { ...expense, invoices: [{ ...invoice, id: 'self-invoice', invoiceNumber: '12345678901234567891' }] });
     assert.equal(ownExpense.status, 200);
     assert.equal(ownExpense.body.data.timeline[1].approverId, 'U011');
@@ -68,11 +65,10 @@ test('仅超级管理员设置有效的报销审批人，审批人可以审批�
     assert.equal(createdExpense.body.data.status, 'pending');
     assert.equal(createdExpense.body.data.timeline[1].approverId, 'U011');
     assert.equal((await request(`/approvals/${createdExpense.body.data.id}/action`, applicant, 'POST', { action: 'approve' })).body.data.ok, false);
-    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'U005' })).status, 200);
+    assert.equal((await request('/admin/approval-approvers/expense', admin, 'PUT', { employeeId: 'U005' })).status, 200);
     assert.equal((await request(`/approvals/${createdExpense.body.data.id}/action`, reviewer, 'POST', { action: 'approve' })).body.data.ok, true);
     await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'disabled' WHERE employee_id = 'U005'`);
-    assert.equal((await request('/approvals/expense-approver', applicant)).status, 400);
-    assert.equal((await request('/admin/expense-approver', admin, 'PUT', { employeeId: 'U005' })).status, 400);
+    assert.equal((await request('/admin/approval-approvers/expense', admin, 'PUT', { employeeId: 'U005' })).status, 400);
   } finally {
     prototype.VatInvoiceVerifyNew = originalVerify;
     if (closeServer) await closeServer();

@@ -37,6 +37,7 @@ interface DetailData {
 
 interface DetailCustom {
   aiTimer: number | undefined;
+  aiPolling: boolean;
   active: boolean;
   load(silent?: boolean): Promise<void>;
   openApprove(): void;
@@ -55,6 +56,7 @@ interface DetailCustom {
 
 Page<DetailData, DetailCustom>({
   aiTimer: undefined,
+  aiPolling: false,
   active: false,
   data: {
     id: '',
@@ -116,11 +118,19 @@ Page<DetailData, DetailCustom>({
         showHeadNode: Boolean(nodeText) && !nodeText.includes('AI') && !nodeText.includes('系统'),
       });
       if (this.aiTimer) clearTimeout(this.aiTimer);
-      if (this.active && (raw.aiAdvice?.status === 'queued' || raw.aiAdvice?.status === 'processing' || raw.workflowAiStatus === 'queued' || raw.workflowAiStatus === 'processing')) {
+      const polling = this.active && (raw.aiAdvice?.status === 'queued' || raw.aiAdvice?.status === 'processing' || raw.workflowAiStatus === 'queued' || raw.workflowAiStatus === 'processing');
+      this.aiPolling = polling;
+      if (polling) {
         this.aiTimer = setTimeout(() => { void this.load(true); }, 5000);
       }
     } catch {
-      if (!silent) { toast('审批单不存在或已被删除'); setTimeout(() => wx.navigateBack(), 900); }
+      // 轮询期间的临时失败（弱网/重启）不终止轮询，延迟后重试；非轮询态的失败仍按单据不存在处理。
+      if (silent && this.active && this.aiPolling) {
+        this.aiTimer = setTimeout(() => { void this.load(true); }, 10000);
+      } else if (!silent) {
+        toast('审批单不存在或已被删除');
+        setTimeout(() => wx.navigateBack(), 900);
+      }
     }
   },
 

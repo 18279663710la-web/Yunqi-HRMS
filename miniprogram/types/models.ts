@@ -209,11 +209,6 @@ export interface ExpenseAiAdvice {
   attachmentIssues?: Array<{ name: string; issue: string }>;
 }
 
-export interface ExpensePrecheckResult {
-  status: 'completed' | 'no_rules' | 'unconfigured' | 'failed';
-  advice: ExpenseAiAdvice | null;
-}
-
 export interface ApprovalDetail extends ApprovalDecorated {
   canCancel: boolean;
   /** 申请人且非流程参与人时为 false：时间线与当前节点已裁剪，仅保留最终状态与驳回意见。 */

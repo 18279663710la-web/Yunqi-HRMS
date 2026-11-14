@@ -11,15 +11,13 @@ import {
   getApprovalList,
   getApprovalTabCounts,
   getPendingCount,
-  getLeaveApprover,
   submitApprovalAction,
-  previewExpenseApproval,
 } from '../../domains/approvals/approvalService';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { notFound } from '../../shared/utils/errors';
 import { success } from '../../shared/utils/response';
 import { retryWorkflowAi } from '../../domains/approvals/workflowAiWorker';
-import { getExpenseApprover, getApprovalApprover, parseApproverType } from '../../domains/approvals/expenseApproverService';
+import { parseApproverType } from '../../domains/approvals/expenseApproverService';
 
 const router = Router();
 router.use(requireAuth);
@@ -29,7 +27,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const raw = String(req.query.tab || 'pending');
     const tab = raw === 'mine' || raw === 'done' ? raw : 'pending';
-    success(res, await getApprovalList(tab, req.user));
+    const queryNumber = (value: unknown): number | undefined => value === undefined || value === '' ? undefined : Number(value);
+    const limit = queryNumber(req.query.limit);
+    const page = queryNumber(req.query.page);
+    const pageSize = queryNumber(req.query.pageSize);
+    success(res, await getApprovalList(tab, req.user, page !== undefined || pageSize !== undefined ? { limit, page, pageSize } : limit));
   })
 );
 
@@ -46,21 +48,6 @@ router.get(
     success(res, await getPendingCount(req.user));
   })
 );
-
-router.get(
-  '/approvals/leave-approver',
-  asyncHandler(async (req, res) => {
-    success(res, await getLeaveApprover(req.user));
-  })
-);
-
-router.get('/approvals/expense-approver', asyncHandler(async (_req, res) => {
-  success(res, await getExpenseApprover());
-}));
-
-router.get('/approvals/approvers/:type', asyncHandler(async (req, res) => {
-  success(res, await getApprovalApprover(parseApproverType(req.params.type)));
-}));
 
 router.get(
   '/approvals/:id',
@@ -94,29 +81,6 @@ const assigneeSchema = z.object({
 
 router.post('/approvals/assignees', asyncHandler(async (req, res) => {
   success(res, await previewApprovalAssignees(parse(assigneeSchema, req.body)));
-}));
-
-router.post('/approvals/expense-precheck', asyncHandler(async (req, res) => {
-  const payload = parse(createSchema, req.body);
-  success(res, await previewExpenseApproval(payload, req.user));
-}));
-
-router.post('/approvals/expense-precheck/stream', asyncHandler(async (req, res) => {
-  const payload = parse(createSchema, req.body);
-  const controller = new AbortController();
-  res.on('close', () => { if (!res.writableEnded) controller.abort(); });
-  const send = (event: unknown): void => {
-    if (res.destroyed || res.writableEnded) return;
-    if (!res.headersSent) {
-      res.status(200).set({ 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no' });
-      res.flushHeaders();
-    }
-    const json = JSON.stringify(event).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
-    res.write(`data: ${json}\n\n`);
-  };
-  const result = await previewExpenseApproval(payload, req.user, { onProgress: (text) => send({ type: 'progress', text }), signal: controller.signal });
-  send({ type: 'result', ...result });
-  if (!res.destroyed) res.end();
 }));
 
 router.post(

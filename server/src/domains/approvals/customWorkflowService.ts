@@ -25,7 +25,7 @@ export const customWorkflowSchema = z.object({
     id: identifier,
     kind: z.enum(['form', 'start', 'verify', 'approver', 'branch', 'end', 'ai']),
     position: z.object({ x: z.number().finite().min(-100000).max(100000), y: z.number().finite().min(-100000).max(100000) }),
-    config: z.object({ approverIds: z.array(z.string().trim().min(1).max(10)).max(20).optional(), outcome: z.enum(['approved', 'rejected']).optional(), provider: z.enum(['deepseek', 'openai-compatible']).optional(), model: z.string().trim().max(150).optional(), baseUrl: z.string().trim().max(500).optional(), rules: z.string().max(10000).optional(), hasApiKey: z.boolean().optional() }).strict().optional(),
+    config: z.object({ approverIds: z.array(z.string().trim().min(1).max(10)).max(20).optional(), outcome: z.enum(['approved', 'rejected']).optional(), provider: z.enum(['deepseek', 'openai-compatible']).optional(), model: z.string().trim().max(150).optional(), baseUrl: z.string().trim().max(500).optional(), rules: z.string().max(10000).optional(), hasApiKey: z.boolean().optional(), checkDuplicate: z.boolean().optional(), verifyInvoice: z.boolean().optional() }).strict().optional(),
   })).max(200),
   edges: z.array(z.object({ id: identifier, source: identifier, target: identifier, conditions: z.array(condition).max(20).optional() })).max(400),
   credentialUpdates: z.array(z.object({ nodeId: identifier, apiKey: z.string().trim().min(1).max(2048) }).strict()).max(200).optional(),
@@ -40,8 +40,10 @@ export function validateCustomWorkflowGraph(type: ApprovalApproverType, workflow
   for (const node of workflow.nodes) {
     if (node.kind === 'ai' && type !== 'expense') throw badRequest('AI 审批节点仅支持报销');
     if (node.config?.approverIds && (node.kind !== 'approver' || new Set(node.config.approverIds).size !== node.config.approverIds.length)) throw badRequest('审批人配置无效');
+    if (node.kind === 'approver' && (node.config?.approverIds?.length ?? 0) > 1) throw badRequest('审批人节点只能选择一名审批人，需要多人审批时请添加多个审批人节点');
     if (node.config?.outcome && node.kind !== 'end') throw badRequest('结束节点配置无效');
     if (node.kind !== 'ai' && node.config && ['provider', 'model', 'baseUrl', 'rules', 'hasApiKey'].some(key => key in node.config!)) throw badRequest('AI 审批节点配置无效');
+    if (node.kind !== 'verify' && node.config && ['checkDuplicate', 'verifyInvoice'].some(key => key in node.config!)) throw badRequest('系统查验配置无效');
     if (node.kind === 'ai' && node.config?.baseUrl) {
       try { const url = new URL(node.config.baseUrl); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error(); }
       catch { throw badRequest('请输入有效的模型接口地址'); }

@@ -40,15 +40,24 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
       { label: '结束日期', value: '2026-10-28' }, { label: '结束时间', value: '18:00' }, { label: '请假时长（天）', value: '999' },
     ];
     const types = ['leave', 'overtime', 'travel', 'purchase'];
+    let overtimeDay = 0;
+    const approvalForm = (type: string) => {
+      if (type === 'leave') return leaveForm;
+      if (type !== 'overtime') return [];
+      overtimeDay += 1;
+      return [
+        { label: '加班日期', value: `2026-11-${String(overtimeDay).padStart(2, '0')}` },
+        { label: '开始时间', value: '18:00' },
+        { label: '结束时间', value: '20:00' },
+      ];
+    };
     for (const type of types) {
       assert.equal((await request(`/admin/approval-approvers/${type}`, hr)).status, 403);
       assert.equal((await request(`/admin/approval-approvers/${type}`, hr, 'PUT', { employeeId: 'U011' })).status, 403);
-      assert.equal((await request(`/approvals/approvers/${type}`, applicant)).status, 400);
-      assert.equal((await request('/approvals', applicant, 'POST', { type, form: type === 'leave' ? leaveForm : [] })).status, 400, '未配置审批人不能自动通过');
+      assert.equal((await request('/approvals', applicant, 'POST', { type, form: approvalForm(type) })).status, 400, '未配置审批人不能自动通过');
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'missing' })).status, 400);
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U011' })).status, 200);
-      assert.equal((await request(`/approvals/approvers/${type}`, applicant)).body.data.id, 'U011');
-      const created = await request('/approvals', applicant, 'POST', { type, form: type === 'leave' ? leaveForm : [] });
+      const created = await request('/approvals', applicant, 'POST', { type, form: approvalForm(type) });
       assert.equal(created.status, 200);
       assert.equal(created.body.data.status, 'pending');
       assert.equal(created.body.data.timeline[1].approverId, 'U011');
@@ -58,7 +67,8 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
         await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('HISTORIC_OT','overtime','加班','历史加班','approved','U001','员工','','员工',?,NOW())`, [JSON.stringify([{ label: '补偿方式', value: '调休' }])]);
         const [historyBefore] = await conn.query(`SELECT id, form_json FROM \`${database}\`.approvals WHERE id = 'HISTORIC_OT'`);
         const legacy = await request('/approvals', applicant, 'POST', { type, summary: '2026-10-28 加班，补偿方式：调休', form: [
-          { label: '加班日期', value: '2026-10-28' }, { label: '补偿方式', value: '调休' }, { label: '补偿方式', value: '调休' },
+          { label: '加班日期', value: '2026-10-28' }, { label: '开始时间', value: '18:00' }, { label: '结束时间', value: '20:00' },
+          { label: '补偿方式', value: '调休' }, { label: '补偿方式', value: '调休' },
         ] });
         assert.equal(legacy.status, 200);
         assert.deepEqual(legacy.body.data.form.filter((item: { label: string }) => item.label === '补偿方式'), [{ label: '补偿方式', value: '加班费' }]);
@@ -69,11 +79,10 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U005' })).status, 200);
       assert.equal((await request(`/approvals/${created.body.data.id}`, reviewer)).body.data.timeline[1].approverId, 'U011');
       assert.equal((await request(`/approvals/${created.body.data.id}/action`, reviewer, 'POST', { action: 'approve' })).body.data.ok, true);
-      const own = await request('/approvals', issueTokens('U005').accessToken, 'POST', { type, form: type === 'leave' ? leaveForm : [] });
+      const own = await request('/approvals', issueTokens('U005').accessToken, 'POST', { type, form: approvalForm(type) });
       assert.equal(own.body.data.canApprove, true, '按照报销规则允许审批自己的申请');
     }
     assert.equal((await request('/admin/approval-approvers/unknown', admin)).status, 400);
-    assert.equal((await request('/approvals/approvers/unknown', applicant)).status, 400);
     const secondApprover = issueTokens('U012').accessToken;
     for (const type of [...types, 'expense']) {
       const path = `/admin/approval-workflows/${type}/approver-candidates`;
@@ -87,8 +96,7 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
     for (const type of types) {
       assert.ok((await request(`/admin/approval-approvers/${type}`, admin)).body.data.candidates.some((c: { id: string }) => c.id === 'U012'));
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U012' })).status, 200);
-      assert.equal((await request(`/approvals/approvers/${type}`, applicant)).body.data.id, 'U012');
-      const assigned = await request('/approvals', applicant, 'POST', { type, form: type === 'leave' ? leaveForm : [] });
+      const assigned = await request('/approvals', applicant, 'POST', { type, form: approvalForm(type) });
       assert.equal(assigned.status, 200);
       assert.equal(assigned.body.data.timeline[1].approverId, 'U012');
       assert.equal((await request(`/approvals/${assigned.body.data.id}`, secondApprover)).status, 200);
@@ -97,14 +105,14 @@ test('四类审批分别配置唯一审批人，新单流转、旧单不改派',
       assert.equal((await request(`/admin/approval-approvers/${type}`, admin, 'PUT', { employeeId: 'U005' })).status, 200);
       assert.equal((await request(`/approvals/${assigned.body.data.id}/action`, secondApprover, 'POST', { action: 'approve' })).body.data.ok, true, '修改配置不会影响审批人已接收的申请');
       assert.ok((await request('/approvals?tab=done', secondApprover)).body.data.some((a: { id: string }) => a.id === assigned.body.data.id));
-      const unassigned = await request('/approvals', applicant, 'POST', { type, form: type === 'leave' ? leaveForm : [] });
+      const unassigned = await request('/approvals', applicant, 'POST', { type, form: approvalForm(type) });
       assert.equal((await request(`/approvals/${unassigned.body.data.id}`, secondApprover)).status, 404);
       assert.equal((await request(`/approvals/${unassigned.body.data.id}/action`, secondApprover, 'POST', { action: 'approve' })).body.data.ok, false);
     }
     assert.equal((await request('/admin/approval-approvers/purchase', admin, 'PUT', { employeeId: 'U005' })).status, 200);
     await conn.query(`UPDATE \`${database}\`.employee_accounts SET status = 'disabled' WHERE employee_id = 'U005'`);
-    for (const type of types) assert.equal((await request(`/approvals/approvers/${type}`, applicant)).status, 400);
-    assert.equal((await request('/admin/expense-approver', admin)).body.data.approver, null, '其他类型不覆盖报销审批人');
+    for (const type of types) assert.equal((await request('/approvals', applicant, 'POST', { type, form: approvalForm(type) })).status, 400);
+    assert.equal((await request('/admin/approval-approvers/expense', admin)).body.data.approver, null, '其他类型不覆盖报销审批人');
   } finally {
     if (closeServer) await closeServer();
     if (closePool) await closePool();

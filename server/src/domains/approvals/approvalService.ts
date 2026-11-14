@@ -21,17 +21,21 @@ import { signExpenseFile } from './expenseFileAccess';
 import { calculateLeaveDays } from '../../shared/utils/leaveDuration';
 import { checkDuplicate, verifyInvoice } from '../invoices/invoiceService';
 import { ensureInvoicesVerified } from '../invoices/tencentInvoiceVerifier';
-import { getApprovalApprover, parseApproverType, getCustomWorkflowApproverCandidates } from './expenseApproverService';
+import { getApprovalApprover, parseApproverType, getActiveApproverCandidates } from './expenseApproverService';
 import { readPublishedWorkflow } from './customWorkflowPublication';
-import { planWorkflowExecution } from './customWorkflowExecutionPlan';
+import { expenseVerificationSelection, planWorkflowExecution } from './customWorkflowExecutionPlan';
+import { overtimeConflictMessage, overtimeInterval } from './overtimeOverlap';
 import { ownWorkflowValue, validateWorkflowTestCase, type WorkflowTestField } from './customWorkflowTestFields';
 import { employeeApprovalFields } from './approvalFormFields';
 import { advanceWorkflowTimeline } from './workflowAdvance';
 import { getWorkflowAiState } from './workflowAiWorker';
-import { enqueueExpenseAi, getExpenseAiAdvice, generateExpenseAdvice } from './expenseAiService';
-import { getExpenseRules } from './expenseRulesService';
-import { config } from '../../config';
+import { enqueueExpenseAi, getExpenseAiAdvice } from './expenseAiService';
 import type { RowDataPacket } from 'mysql2';
+
+function storedApprovalForm(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  try { return JSON.parse(value); } catch { return []; }
+}
 
 interface ApprovalRow {
   id: string;
@@ -187,10 +191,14 @@ export function toApproval(
   };
 }
 
-const APPROVAL_SELECT = `SELECT a.*, EXISTS (SELECT 1 FROM approval_workflow_instances i WHERE i.approval_id = a.id) AS is_custom_workflow, CASE WHEN a.applicant_position IN ('研发员', '业务员', '员工') OR EXISTS
+const APPLICANT_POSITION_SQL = `CASE WHEN a.applicant_position IN ('研发员', '业务员', '员工') OR EXISTS
        (SELECT 1 FROM job_titles t WHERE t.name = a.applicant_position)
-       THEN a.applicant_position ELSE COALESCE(e.position, a.applicant_position) END AS applicant_position
-     FROM approvals a LEFT JOIN employees e ON e.id = a.applicant_id`;
+       THEN a.applicant_position ELSE COALESCE(e.position, a.applicant_position) END`;
+const APPROVAL_FROM = 'FROM approvals a LEFT JOIN employees e ON e.id = a.applicant_id';
+const APPROVAL_SELECT = `SELECT a.*, EXISTS (SELECT 1 FROM approval_workflow_instances i WHERE i.approval_id = a.id) AS is_custom_workflow, ${APPLICANT_POSITION_SQL} AS applicant_position
+     ${APPROVAL_FROM}`;
+const APPROVAL_LIST_SELECT = `SELECT a.id, a.type, a.type_name, a.title, a.status, a.urgent, a.applicant_id, a.applicant_name, a.applicant_dept, a.node, a.summary, a.created_at, a.updated_at, ${APPLICANT_POSITION_SQL} AS applicant_position
+     ${APPROVAL_FROM}`;
 
 function approvalVisibility(tab: 'pending' | 'mine' | 'done', user: CurrentUser): { sql: string; params: string[] } {
   if (tab === 'pending') return { sql: `a.status = 'pending' AND EXISTS (SELECT 1 FROM approval_timeline t WHERE t.approval_id = a.id AND t.state = 'current' AND t.approver_id = ?)`, params: [user.id] };
@@ -277,14 +285,48 @@ async function countVisible(tab: 'pending' | 'mine' | 'done', user: CurrentUser)
   return Number(row?.total || 0);
 }
 
+function listWindow(limit?: number | { limit?: number; page?: number; pageSize?: number }): string {
+  if (limit === undefined) return '';
+  if (typeof limit === 'number') {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw badRequest('列表条数无效');
+    return ` LIMIT ${limit}`;
+  }
+  if (limit.limit !== undefined && limit.page !== undefined) throw badRequest('列表条数无效');
+  if (limit.page === undefined && limit.pageSize === undefined) {
+    if (limit.limit !== undefined && (!Number.isInteger(limit.limit) || limit.limit < 1 || limit.limit > 100)) throw badRequest('列表条数无效');
+    return limit.limit ? ` LIMIT ${limit.limit}` : '';
+  }
+  const page = limit.page;
+  if (page === undefined || !Number.isInteger(page) || page < 1) throw badRequest('列表页码无效');
+  const size = limit.pageSize ?? 20;
+  if (!Number.isInteger(size) || size < 1 || size > 100) throw badRequest('列表条数无效');
+  return ` LIMIT ${size} OFFSET ${(page - 1) * size}`;
+}
+
+async function hydrateApprovalList(rows: ApprovalRow[]): Promise<Approval[]> {
+  if (!rows.length) return [];
+  const ids = rows.map((row) => row.id);
+  const currentRows = await queryRows<{ approval_id: string; approver_id: string | null }>(
+    `SELECT approval_id, approver_id FROM approval_timeline WHERE state = 'current' AND approval_id IN (${ids.map(() => '?').join(',')})`,
+    ids,
+  );
+  const currentApprover = new Map(currentRows.map((row) => [row.approval_id, row.approver_id || undefined]));
+  return rows.map((row) => toApproval(row, currentApprover.has(row.id) ? [{ name: '', role: '', action: '', time: '', state: 'current', approverId: currentApprover.get(row.id) }] : [], []));
+}
+
 export async function getApprovalList(
   tab: 'pending' | 'mine' | 'done',
-  user: CurrentUser
-): Promise<ApprovalDecorated[]> {
+  user: CurrentUser,
+  limit?: number | { limit?: number; page?: number; pageSize?: number },
+): Promise<Array<Omit<ApprovalDecorated, 'form' | 'invoices' | 'timeline'>>> {
+  const windowSql = listWindow(limit);
   const filter = approvalVisibility(tab, user);
-  const rows = await queryRows<ApprovalRow>(`${APPROVAL_SELECT} WHERE ${filter.sql} ORDER BY a.urgent DESC, a.created_at DESC, a.id DESC`, filter.params);
-  const list = await hydrateApprovals(rows);
-  return list.map((item) => decorateApproval(item, user));
+  const rows = await queryRows<ApprovalRow>(`${APPROVAL_LIST_SELECT} WHERE ${filter.sql} ORDER BY a.urgent DESC, a.created_at DESC, a.id DESC${windowSql}`, filter.params);
+  const list = await hydrateApprovalList(rows);
+  return list.map((item) => {
+    const { form: _form, invoices: _invoices, timeline: _timeline, ...rest } = decorateApproval(item, user);
+    return rest;
+  });
 }
 
 export async function getApprovalTabCounts(user: CurrentUser): Promise<ApprovalTabCounts> {
@@ -429,41 +471,11 @@ async function insertInvoice(
   );
 }
 
-/** 提交前检查材料，不创建审批单，也不改变发票占用状态。 */
-export async function previewExpenseApproval(payload: CreateApprovalPayload, user: CurrentUser, options?: { onProgress?: (text: string) => void; signal?: AbortSignal }) {
-  if (payload.type !== 'expense') throw badRequest('仅支持报销预审');
-  const invoices = Array.isArray(payload.invoices) ? payload.invoices.map((invoice, i) => normalizeInvoiceInput(invoice, i)) : [];
-  if (!invoices.length) throw badRequest('请至少添加一张发票');
-  const keys = invoices.map((invoice) => {
-    if (invoice.isMock) throw badRequest('模拟发票不能用于预审');
-    const key = invoiceKey(invoice);
-    if (!key) throw badRequest('发票号码或代码不完整');
-    return key;
-  });
-  if (new Set(keys).size !== keys.length) throw badRequest('同一张发票不能重复添加');
-  const attachments = payload.attachments || [];
-  for (const file of [...attachments.map((item) => item.fileID), ...invoices.map((item) => item.fileID || '').filter(Boolean)]) {
-    if (!await queryOne('SELECT file_id FROM expense_uploads WHERE file_id = ? AND owner_id = ?', [file, user.id])) throw badRequest('附件无效，请重新上传');
-  }
-  const verification: Array<{ status: string; message: string; invoice: unknown; checkedAt: string }> = [];
-  await ensureInvoicesVerified(invoices, async (invoice) => {
-    const result = await verifyInvoice(invoice);
-    verification.push({ status: result.status, message: result.message, invoice: result.invoice, checkedAt: new Date().toISOString() });
-    return result;
-  });
-  const rules = await getExpenseRules();
-  if (!rules.content.trim()) return { status: 'no_rules', advice: null };
-  if (config.expenseAi.driver === 'deepseek' && !config.expenseAi.apiKey) return { status: 'unconfigured', advice: null };
-  try {
-    const advice = await generateExpenseAdvice({ title: payload.title || '报销申请', form: payload.form || [], invoices, verification, attachments }, rules.content.trim(), options);
-    return { status: 'completed', advice };
-  } catch {
-    return { status: 'failed', advice: null };
-  }
-}
-
-export async function getLeaveApprover(_user: CurrentUser): Promise<{ id: string; name: string; role: string }> {
-  return getApprovalApprover('leave');
+async function ownedUploadIds(ownerId: string, fileIds: string[], query: (sql: string, params: unknown[]) => Promise<Array<{ file_id: string }>>): Promise<Set<string>> {
+  const ids = [...new Set(fileIds.filter((id) => id))];
+  if (!ids.length) return new Set();
+  const rows = await query(`SELECT file_id FROM expense_uploads WHERE owner_id = ? AND file_id IN (${ids.map(() => '?').join(',')})`, [ownerId, ...ids]);
+  return new Set(rows.map((row) => row.file_id));
 }
 
 export function approvalAssigneesFromSteps(
@@ -486,27 +498,25 @@ export async function previewApprovalAssignees(payload: {
   type?: string;
   workflowValues?: Record<string, string>;
   invoices?: Array<{ totalAmount?: number }>;
-}): Promise<{ approvers: Array<{ id: string; name: string; role: string }> }> {
+}): Promise<{ approvers: Array<{ id: string; name: string; role: string }>; expenseChecks: { checkDuplicate: boolean; verifyInvoice: boolean } }> {
   const approvalType = parseApproverType(String(payload.type || '').trim());
   const publication = await readPublishedWorkflow(approvalType);
-  if (!publication) return { approvers: [await getApprovalApprover(approvalType)] };
+  if (!publication) return { approvers: [await getApprovalApprover(approvalType)], expenseChecks: { checkDuplicate: true, verifyInvoice: true } };
   const values = { ...(payload.workflowValues || {}) };
   if (approvalType === 'leave') {
     const days = calculateLeaveDays(values.startDate || '', values.startClock || '', values.endDate || '', values.endClock || '');
-    if (days === null) return { approvers: [] };
+    if (days === null) return { approvers: [], expenseChecks: { checkDuplicate: true, verifyInvoice: true } };
     values.days = String(days);
   }
   const invoices = Array.isArray(payload.invoices) ? payload.invoices : [];
-  // 未添加发票时按 0 元预览；流程未按金额分支时同样能给出确定的审批人。
+  // 未添加发票时按 0 元预览；流程未按金额分支时同样能给出确定的审批人。分支未匹配等配置问题直接抛出，让申请人看到真实原因。
   const branchValues = { ...values };
   if (approvalType === 'expense') branchValues.amount = expenseBranchAmount(invoices.map((invoice) => ({ totalAmount: Number(invoice.totalAmount) || 0 })));
-  try {
-    const plan = planWorkflowExecution(approvalType, publication.workflow, branchValues);
-    const candidates = await getCustomWorkflowApproverCandidates();
-    return { approvers: approvalAssigneesFromSteps(plan.steps, candidates.candidates) ?? [] };
-  } catch {
-    return { approvers: [] };
-  }
+  const plan = planWorkflowExecution(approvalType, publication.workflow, branchValues);
+  const candidates = await getActiveApproverCandidates(plan.steps.flatMap((step) => step.kind === 'approver' && step.approverId ? [step.approverId] : []));
+  const approvers = approvalAssigneesFromSteps(plan.steps, candidates);
+  if (!approvers) throw badRequest('审批人账号不可用，请联系管理员');
+  return { approvers, expenseChecks: approvalType === 'expense' ? expenseVerificationSelection(plan.steps) : { checkDuplicate: true, verifyInvoice: true } };
 }
 
 export async function createApproval(
@@ -557,6 +567,8 @@ export async function createApproval(
     const date = formWithInvoices.find((item) => item.label === '加班日期')?.value || '';
     summary = `${date} 加班，补偿方式：加班费`;
   }
+  const overtimeRange = typeKey === 'overtime' ? overtimeInterval(values ?? formWithInvoices) : null;
+  if (typeKey === 'overtime' && !overtimeRange) throw badRequest('结束时间需晚于开始时间');
   if (typeKey === 'leave') {
     const labeled = (label: string): string => {
       const matches = form.filter((item) => item.label === label);
@@ -585,23 +597,24 @@ export async function createApproval(
   const attachments = typeKey === 'expense' && Array.isArray(payload.attachments) ? payload.attachments : [];
   if (publication && typeKey === 'expense' && invoices.length) formWithInvoices.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0).toFixed(2)}` });
   if (typeKey === 'expense' && invoices.length === 0) throw badRequest('请至少添加一张发票');
-  const invoiceKeys = invoices.map((invoice) => {
-    if (invoice.isMock) throw badRequest('模拟识别结果不能用于报销，请使用真实发票信息');
-    const key = invoiceKey(invoice);
-    if (!key) throw badRequest('发票号码或代码不完整，无法查重');
-    return key;
-  });
-  if (new Set(invoiceKeys).size !== invoiceKeys.length) throw badRequest('同一张发票不能在一张报销单中重复添加');
+  if (invoices.some((invoice) => invoice.isMock)) throw badRequest('模拟识别结果不能用于报销，请使用真实发票信息');
   const branchValues = values ? { ...values } : undefined;
   if (branchValues && publication && typeKey === 'expense') branchValues.amount = expenseBranchAmount(invoices);
   const plan = publication && branchValues ? planWorkflowExecution(approvalType, publication.workflow, branchValues) : null;
-  const candidates = plan ? (await getCustomWorkflowApproverCandidates()).candidates : [];
+  const checks = typeKey === 'expense' ? expenseVerificationSelection(plan?.steps ?? []) : { checkDuplicate: true, verifyInvoice: true };
+  const invoiceKeys = checks.checkDuplicate ? invoices.map((invoice) => {
+    const key = invoiceKey(invoice);
+    if (!key) throw badRequest('发票号码或代码不完整，无法查重');
+    return key;
+  }) : [];
+  if (checks.checkDuplicate && new Set(invoiceKeys).size !== invoiceKeys.length) throw badRequest('同一张发票不能在一张报销单中重复添加');
+  const candidates = plan ? await getActiveApproverCandidates(plan.steps.flatMap((step) => step.kind === 'approver' ? [step.approverId] : [])) : [];
   const candidateMap = new Map(candidates.map(candidate => [candidate.id, candidate]));
   if (plan?.steps.some(step => step.kind === 'approver' && !candidateMap.has(step.approverId))) throw badRequest('审批人账号不可用，请联系管理员');
   const configuredApprover = plan ? null : await getApprovalApprover(approvalType);
   const verification: Array<{ status: string; message: string; invoice: unknown; checkedAt: string }> = [];
-  if (typeKey === 'expense') await ensureInvoicesVerified(invoices, async (invoice) => {
-    const result = await verifyInvoice(invoice);
+  if (typeKey === 'expense' && checks.verifyInvoice) await ensureInvoicesVerified(invoices, async (invoice) => {
+    const result = await verifyInvoice(invoice, { skipDuplicate: !checks.checkDuplicate });
     verification.push({ status: result.status, message: result.message, invoice: result.invoice, checkedAt: new Date().toISOString() });
     return result;
   });
@@ -639,19 +652,26 @@ export async function createApproval(
       const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status = 'departed' LIMIT 1 FOR UPDATE", [employeeId]);
       if (!employees.length || !accounts.length || accounts[0].status !== 'active' || departures.length) throw badRequest('申请人或审批人账号不可用，请联系管理员');
     }
+    if (overtimeRange) {
+      const [existingOvertime] = await conn.query<RowDataPacket[]>("SELECT status, form_json FROM approvals WHERE applicant_id = ? AND type = 'overtime' AND status IN ('pending', 'approved') FOR UPDATE", [user.id]);
+      const conflict = overtimeConflictMessage(overtimeRange, existingOvertime.map(row => ({ status: String(row.status), form: storedApprovalForm(row.form_json) })));
+      if (conflict) throw badRequest(conflict);
+    }
     let publishedCredentials: unknown = null;
     if (publication && plan) {
       const [published] = await conn.query<RowDataPacket[]>('SELECT publication_version, credentials_json FROM custom_approval_publications WHERE approval_type = ? FOR UPDATE', [typeKey]);
       if (!published.length || Number(published[0].publication_version) !== publication.publicationVersion) throw conflict('审批流程已更新，请重新打开申请页面');
       publishedCredentials = published[0].credentials_json;
     }
-    // 排序后逐一锁定，防止并发提交同一发票时同时通过查重。
-    for (const key of [...invoiceKeys].sort()) {
-      await conn.query('INSERT INTO invoice_identity_locks (invoice_key) VALUES (?) ON DUPLICATE KEY UPDATE invoice_key = VALUES(invoice_key)', [key]);
-    }
-    for (const invoice of invoices) {
-      const duplicate = await checkDuplicate(invoice, conn);
-      if (duplicate.blocking) throw badRequest('该发票已在审批中或已通过的单据中使用，请勿重复报销');
+    // 排序后逐一锁定，防止并发提交同一发票时同时通过查重。关闭查重的报销路径不占用发票。
+    if (checks.checkDuplicate) {
+      for (const key of [...invoiceKeys].sort()) {
+        await conn.query('INSERT INTO invoice_identity_locks (invoice_key) VALUES (?) ON DUPLICATE KEY UPDATE invoice_key = VALUES(invoice_key)', [key]);
+      }
+      for (const invoice of invoices) {
+        const duplicate = await checkDuplicate(invoice, conn);
+        if (duplicate.blocking) throw badRequest('该发票已在审批中或已通过的单据中使用，请勿重复报销');
+      }
     }
     approvalId = await insertApprovalRow(conn, now, [
       typeRow.key,
@@ -686,16 +706,14 @@ export async function createApproval(
       await insertInvoice(conn, inv, approvalId);
     }
     if (typeKey === 'expense') {
+      const loadOwned = (sql: string, params: unknown[]) => conn.query<RowDataPacket[]>(sql, params).then(([rows]) => rows as Array<{ file_id: string }>);
+      const ownedAttachments = await ownedUploadIds(user.id, attachments.map((attachment) => attachment.fileID), loadOwned);
       for (const attachment of attachments) {
-        const [owned] = await conn.query('SELECT file_id FROM expense_uploads WHERE file_id = ? AND owner_id = ?', [attachment.fileID, user.id]);
-        if (!(owned as unknown[]).length) throw badRequest('附件无效，请重新上传');
+        if (!ownedAttachments.has(attachment.fileID)) throw badRequest('附件无效，请重新上传');
         await conn.query('INSERT INTO expense_attachments (approval_id, file_id, name) VALUES (?, ?, ?)', [approvalId, attachment.fileID, attachment.name]);
       }
-      const aiInvoices = [];
-      for (const invoice of invoices) {
-        const [owned] = await conn.query('SELECT file_id FROM expense_uploads WHERE file_id = ? AND owner_id = ?', [invoice.fileID || '', user.id]);
-        aiInvoices.push({ ...invoice, fileID: (owned as unknown[]).length ? invoice.fileID : '' });
-      }
+      const ownedInvoices = await ownedUploadIds(user.id, invoices.map((invoice) => invoice.fileID || ''), loadOwned);
+      const aiInvoices = invoices.map((invoice) => ({ ...invoice, fileID: invoice.fileID && ownedInvoices.has(invoice.fileID) ? invoice.fileID : '' }));
       const aiInput = { title, form: formWithInvoices, invoices: aiInvoices, verification, attachments };
       const hasWorkflowAi = !!plan?.steps.some(step => step.kind === 'ai');
       if (plan && hasWorkflowAi) {

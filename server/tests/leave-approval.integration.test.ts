@@ -59,15 +59,6 @@ test('请假使用后台指定审批人，只有被指定的审批人可以处�
     const leaderToken = issueTokens(leader.id).accessToken;
     assert.equal((await request('/approvals', leaderToken, 'POST', validLeave)).status, 400);
     assert.equal((await request('/admin/approval-approvers/leave', admin, 'PUT', { employeeId: leader.id })).status, 200);
-    assert.equal((await request('/approvals/leave-approver', workerToken)).payload.data.id, leader.id);
-    assert.equal((await request('/approvals/leave-approver', leaderToken)).payload.data.id, leader.id);
-    for (const category of ['研发员', '业务员', '员工']) {
-      const categoryWorker = employees.find((item) => item.job_category === category && !item.is_leader);
-      const categoryLeader = employees.find((item) => item.job_category === category && item.is_leader);
-      assert.ok(categoryWorker && categoryLeader);
-      assert.equal((await request('/approvals/leave-approver', issueTokens(categoryWorker.id).accessToken)).payload.data.id, leader.id);
-      assert.equal((await request('/approvals/leave-approver', issueTokens(categoryLeader.id).accessToken)).payload.data.id, leader.id);
-    }
     assert.equal((await request('/approvals', workerToken, 'POST', { type: 'leave' })).status, 400);
     const invalidLeave = { ...validLeave, form: validLeave.form.map((item) => item.label === '结束日期' ? { ...item, value: '2026-10-27' } : item) };
     assert.equal((await request('/approvals', workerToken, 'POST', invalidLeave)).status, 400);
@@ -117,7 +108,13 @@ test('请假使用后台指定审批人，只有被指定的审批人可以处�
       request(`/approvals/${secondLeave.payload.data.id}/cancel`, leaderToken, 'POST', {}),
     ]);
     assert.equal(cancelAndApprove.filter((result) => result.payload.data.ok).length, 1);
-    assert.ok((await request('/approvals?tab=done', strangerToken)).payload.data.every((item: { timeline: Array<{ approverId?: string }> }) => item.timeline.some((node) => node.approverId === stranger.id)));
+    const doneList = (await request('/approvals?tab=done', strangerToken)).payload.data as Array<{ id: string; form?: unknown; timeline?: unknown; invoices?: unknown }>;
+    assert.ok(doneList.length > 0);
+    assert.ok(doneList.every((item) => item.form === undefined && item.timeline === undefined && item.invoices === undefined));
+    for (const item of doneList) {
+      const detail = (await request('/approvals/' + item.id, strangerToken)).payload.data as { timeline: Array<{ approverId?: string }> };
+      assert.ok(detail.timeline.some((node) => node.approverId === stranger.id));
+    }
     assert.equal((await request('/admin/approval-approvers/travel', admin, 'PUT', { employeeId: worker.id })).status, 200);
     const otherType = await request('/approvals', leaderToken, 'POST', { type: 'travel' });
     assert.equal(otherType.status, 200);

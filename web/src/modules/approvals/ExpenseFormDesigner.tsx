@@ -54,7 +54,7 @@ export function ExpenseFormDesigner({ approvalType, fields, initialized, onCance
     const names = new Set([...(definition.reservedLabels ?? []), ...RESERVED_LABELS, ...items.filter(item => item.locked).map(item => item.label)]);
     const next: CustomApprovalField[] = [];
     for (const item of items) {
-      if (item.locked) { next.push({ key: item.key, label: item.label, type: 'attachment', required: item.required, locked: true }); continue; }
+      if (item.locked) { next.push({ key: item.key, label: item.label, type: item.type, required: item.required, locked: true }); continue; }
       const label = item.label.trim();
       if (!label || names.has(label)) { message.error('字段名称不能为空或重复'); return; }
       names.add(label);
@@ -74,7 +74,7 @@ export function ExpenseFormDesigner({ approvalType, fields, initialized, onCance
         </span>} extra={item.locked ? undefined : <Button onClick={() => setItems(current => current.filter((_, i) => i !== index))}>删除</Button>}>
           <div className="onboarding-field-controls">
             <label className="onboarding-field-name"><span className="approval-field-caption"><span className="form-req">*</span>字段名称</span><Input aria-label={`字段${index + 1}名称`} maxLength={100} value={item.label} disabled={item.locked} onChange={event => update(index, { label: event.target.value })} /></label>
-            <label className="onboarding-field-type"><span className="approval-field-caption"><span className="form-req">*</span>字段类型</span><Select aria-label={`字段${index + 1}类型`} value={item.locked ? 'attachment' : item.type} disabled={item.locked} options={item.locked ? [{ value: 'attachment', label: '附件' }] : FIELD_TYPES} onChange={type => update(index, { type, options: type === 'picker' && !item.options.length ? ['', ''] : item.options })} /></label>
+            <label className="onboarding-field-type"><span className="approval-field-caption"><span className="form-req">*</span>字段类型</span><Select aria-label={`字段${index + 1}类型`} value={item.type} disabled={item.locked} options={item.type === 'attachment' ? [{ value: 'attachment', label: '附件' }] : FIELD_TYPES} onChange={type => update(index, { type, options: type === 'picker' && !item.options.length ? ['', ''] : item.options })} /></label>
           </div>
           <Checkbox className="onboarding-field-required" checked={item.required} disabled={item.locked} onChange={event => update(index, { required: event.target.checked })}>必填</Checkbox>
           {!item.locked && item.type === 'picker' && <section className="onboarding-subfields" aria-label={`${item.label.trim() || `字段 ${index + 1}`}的选项`}>

@@ -60,7 +60,7 @@ test('入职申请表设置是独立子页面且限制超级管理员', () => {
   assert.ok(!denied.includes('新建模板'));
 });
 
-test('五类审批各显示自己的流程画布，不显示类型选择，报销保留规则入口', () => {
+test('五类审批各显示自己的流程画布，不显示类型选择，也不显示 AI 审批规则', () => {
   for (const type of ['leave', 'expense', 'overtime', 'travel', 'purchase'] as const) {
     const html = renderToStaticMarkup(<App><ApprovalManagementView role="super_admin" type={type} /></App>);
     assert.ok(html.includes('salary-model-entries'));
@@ -68,8 +68,8 @@ test('五类审批各显示自己的流程画布，不显示类型选择，报�
     assert.ok(!html.includes('submodule-header'));
     assert.match(html, /<button[^>]*disabled[^>]*>清空<\/button>/);
     assert.match(html, /<button[^>]*disabled[^>]*>保存<\/button>/);
-    assert.match(html, /<button(?=[^>]*aria-label="添加节点")(?![^>]*disabled)[^>]*>/);
-    assert.equal(html.includes('AI 审批规则'), type === 'expense');
+    assert.match(html, /<button(?=[^>]*aria-label="添加节点")[^>]*>/);
+    assert.equal(html.includes('AI 审批规则'), false);
   }
   const denied = renderToStaticMarkup(<App><ApprovalManagementView role="hr_admin" type="leave" /></App>);
   assert.ok(denied.includes('仅超级管理员可访问'));

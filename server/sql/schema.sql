@@ -561,6 +561,8 @@ CREATE TABLE IF NOT EXISTS `approvals` (
   `updated_at` DATETIME NULL,
   KEY `idx_approvals_status` (`status`),
   KEY `idx_approvals_applicant` (`applicant_id`),
+  KEY `idx_approvals_applicant_sort` (`applicant_id`, `urgent`, `created_at`, `id`),
+  KEY `idx_approvals_type_status_applicant` (`type`, `status`, `applicant_id`),
   KEY `idx_approvals_sort` (`urgent`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -576,7 +578,8 @@ CREATE TABLE IF NOT EXISTS `approval_timeline` (
   `state` ENUM('done','current','wait','reject','stop') NOT NULL DEFAULT 'wait',
   `approver_id` VARCHAR(10) NULL,
   KEY `idx_timeline_approval` (`approval_id`, `step_no`),
-  KEY `idx_timeline_approver` (`approver_id`, `state`)
+  KEY `idx_timeline_approver` (`approver_id`, `state`),
+  KEY `idx_timeline_approver_approval` (`approver_id`, `state`, `approval_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `invoices` (
