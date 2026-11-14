@@ -35,6 +35,14 @@ test('加班打卡须经本人审批、从申请开始时间开放并独立于�
     assert.equal(afterEnd.body.data?.ok, false);
     assert.equal(afterEnd.body.data?.message, '已过申请的加班结束时间');
     assert.equal((await call('/attendance/overtime', employee)).body.data.find((item: any) => item.approvalId === 'OT5').canPunch, false);
+    const noEnd = JSON.stringify([{ label: '加班日期', value: '2026-10-27' }, { label: '开始时间', value: '19:30' }, { label: '补偿方式', value: '加班费' }]);
+    const inverted = JSON.stringify([{ label: '加班日期', value: '2026-10-27' }, { label: '开始时间', value: '22:00' }, { label: '结束时间', value: '02:00' }, { label: '补偿方式', value: '加班费' }]);
+    await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('OT6','overtime','加班','加班','approved','U001','员工','','员工',?,NOW()), ('OT7','overtime','加班','加班','approved','U001','员工','','员工',?,NOW())`, [noEnd, inverted]);
+    assert.equal((await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT6', type: 'in', ...position })).body.data?.ok, true);
+    await conn.query(`DELETE FROM \`${database}\`.attendance_overtime_punches WHERE approval_id = 'OT6'`);
+    t.mock.timers.setTime(new Date('2026-10-27T23:00:00').getTime());
+    assert.equal((await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT7', type: 'in', ...position })).body.data?.ok, true);
+    await conn.query(`DELETE FROM \`${database}\`.attendance_overtime_punches WHERE approval_id = 'OT7'`);
     t.mock.timers.setTime(new Date('2026-10-27T19:30:00').getTime());
     assert.notEqual((await call('/attendance/overtime/punch', other, 'POST', { approvalId: 'OT1', type: 'in', ...position })).body.data?.ok, true);
     assert.notEqual((await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT2', type: 'in', ...position })).body.data?.ok, true);
