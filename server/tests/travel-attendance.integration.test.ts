@@ -46,7 +46,7 @@ test('出差审批通过后按起止日期标记出差状态并计入出勤', as
 
     // 固定时间到无历史演示数据的工作日；出差区间 8-05（周三）至 8-07（周五）。
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-08-06T10:00:00') });
-    const position = { latitude: 23.1, longitude: 113.3, accuracy: 10 };
+    const position = { latitude: 23.10012, longitude: 113.3, accuracy: 10 };
 
     // 建考勤组绑定种子默认公司日历，保证出勤天数可解析。
     const rules = await request('/admin/models-formulas/calendar-rules', admin);

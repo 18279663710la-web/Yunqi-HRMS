@@ -52,7 +52,7 @@ test('考勤设置和打卡接口在独立数据库中验证时段、休息日�
       return { status: response.status, payload: await response.json() as { data?: any; message?: string } };
     }
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-27T17:30:00') });
-    const position = { latitude: 23.1, longitude: 113.3, accuracy: 10 };
+    const position = { latitude: 23.10012, longitude: 113.3, accuracy: 10 };
     const unconfigured = await request('/attendance/punch', employee, 'POST', { type: 'in', ...position });
     assert.equal(unconfigured.payload.data.ok, false);
     const settings = { startTime: '08:00', inEndTime: '10:00', endTime: '17:00', outEndTime: '18:30', restDates: ['2026-10-28'], latitude: 23.1, longitude: 113.3, radius: 100 };

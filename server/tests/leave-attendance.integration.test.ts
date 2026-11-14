@@ -46,7 +46,7 @@ test('请假审批通过后按起止日期标记请假状态，休息日与出�
 
     // 固定时间：请假 8-06（周四，半天 14:00 起）至 8-07（周五）；8-07 同时是日历例外休息日（休息优先）。
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-08-07T10:00:00') });
-    const position = { latitude: 23.1, longitude: 113.3, accuracy: 10 };
+    const position = { latitude: 23.10012, longitude: 113.3, accuracy: 10 };
 
     // 建考勤组绑定日历；日历设 8-07 为例外休息日（验证休息优先于请假）。
     const rules = await request('/admin/models-formulas/calendar-rules', admin);

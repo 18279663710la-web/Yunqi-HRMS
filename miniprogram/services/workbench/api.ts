@@ -4,13 +4,8 @@ QuickAction,
 TodoStats
 } from '../../types/models';
 import {
-get,
-post
+get
 } from '../../utils/request';
-
-export async function resetDemoData(): Promise<void> {
-  await post('/demo/reset', {});
-}
 
 export function getCompany(): Promise<Company> {
   return get<Company>('/company');

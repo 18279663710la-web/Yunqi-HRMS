@@ -37,6 +37,15 @@ export function getPunchWindow(settings: PunchSchedule, date: string, currentTim
 export interface Location { latitude: number; longitude: number; accuracy: number }
 export interface Site { latitude: number; longitude: number; radius: number }
 
+/** 员工端只看时段和半径。打卡点经纬度留在服务端，避免直接抄回来提交。 */
+export function toEmployeeAttendanceSettings<T extends { latitude: number; longitude: number }>(
+  settings: T | null
+): Omit<T, 'latitude' | 'longitude'> | null {
+  if (!settings) return null;
+  const { latitude: _latitude, longitude: _longitude, ...view } = settings;
+  return view;
+}
+
 export function validatePunchLocation(site: Site | null, location?: Location): { ok: boolean; message: string; distance?: number } {
   if (!site) return { ok: false, message: '管理员尚未设置打卡地点' };
   if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude) ||
@@ -50,6 +59,8 @@ export function validatePunchLocation(site: Site | null, location?: Location): {
   const deltaLng = (location.longitude - site.longitude) * rad;
   const a = Math.sin(deltaLat / 2) ** 2 + Math.cos(site.latitude * rad) * Math.cos(location.latitude * rad) * Math.sin(deltaLng / 2) ** 2;
   const distance = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+  // 半径大于 1 米时，与打卡点重合视为抄录坐标，而不是现场定位。
+  if (site.radius > 1 && distance < 1) return { ok: false, message: '定位与打卡点重合，请重新获取定位', distance };
   if (distance > site.radius) return { ok: false, message: `不在打卡范围内（距打卡点约 ${Math.round(distance)} 米）`, distance };
   return { ok: true, message: '定位验证通过', distance };
 }

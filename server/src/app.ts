@@ -9,7 +9,6 @@ import approvalsRoutes from './miniprogram/approvals/approvalsRoutes';
 import attendanceRoutes from './miniprogram/attendance/attendanceRoutes';
 import authRoutes from './miniprogram/auth/authRoutes';
 import companyRoutes from './miniprogram/workbench/companyRoutes';
-import demoRoutes from './miniprogram/workbench/demoRoutes';
 import invoicesRoutes from './miniprogram/invoices/invoicesRoutes';
 import noticesRoutes from './miniprogram/notices/noticesRoutes';
 import orgRoutes from './miniprogram/contacts/orgRoutes';
@@ -71,7 +70,6 @@ export function createApp(): express.Express {
   app.use('/api', noticesRoutes);
   app.use('/api', invoicesRoutes);
   app.use('/api', todoRoutes);
-  app.use('/api', demoRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

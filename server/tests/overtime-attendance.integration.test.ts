@@ -22,7 +22,7 @@ test('加班打卡须经本人审批、从申请开始时间开放并独立于�
     await conn.query(`INSERT INTO \`${database}\`.attendance_settings (id, start_time, in_end_time, end_time, out_end_time, rest_dates, latitude, longitude, radius) VALUES (1, '08:00', '10:00', '17:00', '18:00', ?, 23.1, 113.3, 100)`, [JSON.stringify(['2026-10-27'])]);
     const form = JSON.stringify([{ label: '加班日期', value: '2026-10-27' }, { label: '开始时间', value: '19:30' }, { label: '结束时间', value: '20:00' }, { label: '补偿方式', value: '加班费' }]);
     await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('OT1','overtime','加班','加班','approved','U001','员工','','员工',?,NOW()), ('OT2','overtime','加班','加班','pending','U001','员工','','员工',?,NOW()), ('OT5','overtime','加班','加班','approved','U001','员工','','员工',?,NOW())`, [form, form, form]);
-    const position = { latitude: 23.1, longitude: 113.3, accuracy: 10 };
+    const position = { latitude: 23.10012, longitude: 113.3, accuracy: 10 };
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-27T19:29:00') });
     const before = (await call('/attendance/overtime', employee)).body.data;
     assert.equal(before.length, 2); assert.ok(before.every((item: any) => !item.canPunch));

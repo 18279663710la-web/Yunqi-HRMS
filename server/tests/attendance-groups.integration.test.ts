@@ -47,7 +47,7 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
 
     // 使用不在种子考勤范围内的工作日，避免历史演示数据干扰。
     t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-08-04T17:30:00') });
-    const position = { latitude: 23.1, longitude: 113.3, accuracy: 10 };
+    const position = { latitude: 23.10012, longitude: 113.3, accuracy: 10 };
     const initialSettings = {
       startTime: '08:00', inEndTime: '10:00', endTime: '16:00', outEndTime: '16:30',
       restDates: ['2026-08-03'],
@@ -93,6 +93,9 @@ test('考勤组独立保存规则并覆盖所选员工，未分配员工使用�
 
     const earlyEmployee = await request('/attendance/settings', employee('U001'));
     assert.equal(earlyEmployee.payload.data.startTime, '17:00');
+    assert.equal(earlyEmployee.payload.data.radius, 100);
+    assert.equal(Object.prototype.hasOwnProperty.call(earlyEmployee.payload.data, 'latitude'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(earlyEmployee.payload.data, 'longitude'), false);
     const unassignedEmployee = await request('/attendance/settings', employee('U011'));
     assert.equal(unassignedEmployee.payload.data.startTime, '17:00');
 

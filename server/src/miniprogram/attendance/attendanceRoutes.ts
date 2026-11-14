@@ -12,6 +12,7 @@ import {
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
 import { getAttendanceSettingsForEmployee } from '../../domains/attendance/attendanceGroups';
+import { toEmployeeAttendanceSettings } from '../../domains/attendance/attendancePolicy';
 import { listOvertimePunches, punchOvertime } from '../../domains/attendance/overtimeAttendanceService';
 import visitRoutes from './visitRoutes';
 
@@ -20,7 +21,7 @@ router.use(requireAuth);
 router.use('/visits', visitRoutes);
 
 router.get('/settings', asyncHandler(async (req, res) => {
-  success(res, await getAttendanceSettingsForEmployee(req.user.id));
+  success(res, toEmployeeAttendanceSettings(await getAttendanceSettingsForEmployee(req.user.id)));
 }));
 
 router.get('/overtime', asyncHandler(async (req, res) => { success(res, await listOvertimePunches(req.user.id)); }));

@@ -314,8 +314,6 @@ export interface AttendanceSettings {
   endTime: string;
   outEndTime: string | null;
   restDates: string[];
-  latitude: number;
-  longitude: number;
   radius: number;
 }
 

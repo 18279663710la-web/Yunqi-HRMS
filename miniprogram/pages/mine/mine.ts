@@ -3,7 +3,6 @@ import * as authApi from '../../services/auth/api';
 import * as workbenchApi from '../../services/workbench/api';
 import type { Company, CurrentUser, TodoStats, TodayAttendance } from '../../types/models';
 import { getCustomTabBar, type TapEvent } from '../../types/ui';
-import { toast } from '../../utils/util';
 
 interface MenuItem {
   key: string;
@@ -30,7 +29,6 @@ interface MineCustom {
   showNotifySetting(): void;
   showAbout(): void;
   showLogout(): void;
-  showReset(): void;
 }
 
 Page<MineData, MineCustom>({
@@ -57,7 +55,6 @@ Page<MineData, MineCustom>({
       { key: 'notify', name: '消息提醒设置', icon: 'bell' },
       { key: 'about', name: '关于云启科技', icon: 'info' },
       { key: 'logout', name: '退出登录', icon: 'logout', danger: true },
-      { key: 'reset', name: '重置演示数据', icon: 'refresh', danger: true },
     ],
   },
 
@@ -123,7 +120,6 @@ Page<MineData, MineCustom>({
     if (key === 'notify') this.showNotifySetting();
     else if (key === 'about') this.showAbout();
     else if (key === 'logout') this.showLogout();
-    else if (key === 'reset') this.showReset();
   },
 
   showNotifySetting() {
@@ -157,29 +153,6 @@ Page<MineData, MineCustom>({
         authApi.logout();
         getApp<IAppOption>().globalData.userInfo = null;
         wx.reLaunch({ url: '/pages/login/login' });
-      },
-    });
-  },
-
-  showReset() {
-    wx.showModal({
-      title: '重置演示数据',
-      content: '将重置打卡记录、公告和已读状态，保留审批与发票数据。确定继续吗？',
-      confirmText: '确认重置',
-      confirmColor: '#F04438',
-      success: (res) => {
-        if (!res.confirm) return;
-        void (async () => {
-          try {
-            await workbenchApi.resetDemoData();
-            const tabBar = getCustomTabBar(this);
-            if (tabBar) tabBar.refreshBadge();
-            await this.load();
-            toast('演示数据已重置');
-          } catch {
-            // 请求层已提示
-          }
-        })();
       },
     });
   },

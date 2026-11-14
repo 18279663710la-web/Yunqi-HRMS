@@ -229,7 +229,8 @@ async function touchMeta(conn: PoolConnection): Promise<void> {
 }
 
 /**
- * 小程序「重置演示数据」：重置公告、考勤和查验缓存，保留审批、发票及员工账号。
+ * 测试辅助：重置公告、考勤和查验缓存，保留审批、发票及员工账号。
+ * 不对外提供接口。
  */
 export async function resetDemoContent(): Promise<void> {
   await transaction(async (conn) => {
