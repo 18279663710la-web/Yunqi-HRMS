@@ -1,9 +1,9 @@
-import type { ResultSetHeader } from 'mysql2/promise';
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { z } from 'zod';
 
 import { queryOne, queryRows, transaction } from '../../shared/db/pool';
 import type { AdminUser } from '../../shared/types/admin';
-import { conflict, notFound } from '../../shared/utils/errors';
+import { badRequest, conflict, notFound } from '../../shared/utils/errors';
 import { recordAdminLog } from '../audit/adminLogService';
 
 export type CompanyCalendarMode = 'none' | 'weekly' | 'cycle';
@@ -129,12 +129,14 @@ function normalize(input: CompanyCalendarRuleInput): CompanyCalendarRuleInput {
   };
 }
 
-async function assertNameAvailable(name: string, excludeId?: number): Promise<void> {
-  const row = await queryOne<{ id: number }>(
-    'SELECT id FROM company_calendar_rules WHERE name = ? AND id <> ? LIMIT 1',
-    [name, excludeId ?? 0]
-  );
-  if (row) throw conflict('日历名称已存在');
+function duplicateName(error: unknown): boolean {
+  return (error as { code?: string }).code === 'ER_DUP_ENTRY';
+}
+
+/** 在写入考勤组的同一个事务里锁住日历行，避免日历被并发删除后仍挂上悬空编号。 */
+export async function lockCompanyCalendarRule(conn: PoolConnection, id: number): Promise<void> {
+  const [rows] = await conn.query<RowDataPacket[]>('SELECT id FROM company_calendar_rules WHERE id = ? FOR UPDATE', [id]);
+  if (!rows.length) throw badRequest('请选择有效的公司日历');
 }
 
 export async function listCompanyCalendarRules(): Promise<CompanyCalendarRule[]> {
@@ -173,20 +175,27 @@ export async function createCompanyCalendarRule(
   admin: AdminUser
 ): Promise<CompanyCalendarRule> {
   const settings = normalize(companyCalendarRuleSchema.parse(input));
-  await assertNameAvailable(settings.name);
-  const id = await transaction(async (conn) => {
-    const [result] = await conn.query<ResultSetHeader>(
-      `INSERT INTO company_calendar_rules
-        (name, mode, weekly_rest_days, cycle_weeks, cycle_rest_days, anchor_date, rest_dates, work_dates, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [
-        settings.name, settings.mode, JSON.stringify(settings.weeklyRestDays),
-        settings.cycleWeeks ?? null, JSON.stringify(settings.cycleRestDays), settings.anchorDate ?? null,
-        JSON.stringify(settings.restDates), JSON.stringify(settings.workDates),
-      ]
-    );
-    return Number(result.insertId);
-  });
+  let id: number;
+  try {
+    id = await transaction(async (conn) => {
+      const [named] = await conn.query<RowDataPacket[]>('SELECT id FROM company_calendar_rules WHERE name = ? FOR UPDATE', [settings.name]);
+      if (named.length) throw conflict('日历名称已存在');
+      const [result] = await conn.query<ResultSetHeader>(
+        `INSERT INTO company_calendar_rules
+          (name, mode, weekly_rest_days, cycle_weeks, cycle_rest_days, anchor_date, rest_dates, work_dates, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          settings.name, settings.mode, JSON.stringify(settings.weeklyRestDays),
+          settings.cycleWeeks ?? null, JSON.stringify(settings.cycleRestDays), settings.anchorDate ?? null,
+          JSON.stringify(settings.restDates), JSON.stringify(settings.workDates),
+        ]
+      );
+      return Number(result.insertId);
+    });
+  } catch (error) {
+    if (duplicateName(error)) throw conflict('日历名称已存在');
+    throw error;
+  }
   const rule = await getCompanyCalendarRule(id);
   if (!rule) throw new Error('公司日历创建失败');
   await recordAdminLog(admin, '创建公司日历', 'company_calendar_rule', String(id), { name: rule.name, mode: rule.mode });
@@ -198,23 +207,29 @@ export async function updateCompanyCalendarRule(
   input: CompanyCalendarRuleInput,
   admin: AdminUser
 ): Promise<CompanyCalendarRule> {
-  const existing = await getCompanyCalendarRule(id);
-  if (!existing) throw notFound('公司日历不存在');
   const settings = normalize(companyCalendarRuleSchema.parse(input));
-  await assertNameAvailable(settings.name, id);
-  await transaction(async (conn) => {
-    await conn.query(
-      `UPDATE company_calendar_rules
-       SET name = ?, mode = ?, weekly_rest_days = ?, cycle_weeks = ?, cycle_rest_days = ?,
-           anchor_date = ?, rest_dates = ?, work_dates = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [
-        settings.name, settings.mode, JSON.stringify(settings.weeklyRestDays),
-        settings.cycleWeeks ?? null, JSON.stringify(settings.cycleRestDays), settings.anchorDate ?? null,
-        JSON.stringify(settings.restDates), JSON.stringify(settings.workDates), id,
-      ]
-    );
-  });
+  try {
+    await transaction(async (conn) => {
+      const [existingRows] = await conn.query<RowDataPacket[]>('SELECT id FROM company_calendar_rules WHERE id = ? FOR UPDATE', [id]);
+      if (!existingRows.length) throw notFound('公司日历不存在');
+      const [named] = await conn.query<RowDataPacket[]>('SELECT id FROM company_calendar_rules WHERE name = ? AND id <> ? FOR UPDATE', [settings.name, id]);
+      if (named.length) throw conflict('日历名称已存在');
+      await conn.query(
+        `UPDATE company_calendar_rules
+         SET name = ?, mode = ?, weekly_rest_days = ?, cycle_weeks = ?, cycle_rest_days = ?,
+             anchor_date = ?, rest_dates = ?, work_dates = ?, updated_at = NOW()
+         WHERE id = ?`,
+        [
+          settings.name, settings.mode, JSON.stringify(settings.weeklyRestDays),
+          settings.cycleWeeks ?? null, JSON.stringify(settings.cycleRestDays), settings.anchorDate ?? null,
+          JSON.stringify(settings.restDates), JSON.stringify(settings.workDates), id,
+        ]
+      );
+    });
+  } catch (error) {
+    if (duplicateName(error)) throw conflict('日历名称已存在');
+    throw error;
+  }
   const rule = await getCompanyCalendarRule(id);
   if (!rule) throw new Error('公司日历更新失败');
   await recordAdminLog(admin, '修改公司日历', 'company_calendar_rule', String(id), { name: rule.name, mode: rule.mode });
@@ -222,17 +237,15 @@ export async function updateCompanyCalendarRule(
 }
 
 export async function deleteCompanyCalendarRule(id: number, admin: AdminUser): Promise<void> {
-  const existing = await getCompanyCalendarRule(id);
-  if (!existing) throw notFound('公司日历不存在');
-  const usage = await queryOne<{ total: number }>(
-    'SELECT COUNT(*) AS total FROM attendance_groups WHERE calendar_rule_id = ?',
-    [id]
-  );
-  if (Number(usage?.total || 0) > 0) throw conflict('该日历已被考勤组使用，不能删除');
-  await transaction(async (conn) => {
+  const name = await transaction(async (conn) => {
+    const [existingRows] = await conn.query<RowDataPacket[]>('SELECT name FROM company_calendar_rules WHERE id = ? FOR UPDATE', [id]);
+    if (!existingRows.length) throw notFound('公司日历不存在');
+    const [groups] = await conn.query<RowDataPacket[]>('SELECT id FROM attendance_groups WHERE calendar_rule_id = ? FOR UPDATE', [id]);
+    if (groups.length) throw conflict('该日历已被考勤组使用，不能删除');
     await conn.query('DELETE FROM company_calendar_rules WHERE id = ?', [id]);
+    return String(existingRows[0].name);
   });
-  await recordAdminLog(admin, '删除公司日历', 'company_calendar_rule', String(id), { name: existing.name });
+  await recordAdminLog(admin, '删除公司日历', 'company_calendar_rule', String(id), { name });
 }
 
 const DAY_MS = 86400000;

@@ -1,10 +1,13 @@
-import { get, post, upload } from '../../utils/request';
+import { del, get, post, upload } from '../../utils/request';
 import type { InputEvent, TapEvent } from '../../types/ui';
 
 interface AttachmentRef { id: string; name: string; size: number }
 interface OnboardingField { name: string; type: 'text' | 'number' | 'date' | 'select' | 'attachment' | 'table'; required: boolean; maxLength?: number; min?: number; max?: number; options?: string[]; value: string; valueIndex?: number; files?: AttachmentRef[]; children?: OnboardingField[]; rows?: { id: string; values: Record<string, string>; indexes?: Record<string, number>; files?: Record<string, AttachmentRef[]> }[] }
 function previousFiles(value: unknown): AttachmentRef[] {
   return Array.isArray(value) ? value.filter((file): file is AttachmentRef => !!file && typeof file === 'object' && typeof file.id === 'string' && typeof file.name === 'string' && typeof file.size === 'number').slice(0, 5) : [];
+}
+function numberAllowed(field: { min?: number; max?: number }, value: number): boolean {
+  return Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max);
 }
 function compatiblePreviousValue(field: OnboardingField, value: unknown): string {
   if (typeof value !== 'string' && typeof value !== 'number') return '';
@@ -13,7 +16,7 @@ function compatiblePreviousValue(field: OnboardingField, value: unknown): string
   if (field.type === 'number') {
     if (!text.trim()) return '';
     const number = Number(text);
-    return Number.isFinite(number) && (field.min === undefined || number >= field.min) && (field.max === undefined || number <= field.max) ? text : '';
+    return numberAllowed(field, number) ? text : '';
   }
   if (field.type === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
   if (field.type === 'text') return text.length <= (field.maxLength ?? 500) ? text : '';
@@ -150,10 +153,13 @@ Page<FormData, FormMethods>({
       }
     } });
   },
-  removeAttachment(e: TapEvent) {
+  async removeAttachment(e: TapEvent) {
     const onboarding = this.data.onboarding; const field = onboarding?.template[Number(e.currentTarget.dataset.index)];
     if (!onboarding || !field || this.data.onboardingUploading) return;
     const id = String(e.currentTarget.dataset.id || '');
+    if (!id) return;
+    try { await del(`/onboarding-form/attachments/${id}`); }
+    catch { return; }
     if (e.currentTarget.dataset.row !== undefined) {
       const row = field.rows?.[Number(e.currentTarget.dataset.row)]; const child = field.children?.[Number(e.currentTarget.dataset.child)];
       if (!row || !child || !row.files) return;
@@ -194,7 +200,7 @@ Page<FormData, FormMethods>({
             if (child.type === 'attachment') { const files = row.files?.[child.name] || []; if (!files.length && child.required) { wx.showToast({ title: `请上传${child.name}`, icon: 'none' }); return; } if (files.length) output[child.name] = files; continue; }
             const cell = (row.values[child.name] || '').trim();
             if (!cell) { if (child.required) { wx.showToast({ title: `请填写${child.name}`, icon: 'none' }); return; } continue; }
-            if (child.type === 'number') { const n = Number(cell); if (!Number.isFinite(n)) { wx.showToast({ title: `${child.name}需填写数字`, icon: 'none' }); return; } output[child.name] = n; }
+            if (child.type === 'number') { const n = Number(cell); if (!Number.isFinite(n)) { wx.showToast({ title: `${child.name}需填写数字`, icon: 'none' }); return; } if (!numberAllowed(child, n)) { wx.showToast({ title: `${child.name}数值不符合要求`, icon: 'none' }); return; } output[child.name] = n; }
             else if (child.type === 'select') { if (!(child.options || []).includes(cell)) { wx.showToast({ title: `${child.name}选项无效`, icon: 'none' }); return; } output[child.name] = cell; }
             else output[child.name] = cell;
           }
@@ -206,7 +212,7 @@ Page<FormData, FormMethods>({
       if (field.type === 'attachment') { const files = field.files || []; if (!files.length && field.required) { wx.showToast({ title: `请上传${field.name}`, icon: 'none' }); return; } if (files.length) answers[field.name] = files; continue; }
       const value = field.value.trim();
       if (!value) { if (field.required) { wx.showToast({ title: `请填写${field.name}`, icon: 'none' }); return; } continue; }
-      if (field.type === 'number') { const n = Number(value); if (!Number.isFinite(n)) { wx.showToast({ title: `${field.name}需填写数字`, icon: 'none' }); return; } answers[field.name] = n; }
+      if (field.type === 'number') { const n = Number(value); if (!Number.isFinite(n)) { wx.showToast({ title: `${field.name}需填写数字`, icon: 'none' }); return; } if (!numberAllowed(field, n)) { wx.showToast({ title: `${field.name}数值不符合要求`, icon: 'none' }); return; } answers[field.name] = n; }
       else if (field.type === 'select') { if (!(field.options || []).includes(value)) { wx.showToast({ title: `${field.name}选项无效`, icon: 'none' }); return; } answers[field.name] = value; }
       else answers[field.name] = value;
     }

@@ -42,8 +42,12 @@ test('入职附件支持普通及表格字段，按员工和申请隔离并保�
     const oversized = new FormData(); oversized.set('field', '资料'); oversized.set('file', new Blob([new Uint8Array(10 * 1024 * 1024 + 1)]), 'large.bin');
     assert.equal((await fetch(base + '/onboarding-form/attachments', { method: 'POST', headers: { Authorization: `Bearer ${employee}` }, body: oversized })).status, 400);
     const first = await upload(employee, '资料'); assert.equal(first.status, 200);
-    for (let index = 0; index < 4; index += 1) assert.equal((await upload(employee, '资料')).status, 200);
+    let latest = first;
+    for (let index = 0; index < 4; index += 1) { latest = await upload(employee, '资料'); assert.equal(latest.status, 200); }
     assert.equal((await upload(employee, '资料')).status, 400);
+    assert.equal((await call(`/onboarding-form/attachments/${latest.body.data.id}`, employee, 'DELETE')).status, 200);
+    const replaced = await upload(employee, '资料'); assert.equal(replaced.status, 200);
+    assert.equal((await call(`/onboarding-form/attachments/${first.body.data.id}`, other, 'DELETE')).status, 404);
     const second = await upload(employee, '经历', '证明'); assert.equal(second.status, 200);
     for (let index = 0; index < 5; index += 1) assert.equal((await upload(employee, '经历', '证明')).status, 200);
     const foreign = await upload(other, '资料'); assert.equal(foreign.status, 200);
@@ -63,6 +67,9 @@ test('入职附件支持普通及表格字段，按员工和申请隔离并保�
     assert.equal((await fetch(base + downloadPath, { headers: { Authorization: `Bearer ${hr}` } })).status, 403);
     assert.equal((await call(`/admin/onboarding-form/applications/${application.body.data.id}/return`, admin, 'POST', {})).status, 200);
     const pending = await call('/onboarding-form/pending', employee); assert.deepEqual(pending.body.data.previous.values.资料, [first.body.data]);
+    const afterReturn = await upload(employee, '资料'); assert.equal(afterReturn.status, 200);
+    assert.equal((await call(`/onboarding-form/attachments/${first.body.data.id}`, employee, 'DELETE')).status, 200);
+    assert.equal((await fetch(base + downloadPath, { headers: { Authorization: `Bearer ${admin}` } })).status, 200);
     const history = await call(`/admin/onboarding-form/applications/${application.body.data.id}/submissions`, admin); assert.deepEqual(history.body.data[0].answers.values.资料, [first.body.data]);
     assert.equal((await submit([first.body.data], [second.body.data])).status, 200);
     assert.equal((await call(`/admin/onboarding-form/applications/${application.body.data.id}/archive`, admin, 'POST', {})).status, 200);

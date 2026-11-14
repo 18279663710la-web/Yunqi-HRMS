@@ -24,7 +24,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
         if (!allowed) throw forbidden('董事长账号仅用于审批分配给自己的申请');
       } else {
         const path = req.originalUrl.split('?')[0];
-        const allowed = (req.method === 'GET' && (path === '/api/me' || path === '/api/onboarding-form/pending')) || (req.method === 'POST' && (path === '/api/onboarding-form/submit' || path === '/api/onboarding-form/attachments'));
+        const allowed = (req.method === 'GET' && (path === '/api/me' || path === '/api/onboarding-form/pending')) || (req.method === 'POST' && (path === '/api/onboarding-form/submit' || path === '/api/onboarding-form/attachments')) || (req.method === 'DELETE' && /^\/api\/onboarding-form\/attachments\/[0-9a-f-]{36}$/i.test(path));
         if (!allowed && await queryOne('SELECT id FROM hr_self_onboarding WHERE employee_id = ? AND submitted_at IS NULL LIMIT 1', [employeeId])) throw new HttpError(403, 40301, '请先提交入职信息');
       }
       req.user = user;

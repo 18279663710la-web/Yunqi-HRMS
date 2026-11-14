@@ -10,6 +10,29 @@ import { lockPendingOnboarding } from './employeeOnboardingRepository';
 const decode = (value: unknown) => typeof value === 'string' ? JSON.parse(value) : value;
 const keyFor = (field: string, child?: string) => JSON.stringify([field, child || null]);
 
+function collectAttachmentIds(value: unknown, ids: Set<string>): void {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    value.forEach(item => collectAttachmentIds(item, ids));
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record.id === 'string' && typeof record.name === 'string' && typeof record.size === 'number') ids.add(record.id);
+  Object.values(record).forEach(item => collectAttachmentIds(item, ids));
+}
+
+async function referencedAttachmentIds(conn: PoolConnection, onboardingId: number): Promise<Set<string>> {
+  const [rows] = await conn.query<RowDataPacket[]>('SELECT answers_json FROM hr_self_onboarding_submissions WHERE onboarding_id = ?', [onboardingId]);
+  const ids = new Set<string>();
+  rows.forEach(row => collectAttachmentIds(decode(row.answers_json), ids));
+  return ids;
+}
+
+async function activeAttachmentCount(conn: PoolConnection, onboardingId: number, key: string, referenced: Set<string>): Promise<number> {
+  const [rows] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_onboarding_attachments WHERE onboarding_id = ? AND field_key = ?', [onboardingId, key]);
+  return rows.filter(row => !referenced.has(String(row.id))).length;
+}
+
 export async function saveOnboardingFile(employeeId: string, field: string, child: string | undefined, file: Express.Multer.File | undefined, requestedName?: string): Promise<AttachmentRef> {
   if (!file || !file.buffer.length || file.size > 10 * 1024 * 1024) throw badRequest('请选择不超过 10MB 的附件');
   const name = (requestedName || file.originalname).replace(/[\\/\x00-\x1f\x7f]/g, '_').trim().slice(0, 255);
@@ -22,9 +45,9 @@ export async function saveOnboardingFile(employeeId: string, field: string, chil
     const target = child && parent?.type === 'table' ? parent.children.find(item => item.name === child) : !child ? parent : undefined;
     if (!target || target.type !== 'attachment') throw badRequest('附件字段不存在');
     const key = keyFor(field, child);
-    const [existing] = await conn.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM hr_onboarding_attachments WHERE onboarding_id = ? AND field_key = ?', [row.id, key]);
+    const referenced = await referencedAttachmentIds(conn, row.id);
     const limit = child ? 250 : 5;
-    if (Number(existing[0]?.total) >= limit) throw badRequest(child ? '该列附件已达到 250 个上限' : '该字段最多上传 5 个附件');
+    if (await activeAttachmentCount(conn, row.id, key, referenced) >= limit) throw badRequest(child ? '该列附件已达到 250 个上限' : '该字段最多上传 5 个附件');
     const id = randomUUID();
     await conn.execute('INSERT INTO hr_onboarding_attachments (id,onboarding_id,field_key,file_name,file_size,file_data,created_at) VALUES (?,?,?,?,?,?,NOW())', [id, row.id, key, name, file.size, file.buffer]);
     return { id, name, size: file.size };
@@ -50,6 +73,19 @@ export async function verifyOnboardingFiles(conn: PoolConnection, onboardingId: 
     const file = byId.get(ref.id);
     if (!file || file.field_key !== key || file.file_name !== ref.name || Number(file.file_size) !== ref.size) throw badRequest('附件无效，请重新上传');
   }
+}
+
+/** 删除尚未进入提交历史的附件。已随提交保留的文件只从当前草稿拿掉，不删历史。 */
+export async function deleteOnboardingFile(employeeId: string, fileId: string): Promise<void> {
+  await transaction(async conn => {
+    const row = await lockPendingOnboarding(conn, employeeId);
+    if (!row) throw notFound('没有待填写的入职申请');
+    const [files] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_onboarding_attachments WHERE id = ? AND onboarding_id = ? FOR UPDATE', [fileId, row.id]);
+    if (!files.length) throw notFound('附件不存在');
+    const referenced = await referencedAttachmentIds(conn, row.id);
+    if (referenced.has(fileId)) return;
+    await conn.query('DELETE FROM hr_onboarding_attachments WHERE id = ? AND onboarding_id = ?', [fileId, row.id]);
+  });
 }
 
 export async function getOnboardingFile(id: string) {

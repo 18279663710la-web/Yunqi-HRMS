@@ -102,6 +102,27 @@ test('公司日历支持多条规则、校验、使用保护和权限', async ()
     });
     assert.equal(group.status, 200);
     assert.equal(group.payload.data.calendarRuleName, '大小周日历改');
+    const spare = await request('/admin/models-formulas/calendar-rules', admin, 'POST', {
+      name: '并发日历', mode: 'none', weeklyRestDays: [], cycleWeeks: null, cycleRestDays: [],
+      anchorDate: null, restDates: [], workDates: [],
+    });
+    assert.equal(spare.status, 200);
+    const spareId = spare.payload.data.id as number;
+    const hold = await poolModule.pool.getConnection();
+    await hold.beginTransaction();
+    await hold.query('SELECT id FROM company_calendar_rules WHERE id = ? FOR UPDATE', [spareId]);
+    const attaching = request('/admin/attendance/groups', admin, 'POST', {
+      name: '并发挂接组', calendarRuleId: spareId, employeeIds: [],
+      startTime: '09:00', inEndTime: '09:50', endTime: '17:40', outEndTime: '19:50',
+      latitude: 23.1, longitude: 113.3, radius: 100,
+    });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    await hold.query('DELETE FROM company_calendar_rules WHERE id = ?', [spareId]);
+    await hold.commit();
+    hold.release();
+    const attached = await attaching;
+    assert.equal(attached.status, 400);
+    assert.match(attached.payload.message || '', /有效的公司日历/);
     assert.equal((await request(`/admin/models-formulas/calendar-rules/${cycleId}`, admin, 'DELETE')).status, 409);
     assert.equal((await request(`/admin/attendance/groups/${group.payload.data.id}`, admin, 'DELETE')).status, 200);
     assert.equal((await request(`/admin/models-formulas/calendar-rules/${cycleId}`, admin, 'DELETE')).status, 200);

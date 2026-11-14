@@ -10,6 +10,7 @@ import {
   getCompanyCalendarRule,
   getCompanyCalendarRulesByIds,
   getDefaultCompanyCalendarRule,
+  lockCompanyCalendarRule,
   type CompanyCalendarRule,
 } from './companyCalendar';
 import {
@@ -230,6 +231,7 @@ export async function createAttendanceGroup(
   await assertNameAvailable(meta.name);
 
   const groupId = await transaction(async (conn) => {
+    await lockCompanyCalendarRule(conn, meta.calendarRuleId);
     const [result] = await conn.query<ResultSetHeader>(
       `INSERT INTO attendance_groups
         (name, calendar_rule_id, start_time, in_end_time, end_time, out_end_time, rest_dates, latitude, longitude, radius, created_at, updated_at)
@@ -277,6 +279,7 @@ export async function updateAttendanceGroup(
   await assertNameAvailable(meta.name, id);
 
   await transaction(async (conn) => {
+    await lockCompanyCalendarRule(conn, meta.calendarRuleId);
     await conn.query(
       `UPDATE attendance_groups
        SET name = ?, calendar_rule_id = ?, start_time = ?, in_end_time = ?, end_time = ?, out_end_time = ?,

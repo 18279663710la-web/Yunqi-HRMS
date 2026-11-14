@@ -8,7 +8,7 @@
 
 - 主要文件：`attendancePolicy.ts`、`attendanceService.ts`、`attendanceSettings.ts`、`attendanceGroups.ts`、`companyCalendar.ts`、`overtimeAttendanceService.ts`、`payrollAttendanceSource.ts`（按员工和工资月份读取考勤项目）、`visitService.ts`（拜访记录与现场照片）、`geocodeService.ts`（腾讯位置服务逆地址解析）。
 - 默认考勤设置保存在 `attendance_settings`，仅在没有任何考勤组时生效；各考勤组（不分类型）独立保存时段、所选公司日历和打卡点，成员通过 `attendance_group_employees` 只归属一个组，未分配员工使用第一个考勤组（按创建顺序）。
-- 公司日历规则保存在 `company_calendar_rules`，支持每周固定、按周轮换及例外休息/上班日期；考勤组、工资取数和入职任务排期统一通过 `resolveConfiguredRestDates` 解析，避免口径分叉。员工端、管理端及工资取数均按员工读取实际生效的组设置。
+- 公司日历规则保存在 `company_calendar_rules`，支持每周固定、按周轮换及例外休息/上班日期；考勤组、工资取数和入职任务排期统一通过 `resolveConfiguredRestDates` 解析，避免口径分叉。创建或修改考勤组时在同一事务锁住所选日历，删除日历时同时锁住引用它的考勤组。员工端、管理端及工资取数均按员工读取实际生效的组设置。
 - 考勤状态只按考勤组时间段、手工登记和已通过的请假、出差、休息计算，不再标记迟到。管理员登记的缺卡会阻止员工打卡并保留备注；该写入与员工打卡锁同一条当日记录。
 - 加班上班卡在申请结束时间晚于开始时间时，过了结束分钟即拒绝；下班卡仍可跨日。结束时间缺失或不晚于开始时间时，仍只按开始时间判断。
 - 工资出勤统计只计状态不是休息、出差或请假且上下班卡齐全的天数，再加上已通过的出差日。请假日保留打卡时间仍不计入。单卡计 0 出勤天并参与缺勤绩效；考勤页面和小程序继续使用原来的单卡状态与汇总。已保存的工资快照不改写。
