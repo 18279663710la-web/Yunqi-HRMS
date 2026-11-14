@@ -56,7 +56,7 @@
         <view class="today-col">
           <view class="today-label">上班打卡</view>
           <view class="today-time {{attendance.checkIn ? '' : 'is-empty'}}">{{attendance.checkIn || '--:--'}}</view>
-          <view class="today-note {{attendance.inLate ? 'is-warn' : ''}}">{{attendance.inNote}}</view>
+          <view class="today-note">{{attendance.inNote}}</view>
         </view>
         <view class="today-divider"></view>
         <view class="today-col">

@@ -35,9 +35,9 @@ function groupByEmployee(rows: RowDataPacket[]): Map<string, RowDataPacket[]> {
   return result;
 }
 
-/** 工资统计只计完整上下班卡，普通单卡按缺勤处理；已通过的出差日按正常出勤计算。 */
+/** 工资统计只计完整上下班卡，普通单卡按缺勤处理；请假状态不计入，已通过的出差日按正常出勤计算。 */
 function payrollPresentDays(records: AttendanceRecord[], travelDates: Set<string>): number {
-  const completeDays = records.filter(record => record.status !== 'rest' && record.status !== 'travel' && !!record.checkIn && !!record.checkOut).length;
+  const completeDays = records.filter(record => record.status !== 'rest' && record.status !== 'travel' && record.status !== 'leave' && !!record.checkIn && !!record.checkOut).length;
   // 出差日无打卡也计入出勤；出差日与打卡重叠时仅按出差计一次。
   return completeDays + travelDates.size;
 }

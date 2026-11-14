@@ -23,6 +23,14 @@ test('打卡时段不可倒置或重叠', () => {
   assert.equal(attendanceSettingsSchema.safeParse({ ...settings, outEndTime: '17:59' }).success, false);
 });
 
+test('上班卡晚于 09:30 仍按时间段判定，不产生迟到状态', () => {
+  const log = { checkIn: '09:31', checkOut: '18:01', statusOverride: null, note: '', source: 'employee' as const };
+  const record = buildDayRecord('2026-10-27', log, { settings });
+  assert.equal(record.status, 'normal');
+  assert.equal(Object.hasOwn(record, 'isLate'), false);
+  assert.equal(summarizeRecords([record]).late, 0);
+});
+
 test('考勤状态区分两卡缺失情况和休息日', () => {
   const log = (checkIn: string, checkOut: string) => ({ checkIn, checkOut, statusOverride: null, note: '', source: 'employee' });
   assert.equal(buildDayRecord('2026-10-27', log('09:01', '18:01'), { settings }).status, 'normal');

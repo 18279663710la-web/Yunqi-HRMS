@@ -176,8 +176,7 @@ export function buildDayRecord(
   const status = checkIn && checkOut ? 'normal' : checkIn ? 'missing_out' : checkOut || pendingToday ? 'missing_in' : 'absent';
   const statusText = { normal: '正常', missing_in: '未打上班卡', missing_out: '未打下班卡', absent: '缺卡' }[status];
   return { ...base, checkIn, checkOut, status, statusText,
-    duration: checkIn && checkOut ? calcDuration(checkIn, checkOut) : '—',
-    isLate: !!checkIn && checkIn > '09:30' };
+    duration: checkIn && checkOut ? calcDuration(checkIn, checkOut) : '—' };
 }
 
 /** 将公司日历展开为指定日期范围的休息日集合，并合并到设置中。 */
@@ -217,16 +216,17 @@ export async function getTodayAttendance(employeeId: string): Promise<TodayAtten
   const window = settings ? getPunchWindow(settings, day, formatTime(now, 'HH:mm')) : null;
   const onTravel = travelDates.has(day) && override !== 'leave' && override !== 'rest';
   const onLeave = leaveDates.has(day) && override !== 'leave' && override !== 'rest';
+  const punchBlocked = override === 'leave' || override === 'rest' || override === 'absent' || onTravel || onLeave;
 
   let nextType: TodayAttendance['nextType'] = 'wait';
-  let nextText = onTravel ? '出差期间无需打卡' : !settings || !settings.inEndTime || !settings.outEndTime ? '请先设置打卡规则' : !workday ? '休息日无需打卡' : onLeave ? '请假无需打卡' : override === 'leave' ? '请假无需打卡' : '不在打卡时间段内';
-  if (override !== 'leave' && override !== 'rest' && !onTravel && !onLeave && window === 'in' && !hasIn) {
+  let nextText = override === 'absent' ? '已登记缺卡' : onTravel ? '出差期间无需打卡' : !settings || !settings.inEndTime || !settings.outEndTime ? '请先设置打卡规则' : !workday ? '休息日无需打卡' : onLeave ? '请假无需打卡' : override === 'leave' ? '请假无需打卡' : '不在打卡时间段内';
+  if (!punchBlocked && window === 'in' && !hasIn) {
     nextType = 'in';
     nextText = '上班打卡';
-  } else if (override !== 'leave' && override !== 'rest' && !onTravel && !onLeave && window === 'out' && !hasOut) {
+  } else if (!punchBlocked && window === 'out' && !hasOut) {
     nextType = 'out';
     nextText = '下班打卡';
-  } else if (override !== 'leave' && override !== 'rest' && !onTravel && !onLeave && window && ((window === 'in' && hasIn) || (window === 'out' && hasOut))) {
+  } else if (!punchBlocked && window && ((window === 'in' && hasIn) || (window === 'out' && hasOut))) {
     nextType = 'done';
     nextText = window === 'in' ? '上班卡已打' : '下班卡已打';
   }
@@ -289,14 +289,17 @@ export async function punch(employeeId: string, type: PunchType, location?: Loca
     const row = (rows as Array<{ check_in: string | null; check_out: string | null; status_override: DayOverride | null }>)[0];
     if (row.status_override === 'rest') return { ok: false, message: '休息日无需打卡' };
     if (row.status_override === 'leave') return { ok: false, message: '请假无需打卡' };
+    if (row.status_override === 'absent') return { ok: false, message: '已登记缺卡' };
     if (type === 'in' && row.check_in) return { ok: false, message: '今日已完成上班打卡' };
     if (type === 'out' && row.check_out) return { ok: false, message: '今日已完成下班打卡' };
     const column = type === 'in' ? 'check_in' : 'check_out';
-    await conn.query(
-      `UPDATE attendance_punches SET ${column} = ?, status_override = NULL, note = NULL,
-       source = 'employee', updated_by_admin_id = NULL, updated_at = NOW() WHERE employee_id = ? AND punch_date = ?`,
+    const [updated] = await conn.query(
+      `UPDATE attendance_punches SET ${column} = ?, note = NULL,
+       source = 'employee', updated_by_admin_id = NULL, updated_at = NOW()
+       WHERE employee_id = ? AND punch_date = ? AND status_override IS NULL`,
       [time, employeeId, day]
     );
+    if ((updated as { affectedRows?: number }).affectedRows !== 1) return { ok: false, message: '已登记缺卡' };
     return { ok: true, time, message: type === 'in' ? '上班打卡成功' : '下班打卡成功' };
   });
 }
@@ -337,7 +340,6 @@ export function summarizeRecords(list: AttendanceRecord[]): AttendanceSummary {
       return;
     }
     if (r.checkIn || r.checkOut) s.presentDays += 1;
-    if (r.isLate) s.late += 1;
     if (r.status === 'normal') s.normal += 1;
     else if (r.status === 'missing_in') s.missingIn += 1;
     else if (r.status === 'missing_out') s.missingOut += 1;

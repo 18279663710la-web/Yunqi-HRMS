@@ -7,6 +7,7 @@
 ## 主要内容
 
 - 主要文件：`attendance.json`、`attendance.ts`、`attendance.wxml`、`attendance.wxss`。
+- 当日已登记缺卡时不提供打卡。加班上班卡过了申请结束时间后按钮不可用；已打上班卡的下班卡仍可跨日。
 
 ## 维护约束
 

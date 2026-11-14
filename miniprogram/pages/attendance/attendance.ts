@@ -16,7 +16,6 @@ interface AttendanceView extends TodayAttendance {
   canPunch: boolean;
   inNote: string;
   outNote: string;
-  inLate: boolean;
   todayStatusClass: string;
 }
 
@@ -212,7 +211,6 @@ Page<AttendanceData, AttendanceCustom>({
           canPunch: attendance.nextType === 'in' || attendance.nextType === 'out',
           inNote: attendance.checkIn ? '已打卡' : '未打卡',
           outNote: attendance.checkOut ? '已打卡' : '未打卡',
-          inLate: false,
           todayStatusClass: statusClassMap[attendance.status] || 'tag-orange',
         },
         stats,

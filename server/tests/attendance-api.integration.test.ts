@@ -100,6 +100,30 @@ test('考勤设置和打卡接口在独立数据库中验证时段、休息日�
       request('/attendance/punch', otherEmployee, 'POST', { type: 'in', ...position }),
     ]);
     assert.equal(simultaneous.filter((result) => result.payload.data.ok).length, 1);
+    const absent = await request('/admin/attendance/punch', admin, 'POST', {
+      employeeId: 'U010', date: '2026-10-29', statusOverride: 'absent', note: '登记缺卡',
+    });
+    assert.equal(absent.status, 200);
+    const employee10 = issueTokens('U010').accessToken;
+    const denied = await request('/attendance/punch', employee10, 'POST', { type: 'in', ...position });
+    assert.equal(denied.payload.data.ok, false);
+    assert.equal(denied.payload.data.message, '已登记缺卡');
+    assert.equal((await request('/attendance/today', employee10)).payload.data.nextType, 'wait');
+    const absentRow = await request('/admin/attendance?date=2026-10-29&employeeId=U010', admin);
+    assert.equal(absentRow.payload.data.list[0].status, 'absent');
+    assert.equal(absentRow.payload.data.list[0].note, '登记缺卡');
+    assert.equal(absentRow.payload.data.list[0].checkIn, '');
+    const raced = await Promise.all([
+      request('/attendance/punch', employee10, 'POST', { type: 'in', ...position }),
+      request('/admin/attendance/punch', admin, 'POST', {
+        employeeId: 'U010', date: '2026-10-29', statusOverride: 'absent', note: '登记缺卡',
+      }),
+    ]);
+    assert.equal(raced[0].payload.data.ok, false);
+    const kept = await request('/admin/attendance?date=2026-10-29&employeeId=U010', admin);
+    assert.equal(kept.payload.data.list[0].status, 'absent');
+    assert.equal(kept.payload.data.list[0].note, '登记缺卡');
+    assert.equal(kept.payload.data.list[0].checkIn, '');
   } finally {
     if (closeServer) await closeServer();
     if (closePool) await closePool();

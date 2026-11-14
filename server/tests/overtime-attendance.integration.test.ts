@@ -27,6 +27,14 @@ test('加班打卡须经本人审批、从申请开始时间开放并独立于�
     const before = (await call('/attendance/overtime', employee)).body.data;
     assert.equal(before.length, 2); assert.ok(before.every((item: any) => !item.canPunch));
     assert.notEqual((await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT1', type: 'in', ...position })).body.data?.ok, true);
+    t.mock.timers.setTime(new Date('2026-10-27T20:00:00').getTime());
+    assert.equal((await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT5', type: 'in', ...position })).body.data?.ok, true);
+    await conn.query(`DELETE FROM \`${database}\`.attendance_overtime_punches WHERE approval_id = 'OT5'`);
+    t.mock.timers.setTime(new Date('2026-10-27T20:01:00').getTime());
+    const afterEnd = await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT5', type: 'in', ...position });
+    assert.equal(afterEnd.body.data?.ok, false);
+    assert.equal(afterEnd.body.data?.message, '已过申请的加班结束时间');
+    assert.equal((await call('/attendance/overtime', employee)).body.data.find((item: any) => item.approvalId === 'OT5').canPunch, false);
     t.mock.timers.setTime(new Date('2026-10-27T19:30:00').getTime());
     assert.notEqual((await call('/attendance/overtime/punch', other, 'POST', { approvalId: 'OT1', type: 'in', ...position })).body.data?.ok, true);
     assert.notEqual((await call('/attendance/overtime/punch', employee, 'POST', { approvalId: 'OT2', type: 'in', ...position })).body.data?.ok, true);

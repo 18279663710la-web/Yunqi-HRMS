@@ -1,4 +1,4 @@
-import { execute, queryOne, queryRows } from '../../shared/db/pool';
+import { queryOne, queryRows, transaction } from '../../shared/db/pool';
 import type {
   AdminAttendanceEmployeeSummary,
   AdminAttendanceRecord,
@@ -287,23 +287,33 @@ export async function updateAttendancePunch(
   const statusOverride = input.statusOverride || null;
   const note = String(input.note || '').slice(0, 200);
 
-  if (!hasTimes && !statusOverride) {
-    await execute('DELETE FROM attendance_punches WHERE employee_id = ? AND punch_date = ?', [
-      input.employeeId,
-      input.date,
-    ]);
-  } else {
-    await execute(
+  await transaction(async (conn) => {
+    await conn.query(
       `INSERT INTO attendance_punches
         (employee_id, punch_date, check_in, check_out, status_override, note, source, updated_by_admin_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'admin', ?, NOW(), NOW())
-       ON DUPLICATE KEY UPDATE
-         check_in = VALUES(check_in), check_out = VALUES(check_out),
-         status_override = VALUES(status_override), note = VALUES(note),
-         source = 'admin', updated_by_admin_id = VALUES(updated_by_admin_id), updated_at = NOW()`,
-      [input.employeeId, input.date, checkIn || null, checkOut || null, statusOverride, note || null, operator.id]
+       VALUES (?, ?, NULL, NULL, NULL, NULL, 'admin', NULL, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE employee_id = VALUES(employee_id)`,
+      [input.employeeId, input.date]
     );
-  }
+    await conn.query(
+      'SELECT employee_id FROM attendance_punches WHERE employee_id = ? AND punch_date = ? FOR UPDATE',
+      [input.employeeId, input.date]
+    );
+    if (!hasTimes && !statusOverride) {
+      await conn.query('DELETE FROM attendance_punches WHERE employee_id = ? AND punch_date = ?', [
+        input.employeeId,
+        input.date,
+      ]);
+    } else {
+      await conn.query(
+        `UPDATE attendance_punches SET
+           check_in = ?, check_out = ?, status_override = ?, note = ?,
+           source = 'admin', updated_by_admin_id = ?, updated_at = NOW()
+         WHERE employee_id = ? AND punch_date = ?`,
+        [checkIn || null, checkOut || null, statusOverride, note || null, operator.id, input.employeeId, input.date]
+      );
+    }
+  });
 
   await recordAdminLog(operator, '修改考勤', 'attendance', `${input.employeeId}|${input.date}`, {
     employeeId: input.employeeId,
@@ -357,10 +367,7 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
     if (record.status === 'rest') todayStats.rest += 1;
     if (record.status === 'leave') todayStats.onLeave += 1;
     if (record.status === 'travel') todayStats.onTravel += 1;
-    if (record.checkIn || record.checkOut) {
-      todayStats.checkedIn += 1;
-      if (record.isLate) todayStats.late += 1;
-    }
+    if (record.checkIn || record.checkOut) todayStats.checkedIn += 1;
   });
   todayStats.notChecked = Math.max(0, todayStats.total - todayStats.checkedIn - todayStats.rest - todayStats.onLeave - todayStats.onTravel);
 

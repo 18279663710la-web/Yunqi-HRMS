@@ -102,6 +102,7 @@ test('请假审批通过后按起止日期标记请假状态，休息日与出�
       `INSERT INTO \`${database}\`.attendance_punches
         (employee_id, punch_date, check_in, check_out, status_override, note, source, updated_by_admin_id, created_at, updated_at)
        VALUES ('U001','2026-08-03','09:00','18:00',NULL,NULL,'seed',NULL,NOW(),NOW()),
+              ('U001','2026-08-06','09:00','18:00',NULL,NULL,'seed',NULL,NOW(),NOW()),
               ('U001','2026-08-10','09:00','18:00',NULL,NULL,'seed',NULL,NOW(),NOW())
        ON DUPLICATE KEY UPDATE check_in = VALUES(check_in), check_out = VALUES(check_out)`
     );
@@ -112,7 +113,7 @@ test('请假审批通过后按起止日期标记请假状态，休息日与出�
       '2026-08',
       new Set<AttendanceMetric>(['presentDays'])
     ));
-    // 仅完整打卡 2 天计出勤；请假 8-06 与日历休息 8-07 均不计。
+    // 仅完整打卡 2 天计出勤；请假 8-06 虽有上下班时间仍不计，日历休息 8-07 不计。
     assert.equal(payroll.get('U001')?.presentDays, 2);
 
     // 与出差重叠：出差优先于请假。出差 8-06 至 8-08，8-06/8-07 均显示出差。

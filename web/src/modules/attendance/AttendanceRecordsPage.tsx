@@ -57,6 +57,7 @@ const STATUS_OPTIONS = [
   { value: 'absent', label: '缺卡' },
   { value: 'leave', label: '请假' },
   { value: 'rest', label: '休息' },
+  { value: 'travel', label: '出差' },
   { value: 'overtime', label: '加班' },
 ];
 

@@ -249,7 +249,6 @@ export interface AttendanceRecord {
   note?: string;
   source?: string;
   statusOverride?: 'leave' | 'absent' | 'rest' | null;
-  isLate?: boolean;
 }
 
 export interface AttendanceSummary {
