@@ -73,7 +73,7 @@ export async function publishCustomWorkflow(type: ApprovalApproverType, workflow
       return { publicationVersion: Number(previous[0].publication_version), workflowVersion, caseVersion, workflow: validated, fixedFields: fixedFields.filter(field => !field.key.startsWith('__')) };
     }
     const publicationVersion = Number(previous[0]?.publication_version ?? 0) + 1;
-    const savedGraph = { nodes: workflow.nodes, edges: workflow.edges, formFields: workflow.formFields ?? [] };
+    const savedGraph = { nodes: workflow.nodes, edges: workflow.edges, formFields: workflow.formFields ?? [], ...(workflow.fieldsInitialized ? { fieldsInitialized: true } : {}) };
     await conn.execute(`INSERT INTO custom_approval_publications (approval_type, publication_version, workflow_version, case_version, graph_json, fixed_fields_json, credentials_json, published_by, published_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE publication_version = VALUES(publication_version), workflow_version = VALUES(workflow_version), case_version = VALUES(case_version), graph_json = VALUES(graph_json), fixed_fields_json = VALUES(fixed_fields_json), credentials_json = VALUES(credentials_json), published_by = VALUES(published_by), published_at = NOW()`,
     [type, publicationVersion, workflowVersion, caseVersion, JSON.stringify(savedGraph), JSON.stringify(fixedFields.filter(field => !field.key.startsWith('__'))), JSON.stringify(credentials), adminId]);

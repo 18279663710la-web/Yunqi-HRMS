@@ -4,7 +4,8 @@ import { conflict } from '../../shared/utils/errors';
 import { getCustomWorkflowApproverCandidates, type ApprovalApproverType } from './expenseApproverService';
 import { readCustomWorkflow } from './customWorkflowService';
 import { readWorkflowTestCases } from './customWorkflowTestCases';
-import { readFixedWorkflowTestFields, validateWorkflowTestCase, normalizeFixedWorkflowTestFields, hashWorkflowTestFields } from './customWorkflowTestFields';
+import { readFixedWorkflowTestFields, validateWorkflowTestCase, normalizeFixedWorkflowTestFields, hashWorkflowTestFields, type WorkflowTestField } from './customWorkflowTestFields';
+import { employeeApprovalFields } from './approvalFormFields';
 import { runWorkflowTests } from './customWorkflowSimulation';
 
 export async function runSavedWorkflowTests(type: ApprovalApproverType, adminId: number) {
@@ -12,7 +13,7 @@ export async function runSavedWorkflowTests(type: ApprovalApproverType, adminId:
     readCustomWorkflow(type), readWorkflowTestCases(type), readFixedWorkflowTestFields(type), getCustomWorkflowApproverCandidates(),
   ]);
   const report = await runWorkflowTests(type, workflow, document.cases);
-  const fields = [...fixedFields, ...(workflow.formFields ?? [])];
+  const fields = [...employeeApprovalFields(type, fixedFields, workflow.formFields ?? []).filter((field): field is WorkflowTestField => field.type !== 'attachment'), ...fixedFields.filter(field => field.key.startsWith('__'))];
   report.cases = report.cases.map((result, index) => {
     const error = validateWorkflowTestCase(type, fields, document.cases[index].values);
     return error ? { ...result, passed: false, error } : result;

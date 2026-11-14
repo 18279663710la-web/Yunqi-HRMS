@@ -14,10 +14,11 @@ test('已发布流程使用版本快照及动态字段，不依赖旧审批人�
   const page = { ...definition, data: { ...definition.data, types: [type] },
     setData(value: unknown) { Object.assign(this.data, value); },
     loadTypeApprover: async () => { oldApproverLookups += 1; },
+    scheduleApprovers() {},
   };
   page.selectType('purchase');
   assert.equal(oldApproverLookups, 0);
-  assert.equal(page.data.typeApproverReady, true);
+  assert.equal(page.data.approverReady, false);
   page.onInput({ currentTarget: { dataset: { key: 'item' } }, detail: { value: '电脑' } });
   page.onPicker({ currentTarget: { dataset: { key: 'project' } }, detail: { value: '0' } });
   const payload = page.buildPayload();

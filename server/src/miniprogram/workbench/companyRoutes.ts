@@ -4,9 +4,16 @@ import { requireAuth } from '../auth/authMiddleware';
 import { queryRows } from '../../shared/db/pool';
 import { getCompany } from '../../domains/employees/userService';
 import { readPublishedWorkflows } from '../../domains/approvals/customWorkflowPublication';
+import { employeeApprovalFields } from '../../domains/approvals/approvalFormFields';
+import type { ApprovalApproverType } from '../../domains/approvals/expenseApproverService';
 import type { ApprovalType, QuickAction } from '../../shared/types/models';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
+
+const APPROVAL_TYPES = ['leave', 'expense', 'overtime', 'travel', 'purchase'] as const;
+function isApprovalType(key: string): key is ApprovalApproverType {
+  return (APPROVAL_TYPES as readonly string[]).includes(key);
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -63,7 +70,7 @@ router.get(
         name: r.name,
         color: r.color,
         desc: r.description,
-        fields: published ? [...published.fixedFields, ...(published.workflow.formFields ?? [])] : typeof r.fields_json === 'string' ? JSON.parse(r.fields_json) : r.fields_json,
+        fields: published && isApprovalType(r.key) ? employeeApprovalFields(r.key, published.fixedFields, published.workflow.formFields ?? []) : published ? [...published.fixedFields, ...(published.workflow.formFields ?? [])] : typeof r.fields_json === 'string' ? JSON.parse(r.fields_json) : r.fields_json,
         ...(published ? { workflowPublicationVersion: published.publicationVersion } : {}),
       };
     });

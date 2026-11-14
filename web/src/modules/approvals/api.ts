@@ -2,11 +2,12 @@ import { request } from '../../api/client';
 
 export type CustomApprovalType = 'leave' | 'expense' | 'overtime' | 'travel' | 'purchase';
 export type CustomApprovalNodeKind = 'form' | 'start' | 'verify' | 'approver' | 'branch' | 'end' | 'ai';
-export interface CustomApprovalField { key: string; label: string; type: 'text' | 'textarea' | 'number' | 'date' | 'picker'; required: boolean; options?: string[] }
+export interface CustomApprovalField { key: string; label: string; type: 'text' | 'textarea' | 'number' | 'money' | 'date' | 'time' | 'picker' | 'attachment'; required: boolean; options?: string[]; locked?: boolean }
 export interface CustomApprovalCondition { field: string; operator: 'eq' | 'gte' | 'lt'; value: string }
 export interface CustomApprovalNodeConfig { approverIds?: string[]; outcome?: 'approved' | 'rejected'; provider?: 'deepseek' | 'openai-compatible'; model?: string; baseUrl?: string; rules?: string; hasApiKey?: boolean }
 export interface CustomApprovalWorkflow {
   version: number;
+  fieldsInitialized?: boolean;
   formFields?: CustomApprovalField[];
   nodes: Array<{ id: string; kind: CustomApprovalNodeKind; position: { x: number; y: number }; config?: CustomApprovalNodeConfig }>;
   edges: Array<{ id: string; source: string; target: string; conditions?: CustomApprovalCondition[] }>;

@@ -26,7 +26,8 @@ test('加班申请隐藏补偿方式，填写其他必填项后可提交；切�
   assert.equal(page.data.canSubmit, true);
   const payload = page.buildPayload();
   assert.equal(payload.form.some((item: { label: string }) => item.label === '补偿方式'), false);
-  assert.match(payload.summary, /补偿方式：加班费$/);
+  assert.equal(payload.summary.includes('补偿方式'), false);
+  assert.match(payload.summary, /^\d{4}-\d{2}-\d{2} 19:00-$/);
   page.selectType('purchase');
   assert.deepEqual(page.data.fields.map((field: { key: string }) => field.key), ['item']);
 });

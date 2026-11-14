@@ -29,9 +29,10 @@ test('请假类型和时长、出差预算、采购预估金额只在对应审�
   assert.throws(() => validateCustomWorkflowGraph('overtime', withCondition('expenseType', 'eq', '差旅费')));
 });
 
-test('条件分支不可重叠，不能删除引用字段，也不能使用固定字段同名的自定义字段', () => {
+test('条件分支不可重叠，不能删除引用字段，也不能使用补偿方式作为字段名', () => {
   const overlap = { ...graph, edges: [...graph.edges, { id: 'three', source: 'branch', target: 'a2', conditions: [{ field: 'project', operator: 'eq' as const, value: '客户' }] }], nodes: [...graph.nodes, { id: 'a2', kind: 'end' as const, position: { x: 400, y: 0 } }] };
   assert.throws(() => validateCustomWorkflowGraph('leave', overlap), /重叠/);
   assert.throws(() => validateCustomWorkflowGraph('leave', { ...graph, formFields: [] }), /条件/);
-  assert.throws(() => validateCustomWorkflowGraph('purchase', { ...graph, formFields: [{ key: 'x', label: '采购物品', type: 'text', required: false }] }), /重复/);
+  assert.throws(() => validateCustomWorkflowGraph('purchase', { ...graph, formFields: [{ key: 'x', label: '补偿方式', type: 'text', required: false }] }), /重复/);
+  assert.doesNotThrow(() => validateCustomWorkflowGraph('purchase', { version: 0, formFields: [{ key: 'item', label: '采购物品', type: 'text', required: true }], nodes: [], edges: [] }));
 });

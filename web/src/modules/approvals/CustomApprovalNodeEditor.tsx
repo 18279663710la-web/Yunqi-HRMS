@@ -26,11 +26,13 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const [routes, setRoutes] = useState<Record<string, CustomApprovalCondition[]>>(() => Object.fromEntries(outgoing.map(edge => [edge.id, edge.data?.conditions?.map(item => ({ ...item })) ?? []])));
   const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
   const numericField = definition.numericCondition?.value;
+  const known = new Set([...(numericField ? [numericField] : []), ...definition.choices.map(choice => choice.value)]);
   const fieldOptions = [
-    ...(definition.numericCondition ? [definition.numericCondition] : []), ...definition.choices.map(({ value, label }) => ({ value, label })),
-    ...fields.filter(field => field.type === 'picker').map(field => ({ value: field.key, label: field.label })),
+    ...(definition.numericCondition ? [{ value: definition.numericCondition.value, label: fields.find(field => field.key === definition.numericCondition?.value)?.label || definition.numericCondition.label }] : []),
+    ...definition.choices.map(choice => ({ value: choice.value, label: fields.find(field => field.key === choice.value)?.label || choice.label })),
+    ...fields.filter(field => field.type === 'picker' && !known.has(field.key)).map(field => ({ value: field.key, label: field.label })),
   ];
-  const valuesFor = (field: string) => definition.choices.find(item => item.value === field)?.options ?? fields.find(item => item.key === field && item.type === 'picker')?.options ?? [];
+  const valuesFor = (field: string) => fields.find(item => item.key === field && item.type === 'picker')?.options ?? definition.choices.find(item => item.value === field)?.options ?? [];
   const updateCondition = (edgeId: string, index: number, update: Partial<CustomApprovalCondition>) => setRoutes(current => ({ ...current, [edgeId]: current[edgeId].map((item, i) => i === index ? { ...item, ...update } : item) }));
   const load = () => {
     setLoading(true); setLoadError('');

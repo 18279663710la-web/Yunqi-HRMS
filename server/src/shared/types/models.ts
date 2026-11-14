@@ -100,7 +100,7 @@ export interface CurrentUser extends Employee {
 export interface ApprovalField {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'money' | 'picker' | 'date' | 'time' | 'textarea';
+  type: 'text' | 'number' | 'money' | 'picker' | 'date' | 'time' | 'textarea' | 'attachment';
   required: boolean;
   options?: string[];
   default?: string;

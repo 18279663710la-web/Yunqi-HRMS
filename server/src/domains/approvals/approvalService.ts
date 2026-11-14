@@ -24,7 +24,8 @@ import { ensureInvoicesVerified } from '../invoices/tencentInvoiceVerifier';
 import { getApprovalApprover, parseApproverType, chairpersonCanApprove, getCustomWorkflowApproverCandidates } from './expenseApproverService';
 import { readPublishedWorkflow } from './customWorkflowPublication';
 import { planWorkflowExecution } from './customWorkflowExecutionPlan';
-import { ownWorkflowValue, validateWorkflowTestCase } from './customWorkflowTestFields';
+import { ownWorkflowValue, validateWorkflowTestCase, type WorkflowTestField } from './customWorkflowTestFields';
+import { employeeApprovalFields } from './approvalFormFields';
 import { advanceWorkflowTimeline } from './workflowAdvance';
 import { getWorkflowAiState } from './workflowAiWorker';
 import { enqueueExpenseAi, getExpenseAiAdvice, generateExpenseAdvice } from './expenseAiService';
@@ -529,10 +530,11 @@ export async function createApproval(
     if (days === null) throw badRequest('请假结束时间须晚于开始时间');
     values.days = String(days);
   }
+  const entryFields = publication ? employeeApprovalFields(approvalType, publication.fixedFields, publication.workflow.formFields ?? []) : [];
+  const valueFields = entryFields.filter((field): field is WorkflowTestField => field.type !== 'attachment');
   if (publication && values) {
-    const fields = [...publication.fixedFields, ...(publication.workflow.formFields ?? [])];
     const testValues = { ...values, __invoice: payload.invoices?.length ? '已提供' : '未提供' };
-    const error = validateWorkflowTestCase(approvalType, fields, testValues);
+    const error = validateWorkflowTestCase(approvalType, valueFields, testValues);
     if (error) throw badRequest(error);
   }
 
@@ -541,7 +543,7 @@ export async function createApproval(
   let title = String(payload.title || '').trim() || `${typeRow.name}申请`;
   let summary = String(payload.summary || '').trim();
   const form = publication && values
-    ? [...publication.fixedFields, ...(publication.workflow.formFields ?? [])].map(field => { const value = ownWorkflowValue(values, field.key); return { label: field.label, value: value ? (field.type === 'money' ? `¥${value}` : value) : '—' }; })
+    ? valueFields.map(field => { const value = ownWorkflowValue(values, field.key); return { label: field.label, value: value ? (field.type === 'money' ? `¥${value}` : value) : '—' }; })
     : Array.isArray(payload.form)
       ? payload.form.filter((f) => f && typeof f.label === 'string').map((f) => ({ label: String(f.label), value: String(f.value ?? '') }))
       : [];
@@ -556,22 +558,24 @@ export async function createApproval(
     summary = `${date} 加班，补偿方式：加班费`;
   }
   if (typeKey === 'leave') {
-    const getField = (label: string): string => {
+    const labeled = (label: string): string => {
       const matches = form.filter((item) => item.label === label);
       if (matches.length !== 1) throw badRequest(`请填写有效的${label}`);
       return matches[0].value.trim();
     };
-    const startDate = getField('开始日期');
-    const startTime = getField('开始时间');
-    const endDate = getField('结束日期');
-    const endTime = getField('结束时间');
+    const startDate = (values?.startDate || labeled('开始日期')).trim();
+    const startTime = (values?.startClock || labeled('开始时间')).trim();
+    const endDate = (values?.endDate || labeled('结束日期')).trim();
+    const endTime = (values?.endClock || labeled('结束时间')).trim();
     const days = calculateLeaveDays(startDate, startTime, endDate, endTime);
     if (days === null) throw badRequest('请假结束时间须晚于开始时间');
-    const durationFields = formWithInvoices.filter((item) => item.label === '请假时长（天）');
+    const durationLabel = valueFields.find((field) => field.key === 'days')?.label || '请假时长（天）';
+    const durationFields = formWithInvoices.filter((item) => item.label === durationLabel);
     if (durationFields.length > 1) throw badRequest('请假时长字段重复');
     if (durationFields.length) durationFields[0].value = String(days);
-    else formWithInvoices.push({ label: '请假时长（天）', value: String(days) });
-    const leaveType = (form.find((item) => item.label === '请假类型')?.value || '请假').slice(0, 100);
+    else formWithInvoices.push({ label: durationLabel, value: String(days) });
+    const leaveTypeField = valueFields.find((field) => field.key === 'leaveType');
+    const leaveType = (values?.leaveType || form.find((item) => item.label === (leaveTypeField?.label || '请假类型'))?.value || '请假').slice(0, 100);
     title = `请假申请 · ${leaveType} ${days} 天`;
     summary = `${startDate} 至 ${endDate}，共 ${days} 天`;
   }

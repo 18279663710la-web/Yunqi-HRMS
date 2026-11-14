@@ -4,7 +4,7 @@
 
 审批流转、审批人配置、报销规则、AI 建议及流式处理。
 新加班申请固定保存加班费，历史调休申请保持原值。
-`expenseWorkflowPolicy.ts` 校验自定义字段及分支条件；设计稿按审批类型提供固定字段与分支规则，并校验分支重叠；发布版本用于新申请。字段定义需与 Web 设计器保持一致。
+`expenseWorkflowPolicy.ts` 校验表单字段及分支条件。原业务字段可保存为表单字段；报销的发票附件和补充材料在已初始化设计稿中保持固定，字段顺序用于新申请。字段定义需与 Web 设计器保持一致。`approvalFormFields.ts` 负责这份字段整理。
 `customWorkflowService.ts` 按审批类型保存独立设计稿及表单、节点和条件配置，执行结构与版本校验并保护旧数据；未发布设计稿不改变实际审批。
 `customWorkflowSimulation.ts` 检查结构、模拟分支和测试 AI 地址连通性；`customWorkflowTestCases.ts`、`customWorkflowTestRunner.ts` 管理用例与测试版本；`customWorkflowPublication.ts` 保存发布快照，`customWorkflowExecutionPlan.ts` 固定单据路径。`workflowAdvance.ts` 和 `workflowAiWorker.ts` 处理顺序节点、异步 AI 建议和失败重试。
 `workflowCredentials.ts` 为报销 AI 节点的 API Key 加密；密文与流程同事务保存，明文不写入流程或日志。加密密钥由环境提供或首次保存时生成在运行时目录，备份数据库时须安全保留该密钥。
@@ -12,7 +12,7 @@
 
 ## 主要内容
 
-- 流程设计与执行：`customWorkflowService.ts`、`customWorkflowSimulation.ts`、`customWorkflowTestFields.ts`、`customWorkflowTestCases.ts`、`customWorkflowTestRunner.ts`、`customWorkflowPublication.ts`、`customWorkflowExecutionPlan.ts`、`workflowAdvance.ts`。
+- 流程设计与执行：`customWorkflowService.ts`、`approvalFormFields.ts`、`customWorkflowSimulation.ts`、`customWorkflowTestFields.ts`、`customWorkflowTestCases.ts`、`customWorkflowTestRunner.ts`、`customWorkflowPublication.ts`、`customWorkflowExecutionPlan.ts`、`workflowAdvance.ts`。
 - 审批与 AI：`approvalService.ts`、`workflowCredentials.ts`、`workflowAiUrlProbe.ts`、`workflowAiWorker.ts`、`expenseAiPolicy.ts`、`expenseAiService.ts`、`expenseAiStream.ts`、`expenseApproverService.ts`、`expenseRulesService.ts`、`expenseWorkflowPolicy.ts`、`leaveRouting.ts`。
 
 ## 维护约束

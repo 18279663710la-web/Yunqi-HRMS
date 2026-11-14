@@ -92,7 +92,7 @@ export interface CurrentUser extends Employee {
   isChairperson?: boolean;
 }
 
-export type ApprovalFieldType = 'text' | 'number' | 'money' | 'picker' | 'date' | 'time' | 'textarea';
+export type ApprovalFieldType = 'text' | 'number' | 'money' | 'picker' | 'date' | 'time' | 'textarea' | 'attachment';
 
 export interface ApprovalField {
   key: string;

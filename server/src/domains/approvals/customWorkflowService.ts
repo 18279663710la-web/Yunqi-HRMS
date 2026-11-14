@@ -4,21 +4,23 @@ import { queryOne, queryRows, transaction } from '../../shared/db/pool';
 import { badRequest, conflict } from '../../shared/utils/errors';
 import type { ApprovalApproverType } from './expenseApproverService';
 import { validateWorkflowConditions, type WorkflowFieldPolicy } from './expenseWorkflowPolicy';
+import { normalizeEditableFormFields, type EditableApprovalField } from './approvalFormFields';
 import { decryptWorkflowCredential, encryptWorkflowCredential } from './workflowCredentials';
 
 const TYPE_FIELDS: Record<ApprovalApproverType, WorkflowFieldPolicy> = {
-  expense: { reserved: ['expenseType', 'amount', 'date', 'reason'], labels: ['报销类型', '报销金额（元）', '费用发生日期', '费用说明', '发票附件', '补充材料'], numericField: 'amount', choices: { expenseType: ['差旅费', '招待费', '办公用品', '交通费', '其他'] } },
-  leave: { reserved: ['leaveType', 'startDate', 'startClock', 'endDate', 'endClock', 'days', 'reason'], labels: ['请假类型', '开始日期', '开始时间', '结束日期', '结束时间', '请假时长（天）', '请假事由'], numericField: 'days', choices: { leaveType: ['事假', '病假', '年假', '调休', '婚假', '产假'] } },
-  overtime: { reserved: ['date', 'startTime', 'endTime', 'compensation', 'reason'], labels: ['加班日期', '开始时间', '结束时间', '补偿方式', '加班事由'], choices: {} },
-  travel: { reserved: ['city', 'startDate', 'endDate', 'budget', 'reason'], labels: ['出差城市', '开始日期', '结束日期', '预算（元）', '出差事由'], numericField: 'budget', choices: {} },
-  purchase: { reserved: ['item', 'amount', 'needDate', 'reason'], labels: ['采购物品', '预估金额（元）', '期望到货日期', '采购说明'], numericField: 'amount', choices: {} },
+  expense: { reserved: ['compensation'], labels: ['补偿方式'], numericField: 'amount', choices: { expenseType: ['差旅费', '招待费', '办公用品', '交通费', '其他'] } },
+  leave: { reserved: ['compensation'], labels: ['补偿方式'], numericField: 'days', choices: { leaveType: ['事假', '病假', '年假', '调休', '婚假', '产假'] } },
+  overtime: { reserved: ['compensation'], labels: ['补偿方式'], choices: {} },
+  travel: { reserved: ['compensation'], labels: ['补偿方式'], numericField: 'budget', choices: {} },
+  purchase: { reserved: ['compensation'], labels: ['补偿方式'], numericField: 'amount', choices: {} },
 };
 
 const identifier = z.string().min(1).max(100);
 const condition = z.object({ field: z.string().min(1).max(40), operator: z.enum(['eq', 'gte', 'lt']), value: z.string().trim().min(1).max(100) });
 export const customWorkflowSchema = z.object({
   version: z.number().int().min(0),
-  formFields: z.array(z.object({ key: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,39}$/), label: z.string().trim().min(1).max(100), type: z.enum(['text', 'textarea', 'number', 'date', 'picker']), required: z.boolean(), options: z.array(z.string().trim().min(1).max(100)).max(50).optional() })).max(30).optional(),
+  fieldsInitialized: z.boolean().optional(),
+  formFields: z.array(z.object({ key: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,39}$/), label: z.string().trim().min(1).max(100), type: z.enum(['text', 'textarea', 'number', 'money', 'date', 'time', 'picker', 'attachment']), required: z.boolean(), options: z.array(z.string().trim().min(1).max(100)).max(50).optional(), locked: z.boolean().optional() })).max(40).optional(),
   nodes: z.array(z.object({
     id: identifier,
     kind: z.enum(['form', 'start', 'verify', 'approver', 'branch', 'end', 'ai']),
@@ -53,6 +55,7 @@ export function validateCustomWorkflowGraph(type: ApprovalApproverType, workflow
     if (edge.conditions?.length && workflow.nodes.find(node => node.id === edge.source)?.kind !== 'branch') throw badRequest('只有条件分支的连线可以设置条件');
     edgeIds.add(edge.id); pairs.add(pair);
   }
+  workflow.formFields = normalizeEditableFormFields(type, (workflow.formFields ?? []) as EditableApprovalField[], workflow.fieldsInitialized === true);
   const fields = workflow.formFields ?? [];
   const check = (branches: Array<{ conditions: z.infer<typeof condition>[]; approvers: string[] }>) => validateWorkflowConditions({ version: 1, enabled: false, fields, branches }, TYPE_FIELDS[type]);
   check([]);
@@ -100,8 +103,8 @@ export async function saveCustomWorkflow(type: ApprovalApproverType, workflow: C
       const { hasApiKey: _hasApiKey, ...config } = node.config ?? {};
       return { ...node, config };
     });
-    const next = { version: workflow.version + 1, ...(hasExtendedData(workflow) ? { formFields: workflow.formFields ?? [] } : {}), nodes, edges: workflow.edges };
-    await conn.execute('UPDATE custom_approval_workflows SET version = ?, graph_json = ?, updated_by = ?, updated_at = NOW() WHERE approval_type = ?', [next.version, JSON.stringify({ nodes: next.nodes, edges: next.edges, formFields: next.formFields }), adminId, type]);
+    const next = { version: workflow.version + 1, ...(hasExtendedData(workflow) || workflow.fieldsInitialized ? { formFields: workflow.formFields ?? [], ...(workflow.fieldsInitialized ? { fieldsInitialized: true } : {}) } : {}), nodes, edges: workflow.edges };
+    await conn.execute('UPDATE custom_approval_workflows SET version = ?, graph_json = ?, updated_by = ?, updated_at = NOW() WHERE approval_type = ?', [next.version, JSON.stringify({ nodes: next.nodes, edges: next.edges, formFields: next.formFields, ...(next.fieldsInitialized ? { fieldsInitialized: true } : {}) }), adminId, type]);
     return { ...next, nodes: nodes.map(node => node.kind === 'ai' ? { ...node, config: { ...node.config, hasApiKey: existing.has(node.id) } } : node) };
   });
 }

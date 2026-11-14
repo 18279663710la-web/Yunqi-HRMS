@@ -4,7 +4,7 @@ import { badRequest } from '../../shared/utils/errors';
 const fieldSchema = z.object({
   key: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,39}$/),
   label: z.string().trim().min(1).max(100),
-  type: z.enum(['text', 'textarea', 'number', 'date', 'picker']),
+  type: z.enum(['text', 'textarea', 'number', 'money', 'date', 'time', 'picker', 'attachment']),
   required: z.boolean(),
   options: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
 });
@@ -18,7 +18,7 @@ const EXPENSE_TYPES = ['差旅费', '招待费', '办公用品', '交通费', '�
 const workflowSchema = z.object({
   version: z.number().int().min(1),
   enabled: z.boolean(),
-  fields: z.array(fieldSchema).max(30),
+  fields: z.array(fieldSchema).max(40),
   branches: z.array(z.object({ conditions: z.array(conditionSchema).min(1).max(20), approvers: approversSchema })).max(30),
 });
 export type ExpenseWorkflow = z.infer<typeof workflowSchema>;
@@ -65,7 +65,9 @@ export function validateWorkflowConditions(input: unknown, policy: WorkflowField
         if (condition.operator === 'gte') range.min = Math.max(range.min, value);
         else range.max = Math.min(range.max, value);
       } else {
-        const field = Object.prototype.hasOwnProperty.call(policy.choices, condition.field) ? { type: 'picker', options: policy.choices[condition.field] } : workflow.fields.find(item => item.key === condition.field);
+        const owned = workflow.fields.find(item => item.key === condition.field);
+        const preset = policy.choices[condition.field];
+        const field = owned ?? (preset ? { type: 'picker' as const, options: preset } : undefined);
         if (!field || field.type !== 'picker' || condition.operator !== 'eq' || !field.options?.includes(condition.value)) throw badRequest('分支条件无效');
         const previous = range.selections.get(condition.field);
         if (previous && previous !== condition.value) throw badRequest('分支条件互相矛盾');

@@ -27,11 +27,38 @@ interface InvoiceSummary {
   hasMock: boolean;
 }
 
+interface FormSegment {
+  kind: 'fields' | 'invoice' | 'materials';
+  key: string;
+  fields: ApprovalField[];
+}
+
+/** 连续填写项合成一张卡片。发票附件和补充材料按设计顺序插入；未发布报销仍排在表单末尾。 */
+function formSegments(typeKey: string, fields: ApprovalField[]): FormSegment[] {
+  const segments: FormSegment[] = [];
+  for (const field of fields) {
+    if (field.type === 'attachment') {
+      const kind: FormSegment['kind'] = field.key === 'invoiceFiles' ? 'invoice' : 'materials';
+      segments.push({ kind, key: kind, fields: [] });
+      continue;
+    }
+    const last = segments[segments.length - 1];
+    if (last?.kind === 'fields') last.fields.push(field);
+    else segments.push({ kind: 'fields', key: `fields-${field.key}`, fields: [field] });
+  }
+  if (typeKey === 'expense') {
+    if (!segments.some((segment) => segment.kind === 'invoice')) segments.push({ kind: 'invoice', key: 'invoice', fields: [] });
+    if (!segments.some((segment) => segment.kind === 'materials')) segments.push({ kind: 'materials', key: 'materials', fields: [] });
+  }
+  return segments;
+}
+
 interface ApprovalCreateData {
   types: TypeWithInitial[];
   typeKey: string;
   type: ApprovalType;
   fields: ApprovalField[];
+  segments: FormSegment[];
   values: Record<string, string>;
   approvers: Array<{ id: string; name: string; role: string }>;
   approverReady: boolean;
@@ -83,6 +110,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     typeKey: 'leave',
     type: {} as ApprovalType,
     fields: [],
+    segments: [],
     values: {},
     approvers: [],
     approverReady: false,
@@ -141,7 +169,9 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     const { types } = this.data;
     const type = types.find((t) => t.key === key) || types[0];
     if (!type) return;
-    const fields = (type.key === 'overtime' ? type.fields.filter((field) => field.key !== 'compensation') : type.fields).filter((field) => !field.key.startsWith('__'));
+    const source = type.fields.filter((field) => field.key !== 'compensation' && !field.key.startsWith('__'));
+    const fields = source.filter((field) => field.type !== 'attachment');
+    const segments = formSegments(type.key, source);
     const today = formatTime(new Date(), 'YYYY-MM-DD');
 
     const values: Record<string, string> = {};
@@ -163,6 +193,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       typeKey: type.key,
       type,
       fields,
+      segments,
       values,
       canSubmit: this.validate(values, fields, type.key),
       isExpense: type.key === 'expense',
@@ -215,7 +246,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
   /* ---------------- 表单 ---------------- */
 
   validate(values: Record<string, string>, fields?: ApprovalField[], typeKey?: string): boolean {
-    const list = fields || this.data.fields;
+    const list = (fields || this.data.fields).filter((field) => field.type !== 'attachment');
     return list.every((f) => !f.required || String(values[f.key] || '').trim() !== '') &&
       ((typeKey || this.data.typeKey) !== 'leave' || calculateLeaveDays(values.startDate, values.startClock, values.endDate, values.endClock) !== null);
   },
@@ -416,7 +447,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
 
   buildPayload(): CreateApprovalPayload {
     const { type, fields, values } = this.data;
-    const form = fields.map((f) => ({ label: f.label, value: this.formatValue(f, values[f.key]) }));
+    const form = fields.filter((field) => field.type !== 'attachment').map((f) => ({ label: f.label, value: this.formatValue(f, values[f.key]) }));
     const staticBase = getStaticBase();
     const invoices = type.key === 'expense' ? this.data.recognized.map((item) => ({ ...item, fileID: item.fileID?.startsWith(`${staticBase}/uploads/`) ? item.fileID.slice(staticBase.length) : item.fileID })) : [];
     if (invoices.length) form.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${this.data.invoiceSummary?.totalAmountText || '0.00'}` });
