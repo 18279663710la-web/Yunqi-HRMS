@@ -44,6 +44,20 @@ test('登记离职：未来日期为已申请，到期后锁定为已离职', as
     const stillOk = await call('/me', { headers: { Authorization: `Bearer ${issueTokens('U001', await getEmployeeSessionVersion('U001')).accessToken}` } });
     assert.equal(stillOk.status, 200);
 
+    await pool.execute("UPDATE approvals SET status = 'approved' WHERE id = 'FA20261015001'");
+    const disabled = await call('/admin/employees/U005/account/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'disabled' }) });
+    assert.equal(disabled.status, 200, disabled.body.message);
+    const appliedForm = new FormData();
+    appliedForm.append('payload', JSON.stringify({ employeeId: 'U005', lastDate: futureDate, note: '' }));
+    const applied = await call('/admin/hr/departures', { method: 'POST', body: appliedForm });
+    assert.equal(applied.status, 200, applied.body.message);
+    assert.equal(applied.body.data.status, 'applied');
+    const cancelled = await call(`/admin/hr/departures/${applied.body.data.id}/cancel`, { method: 'POST' });
+    assert.equal(cancelled.status, 200, cancelled.body.message);
+    const stillDisabled = await call('/auth/password-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginName: 'zhoumingyuan', password: config.demoEmployeePassword }) });
+    assert.equal(stillDisabled.status, 403, stillDisabled.body.message);
+    assert.match(stillDisabled.body.message || '', /停用/);
+
     await pool.execute("UPDATE hr_employee_departures SET last_date = CURDATE() WHERE employee_id = 'U001' AND status = 'applied'");
     const locked = await call('/me', { headers: { Authorization: `Bearer ${issueTokens('U001', await getEmployeeSessionVersion('U001')).accessToken}` } });
     assert.equal(locked.status, 401);

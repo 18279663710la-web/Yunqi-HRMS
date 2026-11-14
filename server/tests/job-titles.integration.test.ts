@@ -50,8 +50,11 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     assert.equal((await call('/employees/U001', employee)).body.data.position, '测试职务');
     assert.equal((await call('/admin/employees/U001', admin, 'PUT', originalEmployee)).status, 200);
     const salary = (await call('/admin/hr/employees/U001/salary', admin)).body.data;
+    const positionBeforeSalary = (await call('/admin/employees/U001', admin)).body.data.position;
     assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', { ...salary, jobTitle: '测试职务' })).status, 200);
-    assert.equal((await call('/admin/hr/employees/U001/salary', admin)).body.data.jobTitle, '测试职务');
+    assert.equal((await call('/admin/hr/employees/U001/salary', admin)).body.data.jobTitle, positionBeforeSalary);
+    assert.equal((await call('/admin/employees/U001', admin)).body.data.position, positionBeforeSalary);
+    assert.equal((await call('/admin/employees/U001', admin, 'PUT', { ...originalEmployee, position: '测试职务', jobCategory: '测试职务' })).status, 200);
     const changedEmployee = (await call('/admin/employees/U001', admin)).body.data;
     assert.equal(changedEmployee.position, '测试职务'); assert.equal(changedEmployee.jobCategory, '测试职务');
     const employeeList = await call(`/admin/employees?jobCategory=${encodeURIComponent('测试职务')}`, admin);
@@ -66,8 +69,10 @@ test('职务目录支持创建、分配、通讯录筛选及使用中保护', as
     const filtered = await call(`/employees/groups?jobTitle=${encodeURIComponent('测试职务')}`, employee);
     assert.equal(filtered.status, 200); assert.deepEqual(filtered.body.data.flatMap((group: any) => group.list).map((item: any) => item.id), ['U001']);
     const catalog = await call('/job-titles', employee); assert.ok(catalog.body.data.some((item: any) => item.name === '测试职务' && item.count === 1));
-    assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', { ...salary, jobTitle: '不存在的职务' })).status, 400);
+    assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', { ...salary, jobTitle: '不存在的职务' })).status, 200);
+    assert.equal((await call('/admin/employees/U001', admin)).body.data.position, '测试职务');
     assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', salary)).status, 200);
+    assert.equal((await call('/admin/employees/U001', admin, 'PUT', originalEmployee)).status, 200);
     assert.equal((await call(`/admin/job-titles/${titleId}`, admin, 'DELETE')).status, 200);
     await (await import('../src/domains/employees/jobTitleService')).backfillJobTitles();
     assert.ok(!(await call('/admin/job-titles', admin)).body.data.some((title: any) => title.name === '测试职务'));

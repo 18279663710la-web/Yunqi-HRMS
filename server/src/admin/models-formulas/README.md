@@ -2,11 +2,11 @@
 
 ## 职责
 
-入职/离职申请表模板、公司日历、附件鉴权下载、薪资构成模型与薪资流程的管理接口；部分绩效规则接口仍位于 `admin/hr/`。离职申请表当前仅模板 CRUD，不含登记与员工填写。
+入职/离职申请表模板、公司日历、附件鉴权下载和薪资构成模型的管理接口；部分绩效规则接口仍位于 `admin/hr/`。离职申请表当前仅模板 CRUD，不含登记与员工填写。
 
 ## 主要内容
 
-- 主要文件：`companyCalendarRoutes.ts`、`onboardingFormRoutes.ts`、`offboardingFormRoutes.ts`、`payrollWorkflowRoutes.ts`、`salaryModelsRoutes.ts`。
+- 主要文件：`companyCalendarRoutes.ts`、`onboardingFormRoutes.ts`、`offboardingFormRoutes.ts`、`salaryModelsRoutes.ts`。
 - 公司日历接口读取对所有管理员开放（考勤组编辑需要选择规则），新建、修改和删除仅超级管理员；被考勤组使用的规则不能删除。
 
 ## 维护约束

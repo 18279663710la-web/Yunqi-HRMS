@@ -33,9 +33,9 @@ test('人事资料仅超级管理员可管理，入职申请可以重新读取',
     };
     assert.equal((await request('/employees', hr)).status, 403);
     assert.equal((await request('/employees/U001/salary', hr, 'PUT', { base: 100 })).status, 403);
-    assert.equal((await request('/onboarding/fields', admin, 'PUT', ['姓名', '电话'])).status, 200);
-    assert.equal((await request('/onboarding', admin, 'POST', { 姓名: '申请人' })).status, 400);
-    assert.equal((await request('/onboarding', admin, 'POST', { 姓名: '申请人', 电话: '123' })).status, 200);
+    await conn.query(`INSERT INTO \`${database}\`.hr_onboarding (fields_json, created_at) VALUES (?, NOW())`, [JSON.stringify({ 姓名: '申请人' })]);
+    assert.equal((await request('/onboarding/fields', admin, 'PUT', ['姓名', '电话'])).status, 404);
+    assert.equal((await request('/onboarding', admin, 'POST', { 姓名: '申请人', 电话: '123' })).status, 404);
     assert.equal((await request('/onboarding', admin)).body.data[0].fields.姓名, '申请人');
     assert.equal((await request('/employees/U001/salary', admin, 'PUT', { base: 5000 })).status, 200);
     assert.equal((await request('/employees/U001/salary', admin)).body.data.base, 5000);

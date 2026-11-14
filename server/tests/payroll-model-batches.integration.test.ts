@@ -29,8 +29,8 @@ test('工资批次按固定模型算薪，扩展字段手工填写并锁定快�
       await conn.query(`INSERT INTO \`${database}\`.hr_self_onboarding (employee_id, expected_date, template_json, answers_json, created_at, submitted_at, archived_at, archived_by) VALUES (?, '2026-01-01', '[]', '{}', NOW(), NOW(), NOW(), 1)`, [employeeId]);
       await conn.query(`INSERT INTO \`${database}\`.hr_employee_records (employee_id, section, data_json, updated_at) VALUES (?, 'contract', ?, NOW()), (?, 'salary', ?, NOW())`, [employeeId, JSON.stringify({ number: 'C', startDate: '2026-01-01', endDate: '2027-01-01' }), employeeId, JSON.stringify({ effectiveDate: '2026-01-01', values: { 基本工资: 1000, 职务津贴: 200, 工龄奖: 30 }, base: 1000, allowance: null, performance: null })]);
     }
-    assert.equal((await call('/admin/hr/overtime-payroll-rules', 'PUT', [{ minHours: 0, maxHours: null, hourlyRate: 20 }])).status, 200);
-    assert.equal((await call('/admin/hr/attendance-payroll-rules', 'PUT', [{ minRate: 100, maxRate: 100, adjustment: 300 }, { minRate: 0, maxRate: 100, adjustment: 0 }])).status, 200);
+    assert.equal((await call('/admin/hr/overtime-payroll-rule-config', 'PUT', { calculation: 'range', rules: [{ minHours: 0, maxHours: null, hourlyRate: 20 }] })).status, 200);
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', 'PUT', { mode: 'rate_attendance', rules: [{ minRate: 100, maxRate: 100, adjustment: 300 }, { minRate: 0, maxRate: 100, adjustment: 0 }] })).status, 200);
     const batch = await call('/admin/hr/payroll-batches', 'POST', { month: '2026-09' }); const id = batch.body.data.id;
     const preview = await call(`/admin/hr/payroll-batches/${id}/auto-preview`);
     assert.equal(preview.status, 200); assert.equal(preview.body.data.candidates.length, 2); assert.equal(preview.body.data.candidates[0].baseGross, 1230);
@@ -53,14 +53,13 @@ test('工资批次按固定模型算薪，扩展字段手工填写并锁定快�
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/extended`, 'PUT', { revision: 1, values: excessive })).status, 400);
     const unchanged = (await call(`/admin/hr/payroll-batches/${id}/items`)).body.data.find((row: any) => row.id === item.id);
     assert.equal(unchanged.modelSnapshot.revision, 1); assert.equal(unchanged.net, 1280.25);
-    const manual = await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 1, deduction: 20 });
-    assert.equal(manual.status, 200);
-    assert.deepEqual({ gross: manual.body.data.gross, deductions: manual.body.data.deductions, net: manual.body.data.net }, { gross: 1280.25, deductions: 20, net: 1260.25 });
-    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 1, deduction: 30 })).status, 409);
-    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 2, deduction: 99999 })).status, 400);
+    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 1, deduction: 20 })).status, 404);
+    const seededSnapshot = { ...unchanged.modelSnapshot, manualDeduction: 20, revision: 2 };
+    await pool.execute('UPDATE hr_payroll_batch_items SET model_snapshot = ?, gross = 1280.25, deductions = 20, net = 1260.25 WHERE id = ?', [JSON.stringify(seededSnapshot), item.id]);
     const second = items.find((row: any) => row.employeeId === 'U013');
-    const secondManual = await call(`/admin/hr/payroll-batches/${id}/items/${second.id}/deduction`, 'PUT', { revision: 0, deduction: 30 });
-    assert.equal(secondManual.status, 200);
+    const secondRow = await pool.queryOne<{ model_snapshot: string | Record<string, unknown> }>('SELECT model_snapshot FROM hr_payroll_batch_items WHERE id = ?', [second.id]);
+    const secondSnapshot = typeof secondRow?.model_snapshot === 'string' ? JSON.parse(secondRow.model_snapshot) : secondRow?.model_snapshot;
+    await pool.execute('UPDATE hr_payroll_batch_items SET model_snapshot = ? WHERE id = ?', [JSON.stringify({ ...secondSnapshot, manualDeduction: 30, revision: 1 }), second.id]);
     const secondValues = [{ name: '出勤天', value: 22 }, { name: '加班费', value: 10 }, { name: '扣社保', value: 5 }, { name: '备注', value: '' }];
     const secondEdit = await call(`/admin/hr/payroll-batches/${id}/items/${second.id}/extended`, 'PUT', { revision: 1, values: secondValues });
     assert.equal(secondEdit.status, 200);
@@ -78,7 +77,7 @@ test('工资批次按固定模型算薪，扩展字段手工填写并锁定快�
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/extended`, 'PUT', { revision: 1, values })).status, 409);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/extended`, 'PUT', { revision: 3, values: values.slice(1) })).status, 400);
     assert.notEqual((await call(`/admin/hr/payroll-batches/${id}/recalculate-overtime`, 'POST', {})).status, 200);
-    assert.equal((await call('/admin/hr/overtime-payroll-rules', 'PUT', [{ minHours: 0, maxHours: null, hourlyRate: 30 }])).status, 200);
+    assert.equal((await call('/admin/hr/overtime-payroll-rule-config', 'PUT', { calculation: 'range', rules: [{ minHours: 0, maxHours: null, hourlyRate: 30 }] })).status, 200);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items`)).body.data.find((row: any) => row.id === item.id).net, 1159.75);
     const invalidModel = await call('/admin/hr/salary-model', 'PUT', { version: changedModel.body.data.version, fixedFields: [field('基本工资', 'deduction'), field('职务津贴'), field('工龄奖')], extendedFields: [field('出勤天', 'info'), field('加班费', 'info'), field('扣社保', 'deduction'), note] });
     assert.equal(invalidModel.status, 400);
@@ -100,7 +99,7 @@ test('工资批次按固定模型算薪，扩展字段手工填写并锁定快�
     assert.equal(reviewed.modelSnapshot.revision, 4);
     assert.equal(reviewed.modelSnapshot.extended[2].category, 'deduction');
     assert.equal(reviewed.net, 1179.75);
-    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 4, deduction: 5 })).status, 400);
+    assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/deduction`, 'PUT', { revision: 4, deduction: 5 })).status, 404);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/items/${item.id}/extended`, 'PUT', { revision: 1, values })).status, 400);
 
     // 修改固定字段只作用于当前草稿，使用新值重算金额并防止并发覆盖。

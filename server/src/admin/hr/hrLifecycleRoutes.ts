@@ -6,34 +6,26 @@ import { parse } from '../../shared/middleware/validate';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { badRequest, conflict, notFound } from '../../shared/utils/errors';
-import { attendanceRulesSchema, payrollAttendanceRulesSchema } from './hrPolicy';
+import { attendanceRulesSchema } from './hrPolicy';
 import { calculateExtendedSalary, calculateFixedIncome, type PayrollModelSnapshot } from '../../domains/payroll/payrollModelCalculation';
 import { syncDraftBatch } from '../../domains/payroll/payrollDraftSync';
 import { addAutoPayrollItems, previewAutoPayrollItems, lockPayrollMonth } from '../../domains/payroll/payrollAutoService';
 import { success } from '../../shared/utils/response';
-import { taskSchema, completionSchema } from './hrOnboardingService';
 import { cancelTransition, listTransitions, submitTransition, transitionSchema } from './hrTransitionService';
 import multer from 'multer';
 import type { RequestHandler } from 'express';
 import {
-  cancelDeparture,
   cancelDepartureRecord,
   scheduleReinstatement,
-  finalizeDeparture,
   getDepartureFile,
   listDepartureFiles,
   listDepartures,
   registerDeparture,
 } from './hrDepartureService';
-import { overtimeRuleConfigSchema, overtimeRulesKey, overtimeRulesSchema } from '../../domains/payroll/overtimePayrollService';
+import { overtimeRuleConfigSchema } from '../../domains/payroll/overtimePayrollService';
 import { OVERTIME_RULE_CONFIG_KEY, readOvertimeRuleConfig, saveOvertimeRuleConfig } from '../../domains/payroll/overtimeRuleConfigRepository';
-import { attendanceRangeRuleConfigSchema, attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
+import { attendanceRuleConfigSchema } from '../../domains/payroll/attendanceRuleConfig';
 import { ATTENDANCE_RULE_CONFIG_KEY, readAttendanceRuleConfig, saveAttendanceRuleConfig } from '../../domains/payroll/attendanceRuleConfigRepository';
-import {
-  mapCompanyCalendarRuleRow,
-  resolveCalendarRestDates,
-  type CalendarRuleRow,
-} from '../../domains/attendance/companyCalendar';
 
 const router = Router();
 const monthSchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) });
@@ -41,18 +33,7 @@ const batchIdSchema = z.coerce.number().int().positive();
 const employeeId = z.string().trim().min(1).max(10);
 const eventSchema = z.object({ employeeId, type: z.enum(['转正', '调岗', '调薪', '其他']), effectiveDate: z.string().date(), note: z.string().trim().max(500).default('') });
 const exitSchema = z.object({ employeeId, lastDate: z.string().date(), note: z.string().trim().max(500).default('') });
-const templateTaskSchema = taskSchema.extend({ description: z.string().trim().max(500).default(''), beginOn: z.number().int().min(-3650).max(3650).nullable().optional(), duration: z.number().int().min(0).max(3650).nullable().optional() }).refine((task) => task.duration == null || task.beginOn != null, '填写持续天数时必须填写开始偏移');
-const templateSchema = z.array(templateTaskSchema).max(30).refine((tasks) => new Set(tasks.map((t) => t.title)).size === tasks.length, '任务名称不能重复');
-const applyTemplateSchema = z.object({ startDate: z.string().date().optional() });
 const json = (value: unknown) => typeof value === 'string' ? JSON.parse(value) : value;
-function scheduledDate(base: string, days: number, holidays: Set<string>): string {
-  const date = new Date(`${base}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  let value = date.toISOString().slice(0, 10);
-  while (holidays.has(value)) { date.setUTCDate(date.getUTCDate() + 1); value = date.toISOString().slice(0, 10); }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '1000-01-01' || value > '9999-12-31') throw badRequest('任务计划日期超出支持范围');
-  return value;
-}
 async function employeeExists(id: string) { if (!await queryOne('SELECT id FROM employees WHERE id = ?', [id])) throw notFound('员工不存在'); }
 
 router.get('/employee-transitions', asyncHandler(async (req, res) => {
@@ -70,56 +51,6 @@ router.post('/employee-transitions/:id/cancel', asyncHandler(async (req, res) =>
   success(res, {});
 }));
 
-router.get('/onboarding/task-template', asyncHandler(async (_req, res) => {
-  const row = await queryOne<{ value_json: unknown }>("SELECT value_json FROM hr_settings WHERE setting_key = 'onboarding_tasks'");
-  success(res, row ? json(row.value_json) : []);
-}));
-router.put('/onboarding/task-template', asyncHandler(async (req, res) => {
-  const value = parse(templateSchema, req.body);
-  await execute("INSERT INTO hr_settings (setting_key, value_json, updated_at) VALUES ('onboarding_tasks', ?, NOW()) ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_at = NOW()", [JSON.stringify(value)]);
-  await recordAdminLog(req.admin!, '修改入职任务模板', 'hr_settings', 'onboarding_tasks', {}); success(res, value);
-}));
-router.post('/onboarding/:id/apply-template', asyncHandler(async (req, res) => {
-  const input = parse(applyTemplateSchema, req.body);
-  await transaction(async (conn) => {
-    const [apps] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_onboarding WHERE id = ? FOR UPDATE', [req.params.id]);
-    if (!apps.length) throw notFound('入职申请不存在');
-    const [links] = await conn.query<RowDataPacket[]>('SELECT employee_id FROM hr_onboarding_links WHERE onboarding_id = ?', [req.params.id]);
-    if (links.length) throw badRequest('已建档的申请不能修改任务');
-    const [existing] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_onboarding_tasks WHERE onboarding_id = ? LIMIT 1', [req.params.id]);
-    if (existing.length) throw badRequest('已有任务，请勿重复应用模板');
-    const [settings] = await conn.query<RowDataPacket[]>("SELECT value_json FROM hr_settings WHERE setting_key = 'onboarding_tasks'");
-    const tasks = parse(templateSchema, settings.length ? json(settings[0].value_json) : []);
-    if (!tasks.length) throw badRequest('请先设置入职任务模板');
-    if (tasks.some((task) => task.beginOn != null) && !input.startDate) throw badRequest('该模板包含计划时间，请选择入职活动开始日期');
-    const [attendance] = await conn.query<RowDataPacket[]>('SELECT rest_dates FROM attendance_settings WHERE id = 1');
-    const legacyRestDates = attendance.length && attendance[0].rest_dates ? json(attendance[0].rest_dates) : [];
-    const [firstGroup] = await conn.query<RowDataPacket[]>('SELECT calendar_rule_id FROM attendance_groups ORDER BY id ASC LIMIT 1');
-    let holidays: Set<string>;
-    if (firstGroup.length && firstGroup[0].calendar_rule_id) {
-      // 有考勤组时按第一个组的公司日历排期；无组时沿用初始设置的显式休息日期。
-      const [ruleRows] = await conn.query<RowDataPacket[]>('SELECT * FROM company_calendar_rules WHERE id = ?', [firstGroup[0].calendar_rule_id]);
-      if (ruleRows.length) {
-        const rule = mapCompanyCalendarRuleRow(ruleRows[0] as unknown as CalendarRuleRow);
-        const maxOffset = Math.max(0, ...tasks.map((task) => (task.beginOn ?? 0) + (task.duration ?? 0)));
-        const startDate = input.startDate ?? new Date().toISOString().slice(0, 10);
-        const startTime = Date.parse(`${startDate}T00:00:00Z`);
-        const endDate = new Date(startTime + (maxOffset + 31) * 86400000).toISOString().slice(0, 10);
-        holidays = resolveCalendarRestDates(rule, startDate, endDate);
-      } else {
-        holidays = new Set<string>(Array.isArray(legacyRestDates) ? legacyRestDates.filter((date): date is string => typeof date === 'string') : []);
-      }
-    } else {
-      holidays = new Set<string>(Array.isArray(legacyRestDates) ? legacyRestDates.filter((date): date is string => typeof date === 'string') : []);
-    }
-    for (const task of tasks) {
-      const start = task.beginOn == null ? null : scheduledDate(input.startDate!, task.beginOn, holidays);
-      const end = task.beginOn == null || task.duration == null ? null : scheduledDate(input.startDate!, task.beginOn + task.duration, holidays);
-      await conn.execute('INSERT INTO hr_onboarding_tasks (onboarding_id, title, description, start_date, end_date, required, completed) VALUES (?, ?, ?, ?, ?, ?, 0)', [req.params.id, task.title, task.description, start, end, task.required]);
-    }
-  });
-  await recordAdminLog(req.admin!, '应用入职任务模板', 'hr_onboarding', req.params.id, {}); success(res, {});
-}));
 router.get('/events', asyncHandler(async (req, res) => {
   const id = parse(employeeId, req.query.employeeId); await employeeExists(id);
   success(res, await queryRows('SELECT id, employee_id AS employeeId, event_type AS type, effective_date AS effectiveDate, note, created_at AS createdAt FROM hr_events WHERE employee_id = ? ORDER BY effective_date DESC, id DESC LIMIT 200', [id]));
@@ -165,28 +96,6 @@ router.put('/attendance-payroll-rule-config-v2', asyncHandler(async (req, res) =
   await recordAdminLog(req.admin!, '设置全员出勤绩效规则', 'hr_settings', ATTENDANCE_RULE_CONFIG_KEY, { mode: config.mode, calculation: config.calculation ?? 'range', count: config.calculation === 'unit' ? 1 : config.rules.length });
   success(res, config);
 }));
-router.get('/attendance-payroll-rule-config', asyncHandler(async (_req, res) => {
-  const stored = await readAttendanceRuleConfig();
-  if (stored?.calculation === 'unit') throw conflict('当前规则按单位计算，请使用新版接口');
-  success(res, stored ?? { mode: 'rate_attendance', rules: await loadAttendancePayrollRules() });
-}));
-router.put('/attendance-payroll-rule-config', asyncHandler(async (req, res) => {
-  const config = parse(attendanceRangeRuleConfigSchema, req.body);
-  await saveAttendanceRuleConfig(config);
-  await recordAdminLog(req.admin!, '设置全员出勤绩效规则', 'hr_settings', ATTENDANCE_RULE_CONFIG_KEY, { mode: config.mode, count: config.rules.length });
-  success(res, config);
-}));
-router.get('/attendance-payroll-rules', asyncHandler(async (_req, res) => {
-  const config = await readAttendanceRuleConfig();
-  if (config && (config.calculation === 'unit' || config.mode !== 'rate_attendance')) throw conflict('当前规则不是按区间比例出勤配置，请使用新版接口');
-  success(res, await loadAttendancePayrollRules());
-}));
-router.put('/attendance-payroll-rules', asyncHandler(async (req, res) => {
-  const rules = parse(payrollAttendanceRulesSchema, req.body);
-  await saveAttendanceRuleConfig({ mode: 'rate_attendance', rules });
-  await recordAdminLog(req.admin!, '设置全员出勤率绩效规则', 'hr_settings', attendanceRulesKey, { count: rules.length });
-  success(res, rules);
-}));
 router.get('/overtime-payroll-rule-config', asyncHandler(async (_req, res) => {
   success(res, await readOvertimeRuleConfig());
 }));
@@ -195,17 +104,6 @@ router.put('/overtime-payroll-rule-config', asyncHandler(async (req, res) => {
   await saveOvertimeRuleConfig(config);
   await recordAdminLog(req.admin!, '设置加班绩效规则', 'hr_settings', OVERTIME_RULE_CONFIG_KEY, { calculation: config.calculation, count: config.calculation === 'range' ? config.rules.length : 1 });
   success(res, config);
-}));
-router.get('/overtime-payroll-rules', asyncHandler(async (_req, res) => {
-  const config = await readOvertimeRuleConfig();
-  if (config.calculation !== 'range') throw conflict('当前加班规则按单位计算，请使用新版接口');
-  success(res, config.rules);
-}));
-router.put('/overtime-payroll-rules', asyncHandler(async (req, res) => {
-  const overtimeRules = parse(overtimeRulesSchema, req.body);
-  await saveOvertimeRuleConfig({ calculation: 'range', rules: overtimeRules });
-  await recordAdminLog(req.admin!, '设置加班绩效规则', 'hr_settings', overtimeRulesKey, { count: overtimeRules.length });
-  success(res, overtimeRules);
 }));
 router.get('/payroll-batches', asyncHandler(async (req, res) => {
   const month = req.query.month === undefined ? undefined : parse(monthSchema, { month: req.query.month }).month;
@@ -325,27 +223,6 @@ router.put('/payroll-batches/:id/items/:itemId/fixed', asyncHandler(async (req, 
   await recordAdminLog(req.admin!, '编辑工资批次固定字段', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId, field: input.name });
   success(res, updated);
 }));
-router.put('/payroll-batches/:id/items/:itemId/deduction', asyncHandler(async (req, res) => {
-  const input = parse(z.object({ revision: z.number().int().nonnegative(), deduction: z.number().finite().min(0).max(9999999999.99) }).strict(), req.body);
-  await syncDraftBatch(parse(batchIdSchema, req.params.id));
-  const updated = await transaction(async conn => {
-    const [batches] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_payroll_batches WHERE id = ? FOR UPDATE', [req.params.id]);
-    if (!batches.length) throw notFound('工资批次不存在');
-    if (batches[0].status !== 'draft') throw badRequest('已复核的批次不能修改');
-    const [items] = await conn.query<RowDataPacket[]>('SELECT model_snapshot FROM hr_payroll_batch_items WHERE id = ? AND batch_id = ? FOR UPDATE', [req.params.itemId, req.params.id]);
-    if (!items.length) throw notFound('工资明细不存在');
-    if (!items[0].model_snapshot) throw badRequest('历史工资明细不能编辑');
-    const snapshot = json(items[0].model_snapshot) as PayrollModelSnapshot;
-    if ((snapshot.revision ?? 0) !== input.revision) throw conflict('工资明细已被修改，请刷新后重试');
-    snapshot.manualDeduction = input.deduction;
-    snapshot.revision = input.revision + 1;
-    const totals = calculateExtendedSalary(snapshot);
-    await conn.execute('UPDATE hr_payroll_batch_items SET model_snapshot = ?, gross = ?, deductions = ?, net = ? WHERE id = ?', [JSON.stringify(snapshot), totals.gross, totals.deductions, totals.net, req.params.itemId]);
-    return { modelSnapshot: snapshot, ...totals };
-  });
-  await recordAdminLog(req.admin!, '编辑工资批次扣除', 'hr_payroll_batches', req.params.id, { itemId: req.params.itemId });
-  success(res, updated);
-}));
 router.post('/payroll-batches/:id/review', asyncHandler(async (req, res) => {
   await syncDraftBatch(parse(batchIdSchema, req.params.id));
   await transaction(async (conn) => {
@@ -388,7 +265,7 @@ router.post('/departures', uploadDepartureFiles, asyncHandler(async (req, res) =
     note: input.note,
     adminId: req.admin!.id,
     files: uploaded.map((file) => ({
-      fileName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
+      fileName: file.originalname,
       mimeType: file.mimetype || 'application/octet-stream',
       size: file.size,
       data: file.buffer,
@@ -421,62 +298,5 @@ router.get('/departures/:id/files/:fileId', asyncHandler(async (req, res) => {
   const encoded = encodeURIComponent(file.file_name).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
   res.set({ 'Content-Type': file.mime_type || 'application/octet-stream', 'Content-Disposition': `attachment; filename="attachment"; filename*=UTF-8''${encoded}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
   res.send(file.file_data);
-}));
-
-router.get('/offboarding', asyncHandler(async (_req, res) => {
-  const rows = await queryRows<{ taskCount: number; completedCount: number }>('SELECT o.id, o.employee_id AS employeeId, e.name, e.employee_no AS employeeNo, o.last_date AS lastDate, o.note, o.status, o.created_at AS createdAt, d.status AS departureStatus, (SELECT COUNT(*) FROM hr_offboarding_tasks t WHERE t.offboarding_id = o.id) AS taskCount, (SELECT COUNT(*) FROM hr_offboarding_tasks t WHERE t.offboarding_id = o.id AND t.completed = 1) AS completedCount FROM hr_offboarding o JOIN employees e ON e.id = o.employee_id LEFT JOIN hr_employee_departures d ON d.offboarding_id = o.id ORDER BY o.id DESC LIMIT 200');
-  success(res, rows.map((row) => ({ ...row, taskCount: Number(row.taskCount), completedCount: Number(row.completedCount), taskStatus: Number(row.completedCount) === 0 ? 'pending' : Number(row.completedCount) === Number(row.taskCount) ? 'completed' : 'in_progress' })));
-}));
-router.post('/offboarding', asyncHandler(async (req, res) => {
-  const input = parse(exitSchema, req.body);
-  const id = await transaction(async (conn) => {
-    const [employees] = await conn.query<RowDataPacket[]>("SELECT id, DATE_FORMAT(join_date, '%Y-%m-%d') AS joinDate FROM employees WHERE id = ? FOR UPDATE", [input.employeeId]);
-    if (!employees.length) throw notFound('员工不存在');
-    if (input.lastDate < String(employees[0].joinDate)) throw badRequest('最后工作日不能早于入职日期');
-    const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status IN ('applied', 'departed') LIMIT 1", [input.employeeId]);
-    if (departures.length) throw badRequest('该员工已有离职记录');
-    const [openCases] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_offboarding WHERE employee_id = ? AND status = 'open' LIMIT 1", [input.employeeId]);
-    if (openCases.length) throw badRequest('该员工已有办理中的离职清单');
-    const [result] = await conn.execute<ResultSetHeader>("INSERT INTO hr_offboarding (employee_id, last_date, note, status, created_at) VALUES (?, ?, ?, 'open', NOW())", [input.employeeId, input.lastDate, input.note]); return result.insertId;
-  });
-  await recordAdminLog(req.admin!, '登记离职清单', 'hr_offboarding', String(id), { employeeId: input.employeeId }); success(res, { id });
-}));
-router.get('/offboarding/:id/tasks', asyncHandler(async (req, res) => {
-  if (!await queryOne('SELECT id FROM hr_offboarding WHERE id = ?', [req.params.id])) throw notFound('离职清单不存在');
-  const rows = await queryRows<{ id: number; title: string; required: number; completed: number }>('SELECT id, title, required, completed FROM hr_offboarding_tasks WHERE offboarding_id = ? ORDER BY id', [req.params.id]);
-  success(res, rows.map((row) => ({ ...row, required: !!row.required, completed: !!row.completed })));
-}));
-router.post('/offboarding/:id/tasks', asyncHandler(async (req, res) => {
-  const input = parse(taskSchema, req.body); const id = await transaction(async (conn) => {
-    const [cases] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_offboarding WHERE id = ? FOR UPDATE', [req.params.id]);
-    if (!cases.length) throw notFound('离职清单不存在'); if (cases[0].status !== 'open') throw badRequest('已完成的离职清单不能修改');
-    const [result] = await conn.execute<ResultSetHeader>('INSERT INTO hr_offboarding_tasks (offboarding_id, title, required, completed) VALUES (?, ?, ?, 0)', [req.params.id, input.title, input.required]); return result.insertId;
-  }); await recordAdminLog(req.admin!, '添加离职任务', 'hr_offboarding', req.params.id, {}); success(res, { id });
-}));
-router.patch('/offboarding/:id/tasks/:taskId', asyncHandler(async (req, res) => {
-  const input = parse(completionSchema, req.body); await transaction(async (conn) => {
-    const [cases] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_offboarding WHERE id = ? FOR UPDATE', [req.params.id]);
-    if (!cases.length) throw notFound('离职清单不存在'); if (cases[0].status !== 'open') throw badRequest('已完成的离职清单不能修改');
-    const [tasks] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_offboarding_tasks WHERE id = ? AND offboarding_id = ?', [req.params.taskId, req.params.id]); if (!tasks.length) throw notFound('离职任务不存在');
-    await conn.execute('UPDATE hr_offboarding_tasks SET completed = ? WHERE id = ? AND offboarding_id = ?', [input.completed, req.params.taskId, req.params.id]);
-  }); await recordAdminLog(req.admin!, '更新离职任务', 'hr_offboarding', req.params.id, {}); success(res, {});
-}));
-router.post('/offboarding/:id/complete', asyncHandler(async (req, res) => {
-  await transaction(async (conn) => {
-    const [cases] = await conn.query<RowDataPacket[]>('SELECT status FROM hr_offboarding WHERE id = ? FOR UPDATE', [req.params.id]);
-    if (!cases.length) throw notFound('离职清单不存在'); if (cases[0].status !== 'open') throw badRequest('离职清单已完成');
-    const [pending] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_offboarding_tasks WHERE offboarding_id = ? AND required = 1 AND completed = 0 LIMIT 1', [req.params.id]); if (pending.length) throw badRequest('请先完成必需的离职任务');
-    await conn.execute("UPDATE hr_offboarding SET status = 'completed' WHERE id = ?", [req.params.id]);
-  }); await recordAdminLog(req.admin!, '完成离职清单', 'hr_offboarding', req.params.id, {}); success(res, {});
-}));
-router.post('/offboarding/:id/finalize', asyncHandler(async (req, res) => {
-  const result = await finalizeDeparture(req.params.id, req.admin!.id);
-  await recordAdminLog(req.admin!, '确认员工离职', 'hr_employee_departures', String(result.id), { employeeId: result.employeeId });
-  success(res, result);
-}));
-router.post('/offboarding/:id/cancel-departure', asyncHandler(async (req, res) => {
-  await cancelDeparture(req.params.id, req.admin!.id);
-  await recordAdminLog(req.admin!, '撤销员工离职', 'hr_offboarding', req.params.id, {});
-  success(res, {});
 }));
 export default router;

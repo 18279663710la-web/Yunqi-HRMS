@@ -23,16 +23,16 @@ test('全员出勤规则迁移、校验及草稿批次删除', async () => {
 
     const rules = [{ minRate: 0, maxRate: 90, adjustment: -200 }, { minRate: 90, maxRate: 100, adjustment: 0 }, { minRate: 100, maxRate: 100, adjustment: 200 }];
     assert.equal((await call('/admin/hr/employees/U001/salary', admin, 'PUT', { performance: 1000, attendanceRules: rules })).status, 200);
-    const migrated = await call('/admin/hr/attendance-payroll-rules', admin); assert.equal(migrated.status, 200); assert.deepEqual(migrated.body.data, rules);
-    const invalid = await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', [{ minRate: 0, maxRate: 90, adjustment: 1 }, { minRate: 89, maxRate: 100, adjustment: 0 }]); assert.equal(invalid.status, 400);
+    const migrated = await call('/admin/hr/attendance-payroll-rule-config-v2', admin); assert.equal(migrated.status, 200); assert.deepEqual(migrated.body.data, { mode: 'rate_attendance', rules });
+    const invalid = await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules: [{ minRate: 0, maxRate: 90, adjustment: 1 }, { minRate: 89, maxRate: 100, adjustment: 0 }] }); assert.equal(invalid.status, 400);
     for (const incomplete of [
       [],
       [{ minRate: 100, maxRate: 100, adjustment: 0 }],
       [{ minRate: 100, maxRate: 100, adjustment: 0 }, { minRate: 90, maxRate: 100, adjustment: 0 }],
       [{ minRate: 100, maxRate: 100, adjustment: 0 }, { minRate: 0, maxRate: 90, adjustment: 0 }],
       [{ minRate: 0, maxRate: 100, adjustment: 0 }, { minRate: 100, maxRate: 100, adjustment: 0 }],
-    ]) assert.equal((await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', incomplete)).status, 400, JSON.stringify(incomplete));
-    const next = [{ minRate: 100, maxRate: 100, adjustment: 300 }, { minRate: 0, maxRate: 100, adjustment: 0 }]; assert.equal((await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', next)).status, 200); assert.deepEqual((await call('/admin/hr/attendance-payroll-rules', admin)).body.data, next);
+    ]) assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules: incomplete })).status, 400, JSON.stringify(incomplete));
+    const next = [{ minRate: 100, maxRate: 100, adjustment: 300 }, { minRate: 0, maxRate: 100, adjustment: 0 }]; assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules: next })).status, 200); assert.deepEqual((await call('/admin/hr/attendance-payroll-rule-config-v2', admin)).body.data, { mode: 'rate_attendance', rules: next });
     assert.deepEqual((await call('/admin/hr/employees/U001/salary', admin)).body.data.attendanceRules, rules);
     const batch = await call('/admin/hr/payroll-batches', admin, 'POST', { month: '2026-08' }); assert.equal(batch.status, 200); const id = batch.body.data.id;
     await conn.query(`INSERT INTO \`${database}\`.hr_payroll_batch_items (batch_id, employee_id, gross, deductions, net, note) VALUES (?, 'U001', 2000, 0, 2000, '')`, [id]);
@@ -48,11 +48,11 @@ test('全员出勤规则迁移、校验及草稿批次删除', async () => {
     await conn.query(`INSERT INTO \`${database}\`.hr_payroll_batch_items (batch_id, employee_id, gross, deductions, net, note) VALUES (?, 'U001', 1000, 0, 1000, '')`, [raceId]);
     const race = await Promise.all([call(`/admin/hr/payroll-batches/${raceId}`, admin, 'DELETE'), call(`/admin/hr/payroll-batches/${raceId}/review`, admin, 'POST', {})]);
     assert.equal(race.filter(result => result.status === 200).length, 1); assert.ok(race.some(result => [400, 404].includes(result.status)));
-    await conn.query(`DELETE FROM \`${database}\`.hr_settings WHERE setting_key='payroll_attendance_rules'`);
+    await conn.query(`DELETE FROM \`${database}\`.hr_settings WHERE setting_key IN ('payroll_attendance_rules', 'payroll_attendance_rule_config')`);
     assert.equal((await call('/admin/hr/employees/U005/salary', admin, 'PUT', { attendanceRules: next })).status, 200);
-    const ambiguous = await call('/admin/hr/attendance-payroll-rules', admin); assert.equal(ambiguous.status, 409);
-    assert.equal((await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', next)).status, 200);
-    assert.deepEqual((await call('/admin/hr/attendance-payroll-rules', admin)).body.data, next);
+    const ambiguous = await call('/admin/hr/attendance-payroll-rule-config-v2', admin); assert.equal(ambiguous.status, 409);
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules: next })).status, 200);
+    assert.deepEqual((await call('/admin/hr/attendance-payroll-rule-config-v2', admin)).body.data, { mode: 'rate_attendance', rules: next });
 
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });

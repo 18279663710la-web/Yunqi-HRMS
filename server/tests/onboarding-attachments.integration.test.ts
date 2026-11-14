@@ -42,7 +42,10 @@ test('入职附件支持普通及表格字段，按员工和申请隔离并保�
     const oversized = new FormData(); oversized.set('field', '资料'); oversized.set('file', new Blob([new Uint8Array(10 * 1024 * 1024 + 1)]), 'large.bin');
     assert.equal((await fetch(base + '/onboarding-form/attachments', { method: 'POST', headers: { Authorization: `Bearer ${employee}` }, body: oversized })).status, 400);
     const first = await upload(employee, '资料'); assert.equal(first.status, 200);
+    for (let index = 0; index < 4; index += 1) assert.equal((await upload(employee, '资料')).status, 200);
+    assert.equal((await upload(employee, '资料')).status, 400);
     const second = await upload(employee, '经历', '证明'); assert.equal(second.status, 200);
+    for (let index = 0; index < 5; index += 1) assert.equal((await upload(employee, '经历', '证明')).status, 200);
     const foreign = await upload(other, '资料'); assert.equal(foreign.status, 200);
     const signature = 'data:image/png;base64,iVBORw0KGgo=';
     const submit = (资料: unknown, 证明: unknown) => call('/onboarding-form/submit', employee, 'POST', { __onboardingFormat: 2, values: { 资料, 经历: [{ 证明 }] }, signature, declarationAccepted: true });

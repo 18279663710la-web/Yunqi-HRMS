@@ -24,13 +24,15 @@ test('管理员登记后仅对应员工填写模板快照并可查看结果', as
     const { getEmployeeSessionVersion } = await import('../src/domains/accounts/employeeSessionService');
     const one = issueTokens('U001', await getEmployeeSessionVersion('U001')).accessToken; const two = issueTokens('U005', await getEmployeeSessionVersion('U005')).accessToken;
     const template = [{ name: '地址', type: 'text', required: true, maxLength: 8 }, { name: '教育经历', type: 'table', required: true, children: [{ name: '学校', type: 'text', required: true }, { name: '年份', type: 'number', required: false, min: 1900 }] }];
-    assert.equal((await call('/admin/onboarding-form/template', admin, 'PUT', template)).status, 200);
+    const templates = (await call('/admin/onboarding-form/templates', admin)).body.data as { id: number; name: string; version: number; isDefault: boolean }[];
+    const current = templates.find((item) => item.isDefault); assert.ok(current);
+    assert.equal((await call(`/admin/onboarding-form/templates/${current.id}`, admin, 'PUT', { name: current.name, fields: template, version: current.version })).status, 200);
     assert.equal((await call('/admin/onboarding-form/applications', admin, 'POST', { employeeId: 'U001', expectedDate: '2026-11-10' })).status, 200);
     const blocked = await call('/company', one); assert.equal(blocked.status, 403); assert.equal((blocked.body as { code?: number }).code, 40301);
     assert.equal((await call('/me', one)).status, 200);
     assert.equal((await call('/company', two)).status, 200);
     assert.equal((await call('/admin/onboarding-form/applications', admin, 'POST', { employeeId: 'U001', expectedDate: '2026-11-10' })).status, 400);
-    assert.equal((await call('/admin/onboarding-form/template', admin, 'PUT', [{ name: '工龄', type: 'number', required: true }])).status, 200);
+    assert.equal((await call(`/admin/onboarding-form/templates/${current.id}`, admin, 'PUT', { name: current.name, fields: [{ name: '工龄', type: 'number', required: true }], version: current.version + 1 })).status, 200);
     const otherPending = await call('/onboarding-form/pending', two); assert.equal(otherPending.status, 200, JSON.stringify(otherPending.body)); assert.equal(otherPending.body.data, null);
     assert.equal((await call('/onboarding-form/pending', one)).body.data.template[0].name, '地址');
     assert.equal((await call('/onboarding-form/submit', one, 'POST', { 地址: '' })).status, 400);

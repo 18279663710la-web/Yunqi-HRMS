@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-export const onboardingFieldsSchema = z.array(z.string().trim().min(1).max(30)).min(1).max(30)
-  .refine((fields) => new Set(fields).size === fields.length, '字段名称不能重复');
-
 const text = z.string().trim().max(200).default('');
 const money = z.number().finite().min(0).max(9999999999.99).multipleOf(0.01).nullable().default(null);
 const salaryValue = z.union([z.number().finite().min(0).max(9999999999.99).multipleOf(0.01), z.string().max(200)]).nullable();
@@ -22,7 +19,6 @@ export const attendanceRulesSchema = z.array(attendanceRule).max(30).superRefine
     }
   }
 });
-export { payrollAttendanceRulesSchema } from '../../domains/payroll/attendanceRuleConfig';
 export const hrRecordSchemas = {
   profile: z.object({ address: text, emergencyContact: text, emergencyPhone: text, education: text }),
   contract: z.object({ number: z.string().trim().min(1, '请填写合同编号').max(200), startDate: z.string().date('请选择有效的合同开始日期'), endDate: z.string().date('请选择有效的合同结束日期'), note: text }).refine(value => value.endDate >= value.startDate, { path: ['endDate'], message: '合同结束日期不能早于开始日期' }),

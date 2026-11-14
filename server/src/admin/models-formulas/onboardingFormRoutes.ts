@@ -162,17 +162,6 @@ admin.get('/attachments/:id', asyncHandler(async (req, res) => {
   res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="attachment"; filename*=UTF-8''${encoded}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
   res.send(file.file_data);
 }));
-admin.get('/template', asyncHandler(async (_req, res) => {
-  const row = await queryOne<{ value_json: unknown }>("SELECT value_json FROM hr_settings WHERE setting_key = 'self_onboarding_template'");
-  success(res, row ? decode(row.value_json) : defaultTemplate);
-}));
-admin.put('/template', asyncHandler(async (req, res) => {
-  const fields = parse(formTemplateSchema, req.body);
-  await execute(legacySettingSql, [JSON.stringify(fields)]);
-  await execute('UPDATE hr_onboarding_form_templates SET fields_json = ?, updated_at = NOW() WHERE id = 1', [JSON.stringify(fields)]);
-  await recordAdminLog(req.admin!, '修改员工入职申请模板', 'hr_settings', 'self_onboarding_template', {});
-  success(res, fields);
-}));
 admin.get('/templates', asyncHandler(async (_req, res) => {
   await ensureInitialTemplate();
   const rows = await queryRows<TemplateRow>('SELECT id, name, fields_json, version, updated_at AS updatedAt FROM hr_onboarding_form_templates ORDER BY id');

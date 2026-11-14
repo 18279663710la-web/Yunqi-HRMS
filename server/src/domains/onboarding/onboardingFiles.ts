@@ -21,8 +21,12 @@ export async function saveOnboardingFile(employeeId: string, field: string, chil
     const parent = template.find(item => item.name === field);
     const target = child && parent?.type === 'table' ? parent.children.find(item => item.name === child) : !child ? parent : undefined;
     if (!target || target.type !== 'attachment') throw badRequest('附件字段不存在');
+    const key = keyFor(field, child);
+    const [existing] = await conn.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM hr_onboarding_attachments WHERE onboarding_id = ? AND field_key = ?', [row.id, key]);
+    const limit = child ? 250 : 5;
+    if (Number(existing[0]?.total) >= limit) throw badRequest(child ? '该列附件已达到 250 个上限' : '该字段最多上传 5 个附件');
     const id = randomUUID();
-    await conn.execute('INSERT INTO hr_onboarding_attachments (id,onboarding_id,field_key,file_name,file_size,file_data,created_at) VALUES (?,?,?,?,?,?,NOW())', [id, row.id, keyFor(field, child), name, file.size, file.buffer]);
+    await conn.execute('INSERT INTO hr_onboarding_attachments (id,onboarding_id,field_key,file_name,file_size,file_data,created_at) VALUES (?,?,?,?,?,?,NOW())', [id, row.id, key, name, file.size, file.buffer]);
     return { id, name, size: file.size };
   });
 }

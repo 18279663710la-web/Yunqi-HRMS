@@ -5,7 +5,7 @@ import test from 'node:test';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
-test('人事模板、历史、工资复核与离职清单完整流程', async () => {
+test('人事事件、合同历史与工资复核', async () => {
   const database = `yunqi_hr_test_${randomBytes(8).toString('hex')}`;
   const conn = await mysql.createConnection({ host: process.env.MYSQL_HOST || '127.0.0.1', port: Number(process.env.MYSQL_PORT || 3306), user: process.env.MYSQL_USER || 'root', password: process.env.MYSQL_PASSWORD || '' });
   let created = false;
@@ -31,26 +31,7 @@ test('人事模板、历史、工资复核与离职清单完整流程', async ()
     };
     const forbidden = await fetch(`http://127.0.0.1:${address.port}/api/admin/hr/payroll-batches`, { headers: { Authorization: `Bearer ${hrToken}` } });
     assert.equal(forbidden.status, 403);
-    assert.equal((await request('/onboarding/task-template', 'PUT', [{ title: '签署合同', required: true, description: '请准备身份证明', beginOn: 0, duration: 1 }])).status, 200);
-    await conn.query(`INSERT INTO \`${database}\`.attendance_settings (id, start_time, end_time, rest_dates, address, floor, latitude, longitude, radius) VALUES (1, '09:00', '18:00', ?, '', '', 0, 0, 100)`, [JSON.stringify(['2026-10-31', '2026-11-01'])]);
-    const application = await request('/onboarding', 'POST', { 姓名: '新人', 联系电话: '123456', 应聘职位: '员工', 预计入职日期: '2026-10-31' });
-    const id = application.body.data.id;
-    assert.equal((await request(`/onboarding/${id}/apply-template`, 'POST', {})).status, 400);
-    assert.equal((await request(`/onboarding/${id}/apply-template`, 'POST', { startDate: '2026-10-31' })).status, 200);
-    const scheduledTask = (await request(`/onboarding/${id}/tasks`)).body.data[0];
-    assert.equal(scheduledTask.title, '签署合同');
-    assert.equal(scheduledTask.description, '请准备身份证明');
-    assert.equal(scheduledTask.startDate, '2026-11-02');
-    assert.equal(scheduledTask.endDate, '2026-11-02');
-    assert.equal((await request('/onboarding/task-template', 'PUT', [{ title: '新模板', required: false }])).status, 200);
-    assert.equal((await request(`/onboarding/${id}/tasks`)).body.data[0].description, '请准备身份证明');
-    const legacyApp = await request('/onboarding', 'POST', { 姓名: '另一个新人', 联系电话: '123456', 应聘职位: '员工', 预计入职日期: '2026-10-31' });
-    assert.equal((await request(`/onboarding/${legacyApp.body.data.id}/apply-template`, 'POST', {})).status, 200);
-    const legacyTask = (await request(`/onboarding/${legacyApp.body.data.id}/tasks`)).body.data[0];
-    assert.equal(legacyTask.startDate, null);
-    assert.equal(legacyTask.description, '');
-    assert.equal((await request('/onboarding/task-template', 'PUT', [{ title: '错误任务', required: true, duration: 1 }])).status, 400);
-    assert.equal((await request(`/onboarding/${id}/apply-template`, 'POST', {})).status, 400);
+    assert.equal((await request('/onboarding/task-template', 'PUT', [{ title: '签署合同', required: true }])).status, 404);
     assert.equal((await request('/events', 'POST', { employeeId: 'U001', type: '转正', effectiveDate: '2026-10-31', note: '记录' })).status, 200);
     assert.equal((await request('/events?employeeId=U001')).body.data.length, 1);
     assert.equal((await request('/employees/U001/contract', 'PUT', { number: 'A1', startDate: '2026-01-01', endDate: '2026-12-31' })).status, 200);
@@ -84,19 +65,7 @@ test('人事模板、历史、工资复核与离职清单完整流程', async ()
     const items = await request(`/payroll-batches/${batchId}/items`);
     assert.equal((await request(`/payroll-batches/${batchId}/items/${items.body.data[0].id}`, 'DELETE')).status, 400);
     assert.equal((await request(`/payroll-batches/${batchId}/items`)).body.data[0].net, 4000);
-    const offboarding = await request('/offboarding', 'POST', { employeeId: 'U001', lastDate: '2026-11-30', note: '' });
-    assert.equal(offboarding.status, 200);
-    assert.equal((await request('/offboarding', 'POST', { employeeId: 'U001', lastDate: '2026-11-30', note: '' })).status, 400);
-    const exitId = offboarding.body.data.id;
-    const task = await request(`/offboarding/${exitId}/tasks`, 'POST', { title: '归还设备', required: true });
-    const optionalTask = await request(`/offboarding/${exitId}/tasks`, 'POST', { title: '离职访谈', required: false });
-    assert.equal((await request(`/offboarding/${exitId}/complete`, 'POST', {})).status, 400);
-    assert.equal((await request(`/offboarding/${exitId}/tasks/${task.body.data.id}`, 'PATCH', { completed: true })).status, 200);
-    assert.equal((await request('/offboarding')).body.data[0].taskStatus, 'in_progress');
-    assert.equal((await request(`/offboarding/${exitId}/tasks/${optionalTask.body.data.id}`, 'PATCH', { completed: true })).status, 200);
-    assert.equal((await request('/offboarding')).body.data[0].taskStatus, 'completed');
-    assert.equal((await request(`/offboarding/${exitId}/complete`, 'POST', {})).status, 200);
-    assert.equal((await request('/offboarding')).body.data[0].status, 'completed');
+    assert.equal((await request('/offboarding', 'POST', { employeeId: 'U001', lastDate: '2026-11-30', note: '' })).status, 404);
   } finally {
     if (closeServer) await closeServer(); if (closePool) await closePool();
     if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end();

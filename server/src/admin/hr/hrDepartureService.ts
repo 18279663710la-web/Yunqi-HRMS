@@ -175,9 +175,7 @@ export async function cancelDepartureRecord(departureId: number, adminId: number
     const [rows] = await conn.query<RowDataPacket[]>("SELECT employee_id, status FROM hr_employee_departures WHERE id = ? FOR UPDATE", [departureId]);
     if (!rows.length) throw notFound('离职记录不存在');
     if (rows[0].status !== 'applied') throw badRequest(rows[0].status === 'departed' ? '已离职员工请办理复职' : '该离职记录不可撤销');
-    const employeeId = String(rows[0].employee_id);
     await conn.execute("UPDATE hr_employee_departures SET status = 'cancelled', cancelled_by = ?, cancelled_at = NOW() WHERE id = ?", [adminId, departureId]);
-    await unlockEmployeeAccount(conn, employeeId);
   });
 }
 
@@ -226,44 +224,4 @@ export async function getDepartureFile(departureId: number, fileId: number) {
   return row[0];
 }
 
-/** 显式确认离职；清单完成与正式离职分别记录（兼容旧流程）。 */
-export async function finalizeDeparture(caseId: string, adminId: number) {
-  return transaction(async (conn) => {
-    const [cases] = await conn.query<RowDataPacket[]>('SELECT employee_id FROM hr_offboarding WHERE id = ?', [caseId]);
-    if (!cases.length) throw notFound('离职清单不存在');
-    const employeeId = String(cases[0].employee_id);
-    const [employees] = await conn.query<RowDataPacket[]>("SELECT id, DATE_FORMAT(join_date, '%Y-%m-%d') AS joinDate FROM employees WHERE id = ? FOR UPDATE", [employeeId]);
-    if (!employees.length) throw notFound('员工不存在');
-    const [locked] = await conn.query<RowDataPacket[]>('SELECT status, last_date FROM hr_offboarding WHERE id = ? FOR UPDATE', [caseId]);
-    if (!locked.length || locked[0].status !== 'completed') throw badRequest('请先完成离职交接清单');
-    const lastDate = locked[0].last_date instanceof Date ? dateKey(locked[0].last_date) : String(locked[0].last_date).slice(0, 10);
-    if (lastDate < String(employees[0].joinDate)) throw badRequest('最后工作日不能早于入职日期');
-    if (lastDate > dateKey()) throw badRequest('最后工作日尚未到，不能确认离职');
-    await activateDueDepartureRows(conn, employeeId);
-    const [existing] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE employee_id = ? AND status IN ('applied', 'departed') LIMIT 1 FOR UPDATE", [employeeId]);
-    if (existing.length) throw badRequest('该员工已经确认离职');
-    const [usedCase] = await conn.query<RowDataPacket[]>('SELECT id FROM hr_employee_departures WHERE offboarding_id = ? FOR UPDATE', [caseId]);
-    if (usedCase.length) throw badRequest('该清单已经办理过离职，如需再次办理请新建清单');
-    await assertDepartureClearance(conn, employeeId);
-    await lockEmployeeAccount(conn, employeeId);
-    const [result] = await conn.execute<ResultSetHeader>(
-      "INSERT INTO hr_employee_departures (offboarding_id, employee_id, last_date, note, status, created_by, created_at) VALUES (?, ?, ?, '', 'departed', ?, NOW())",
-      [caseId, employeeId, lastDate, adminId]
-    );
-    return { id: result.insertId, employeeId };
-  });
-}
 
-/** 撤销离职不会自动重新启用账号，需管理员单独处理。 */
-export async function cancelDeparture(caseId: string, adminId: number) {
-  await transaction(async (conn) => {
-    const [cases] = await conn.query<RowDataPacket[]>('SELECT employee_id FROM hr_offboarding WHERE id = ?', [caseId]);
-    if (!cases.length) throw notFound('离职清单不存在');
-    const employeeId = String(cases[0].employee_id);
-    const [employees] = await conn.query<RowDataPacket[]>('SELECT id FROM employees WHERE id = ? FOR UPDATE', [employeeId]);
-    if (!employees.length) throw notFound('员工不存在');
-    const [departures] = await conn.query<RowDataPacket[]>("SELECT id FROM hr_employee_departures WHERE offboarding_id = ? AND status = 'departed' FOR UPDATE", [caseId]);
-    if (!departures.length) throw badRequest('该离职记录不存在或已撤销');
-    await conn.execute("UPDATE hr_employee_departures SET status = 'cancelled', cancelled_by = ?, cancelled_at = NOW() WHERE id = ?", [adminId, departures[0].id]);
-  });
-}

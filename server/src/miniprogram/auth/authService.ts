@@ -67,7 +67,8 @@ export async function passwordLogin(loginName: string, password: string): Promis
     departed: number;
   }>("SELECT a.employee_id, a.password_hash, a.status, v.version AS session_version, EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = a.employee_id AND d.status = 'departed') AS departed FROM employee_accounts a LEFT JOIN employee_session_versions v ON v.employee_id = a.employee_id WHERE a.login_name = ?", [loginName.trim()]);
 
-  if (!row || !verifyPassword(password, row.password_hash)) {
+  const storedHash = row && row.password_hash.startsWith('locked$') ? row.password_hash.slice('locked$'.length) : row?.password_hash;
+  if (!row || !storedHash || !verifyPassword(password, storedHash)) {
     throw unauthorized('登录名或密码错误');
   }
   if (row.status !== 'active' || row.departed) throw forbidden('该账号已被停用');

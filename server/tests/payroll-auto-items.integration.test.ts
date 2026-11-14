@@ -35,7 +35,7 @@ test('一键添加按封存入职、合同和定薪筛选员工并自动计算�
     assert.equal((await call('/admin/hr/salary-model', admin, 'PUT', { version: model.version, fixedFields: ['基础薪资', '固定补贴', '绩效薪资'], extendedFields: ['加班费'] })).status, 200);
     const month = '2020-02';
     const rest = Array.from({ length: 25 }, (_, i) => `2020-02-${String(i + 5).padStart(2, '0')}`);
-    await conn.query(`INSERT INTO \`${database}\`.attendance_settings (id,start_time,end_time,rest_dates,address,floor,latitude,longitude,radius) VALUES (1,'09:00','18:00',?,'','',0,0,100) ON DUPLICATE KEY UPDATE rest_dates=VALUES(rest_dates)`, [JSON.stringify(rest)]);
+    await conn.query(`INSERT INTO \`${database}\`.attendance_settings (id,start_time,end_time,rest_dates,latitude,longitude,radius) VALUES (1,'09:00','18:00',?,0,0,100) ON DUPLICATE KEY UPDATE rest_dates=VALUES(rest_dates)`, [JSON.stringify(rest)]);
     await conn.query(`DELETE FROM \`${database}\`.attendance_punches WHERE punch_date BETWEEN '2020-02-01' AND '2020-02-29'`);
     for (const employee of ['U001', 'U013']) {
       const days = employee === 'U001' ? [1, 2] : [1, 2, 3, 4];
@@ -63,7 +63,7 @@ test('一键添加按封存入职、合同和定薪筛选员工并自动计算�
     await conn.query(`INSERT INTO \`${database}\`.hr_employee_records (employee_id, section, data_json, updated_at) VALUES ('U012', 'contract', ?, NOW())`, [JSON.stringify({ number: 'C-U012', startDate: '2026-01-01', endDate: '2027-01-01', note: '' })]);
 
     const rules = [{ minRate: 100, maxRate: 100, adjustment: 200 }, { minRate: 90, maxRate: 100, adjustment: 0 }, { minRate: 0, maxRate: 90, adjustment: -300 }];
-    assert.equal((await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', rules)).status, 200);
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules })).status, 200);
     const batch = await call('/admin/hr/payroll-batches', admin, 'POST', { month }); assert.equal(batch.status, 200); const id = batch.body.data.id;
 
     const preview = await call(`/admin/hr/payroll-batches/${id}/auto-preview`, admin);

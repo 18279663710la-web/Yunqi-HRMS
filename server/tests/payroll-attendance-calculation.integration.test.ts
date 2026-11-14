@@ -23,7 +23,7 @@ test('出勤规则修改不改变历史草稿及已复核批次金额', async ()
 
     const month = '2020-02';
     const rest = Array.from({ length: 25 }, (_, i) => `2020-02-${String(i + 5).padStart(2, '0')}`);
-    await conn.query(`INSERT INTO ${database}.attendance_settings (id,start_time,end_time,rest_dates,address,floor,latitude,longitude,radius) VALUES (1,'09:00','18:00',?,'','',0,0,100) ON DUPLICATE KEY UPDATE rest_dates=VALUES(rest_dates)`, [JSON.stringify(rest)]);
+    await conn.query(`INSERT INTO ${database}.attendance_settings (id,start_time,end_time,rest_dates,latitude,longitude,radius) VALUES (1,'09:00','18:00',?,0,0,100) ON DUPLICATE KEY UPDATE rest_dates=VALUES(rest_dates)`, [JSON.stringify(rest)]);
     await conn.query(`DELETE FROM ${database}.attendance_punches WHERE punch_date BETWEEN '2020-02-01' AND '2020-02-29'`);
     for (const employee of ['U001', 'U005']) {
       const days = employee === 'U001' ? [1, 2] : [1, 2, 3, 4];
@@ -32,11 +32,11 @@ test('出勤规则修改不改变历史草稿及已复核批次金额', async ()
     const batch = await call('/admin/hr/payroll-batches', admin, 'POST', { month }); const id = batch.body.data.id;
     for (const employeeId of ['U001', 'U005']) await conn.query(`INSERT INTO ${database}.hr_payroll_batch_items (batch_id, employee_id, base_gross, gross, deductions, net, note) VALUES (?, ?, 1000, 1000, 100, 900, '')`, [id, employeeId]);
     const rules = [{ minRate: 100, maxRate: 100, adjustment: 200 }, { minRate: 90, maxRate: 100, adjustment: 0 }, { minRate: 0, maxRate: 90, adjustment: -200 }];
-    assert.equal((await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', rules)).status, 200);
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules })).status, 200);
     let rows = (await call(`/admin/hr/payroll-batches/${id}/items`, admin)).body.data;
     assert.deepEqual(rows.map((r: any) => [r.employeeId, r.gross, r.net]), [['U001',1000,900],['U005',1000,900]]);
     assert.equal((await call(`/admin/hr/payroll-batches/${id}/review`, admin, 'POST', {})).status, 200);
-    assert.equal((await call('/admin/hr/attendance-payroll-rules', admin, 'PUT', [{ minRate: 100, maxRate: 100, adjustment: 0 }, { minRate: 0, maxRate: 100, adjustment: 0 }])).status, 200);
+    assert.equal((await call('/admin/hr/attendance-payroll-rule-config-v2', admin, 'PUT', { mode: 'rate_attendance', rules: [{ minRate: 100, maxRate: 100, adjustment: 0 }, { minRate: 0, maxRate: 100, adjustment: 0 }] })).status, 200);
     rows = (await call(`/admin/hr/payroll-batches/${id}/items`, admin)).body.data;
     assert.equal(rows[0].gross, 1000); assert.equal(rows[0].net, 900);
 

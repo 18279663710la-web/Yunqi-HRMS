@@ -47,11 +47,11 @@ test('加班打卡须经本人审批、从申请开始时间开放并独立于�
     const restForm = form.replace('加班费', '调休');
     await conn.query(`INSERT INTO \`${database}\`.approvals (id,type,type_name,title,status,applicant_id,applicant_name,applicant_dept,applicant_position,form_json,created_at) VALUES ('OT3','overtime','加班','加班','approved','U001','员工','','员工',?,NOW()), ('OT4','overtime','加班','加班','approved','U001','员工','','员工',?,NOW())`, [restForm, form]);
     await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT3','U001','2026-10-26 19:00:00','2026-10-26 21:00:00')`);
-    assert.equal((await call('/admin/hr/overtime-payroll-rules', admin, 'PUT', [{ minHours: 0, maxHours: null, hourlyRate: 20 }])).status, 200);
+    assert.equal((await call('/admin/hr/overtime-payroll-rule-config', admin, 'PUT', { calculation: 'range', rules: [{ minHours: 0, maxHours: null, hourlyRate: 20 }] })).status, 200);
     let item = (await call(`/admin/hr/payroll-batches/${batchId}/items`, admin)).body.data[0];
     assert.equal(item.overtimeSeconds, 0); assert.equal(item.overtimePay, 0); assert.equal(item.gross, 1000);
     await conn.query(`INSERT INTO \`${database}\`.attendance_overtime_punches (approval_id,employee_id,check_in,check_out) VALUES ('OT4','U001','2026-10-28 00:00:00','2026-10-28 00:30:00')`);
-    assert.equal((await call('/admin/hr/overtime-payroll-rules', admin, 'PUT', [{ minHours: 0, maxHours: null, hourlyRate: 30 }])).status, 200);
+    assert.equal((await call('/admin/hr/overtime-payroll-rule-config', admin, 'PUT', { calculation: 'range', rules: [{ minHours: 0, maxHours: null, hourlyRate: 30 }] })).status, 200);
     item = (await call(`/admin/hr/payroll-batches/${batchId}/items`, admin)).body.data[0]; assert.equal(item.overtimePay, 0); assert.equal(item.gross, 1000);
     assert.equal((await call(`/admin/hr/payroll-batches/${batchId}/review`, admin, 'POST', {})).status, 200);
 

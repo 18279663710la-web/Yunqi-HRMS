@@ -33,13 +33,11 @@ test('加班绩效模式兼容旧规则、隔离权限且不重算工资', async
     const oldRules = [{ minHours: 0, maxHours: 10, hourlyRate: 12.5 }, { minHours: 10, maxHours: null, hourlyRate: 20 }];
     await conn.query(`INSERT INTO \`${database}\`.hr_settings (setting_key,value_json,updated_at) VALUES ('payroll_overtime_rules',?,NOW())`, [JSON.stringify(oldRules)]);
     assert.deepEqual((await call('/overtime-payroll-rule-config')).body.data, { calculation: 'range', rules: oldRules });
-    assert.deepEqual((await call('/overtime-payroll-rules')).body.data, oldRules);
     const { calculateEmployeeOvertime } = await import('../src/domains/payroll/overtimePayrollService');
     const legacyResult = await pool.transaction(conn => calculateEmployeeOvertime(conn, 'U001', '2020-02'));
     assert.deepEqual(legacyResult.rules, oldRules);
     const newRules = [{ minHours: 0, maxHours: 8, hourlyRate: 18 }, { minHours: 8, maxHours: null, hourlyRate: 22 }];
     assert.deepEqual((await call('/overtime-payroll-rule-config', 'PUT', { calculation: 'range', rules: newRules })).body.data, { calculation: 'range', rules: newRules });
-    assert.deepEqual((await call('/overtime-payroll-rules')).body.data, newRules);
     const rangeResult = await pool.transaction(conn => calculateEmployeeOvertime(conn, 'U001', '2020-02'));
     assert.deepEqual(rangeResult.rules, newRules);
     const batch = await call('/payroll-batches', 'POST', { month: '2020-02' }); const batchId = batch.body.data.id;
@@ -53,13 +51,12 @@ test('加班绩效模式兼容旧规则、隔离权限且不重算工资', async
     await assert.rejects(pool.transaction(conn => calculateEmployeeOvertime(conn, 'U001', '2020-02')), (error: any) => error.status === 409 && /按单位/.test(error.message));
     const explicitResult = await pool.transaction(conn => calculateEmployeeOvertime(conn, 'U001', '2020-02', oldRules));
     assert.deepEqual(explicitResult.rules, oldRules);
-    assert.equal((await call('/overtime-payroll-rules')).status, 409);
+    assert.equal((await call('/overtime-payroll-rules')).status, 404);
     assert.equal((await call('/overtime-payroll-rule-config', 'PUT', { calculation: 'unit', hourlyRate: 0.001 })).status, 400);
     assert.deepEqual((await call('/overtime-payroll-rule-config')).body.data, unit);
     assert.equal((await call(`/payroll-batches/${batchId}/items`)).body.data[0].net, 1000);
     assert.equal((await call(`/payroll-batches/${reviewedId}/items`)).body.data[0].net, 900);
-    assert.equal((await call('/overtime-payroll-rules', 'PUT', oldRules)).status, 200);
+    assert.equal((await call('/overtime-payroll-rule-config', 'PUT', { calculation: 'range', rules: oldRules })).status, 200);
     assert.deepEqual((await call('/overtime-payroll-rule-config')).body.data, { calculation: 'range', rules: oldRules });
-    assert.deepEqual((await call('/overtime-payroll-rules')).body.data, oldRules);
   } finally { if (closeServer) await closeServer(); if (closePool) await closePool(); if (created) await conn.query(`DROP DATABASE \`${database}\``); await conn.end(); }
 });

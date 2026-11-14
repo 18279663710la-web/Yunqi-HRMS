@@ -2,11 +2,11 @@
 
 ## 职责
 
-管理端入职申请、流程、提交内容和附件下载展示及入职表相关类型；入职管理顶部功能区提供登记申请，主列表不使用外围卡片，历史申请存在时单独展示。
+管理端入职申请、提交内容和附件下载展示及入职表相关类型；入职管理顶部功能区提供登记申请，主列表不使用外围卡片，历史申请存在时只读展示。
 
 ## 主要内容
 
-- 主要文件：`api.ts`、`HrTemplate.tsx`、`OnboardingForms.tsx`、`OnboardingProcess.tsx`、`OnboardingSubmission.tsx`。
+- 主要文件：`api.ts`、`OnboardingForms.tsx`、`OnboardingSubmission.tsx`。
 
 ## 维护约束
 

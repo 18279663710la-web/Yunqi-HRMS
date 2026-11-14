@@ -17,7 +17,7 @@
 - `onboarding-attachments.integration.test.ts` 在隔离数据库验证附件归属、权限和历史；`onboarding-attachment-mini.test.ts` 模拟小程序三种选择入口。
 - `hr-departure-register.integration.test.ts` 在隔离数据库验证登记离职：未来日期为已申请、到期自动锁定为已离职并吊销会话、当日登记直接锁定。
 - `employee-identity.integration.test.ts` 在隔离数据库验证员工工号唯一、编号在事务内分配并在用尽时拒绝、改名时按姓名重算拼音。
-- `employee-reinstatement.integration.test.ts` 在隔离数据库验证已申请撤销后恢复账号、已离职按复职日期进入待复职，以及到期或当天复职后用锁定前密码登录。到期的已申请在打开员工列表时锁定。
+- `employee-reinstatement.integration.test.ts` 在隔离数据库验证已申请撤销不改变账号状态、已离职按复职日期进入待复职，以及到期或当天复职后用锁定前密码登录。到期的已申请在打开员工列表时锁定。
 
 - 子目录：[fixtures/](fixtures/README.md)。
 - 主要文件：`approval-approvers.integration.test.ts`、`approval-type-approver-page.test.ts`、`attendance-api.integration.test.ts`、`attendance-policy.test.ts`、`attendance-windows.test.ts`、`employee-session-revocation.integration.test.ts`、`expense-ai-stream-client.test.ts`、`expense-ai-stream.test.ts`、`hr-departure-register.integration.test.ts`等。
