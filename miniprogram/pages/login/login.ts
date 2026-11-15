@@ -14,8 +14,6 @@ interface LoginData {
   /** 服务端是否已配置微信一键登录（未配置时隐藏微信入口） */
   wxConfigured: boolean;
   wechatLoading: boolean;
-  /** 微信登录授权确认页（仿系统授权样式） */
-  consentVisible: boolean;
 }
 
 interface LoginCustom {
@@ -25,9 +23,7 @@ interface LoginCustom {
   onLoginNameInput(e: InputEvent): void;
   onPasswordInput(e: InputEvent): void;
   onSubmit(): Promise<void>;
-  onWechatLogin(): void;
-  onConsentAgree(): Promise<void>;
-  onConsentCancel(): void;
+  onWechatLogin(): Promise<void>;
   onServerSetting(): void;
 }
 
@@ -39,7 +35,6 @@ Page<LoginData, LoginCustom>({
     checking: true,
     wxConfigured: false,
     wechatLoading: false,
-    consentVisible: false,
   },
 
   onLoad() {
@@ -151,23 +146,13 @@ Page<LoginData, LoginCustom>({
     }
   },
 
-  /** 点击微信登录图标：先展示授权确认页，同意后执行微信一键登录 */
-  onWechatLogin() {
+  /** 点击微信登录图标：wx.login 静默换 openid 一键登录，未绑定/停用等失败时提示 */
+  async onWechatLogin(): Promise<void> {
     const { wechatLoading, checking } = this.data;
     if (wechatLoading || checking) return;
-    this.setData({ consentVisible: true });
-  },
-
-  async onConsentAgree(): Promise<void> {
-    const { wechatLoading } = this.data;
-    if (wechatLoading) return;
     this.setData({ wechatLoading: true });
     const ok = await this.tryWechatLogin(false);
-    if (!ok) this.setData({ wechatLoading: false, consentVisible: false });
-  },
-
-  onConsentCancel() {
-    this.setData({ consentVisible: false });
+    if (!ok) this.setData({ wechatLoading: false });
   },
 
   /** 真机网络切换时，长按登录页底部手动指定后端地址；留空恢复自动探测。 */

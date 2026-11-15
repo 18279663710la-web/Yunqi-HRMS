@@ -52,23 +52,6 @@
 
   <view class="login-foot" bindlongpress="onServerSetting">云启科技 · 企业办公</view>
 
-  <view class="wx-consent" wx:if="{{consentVisible}}">
-    <view class="wx-consent-app">
-      <view class="login-brand-mark">云</view>
-      <view class="wx-consent-app-name">云枢办公</view>
-      <view class="wx-consent-apply">申请获得</view>
-    </view>
-    <view class="wx-consent-title">以下权限</view>
-    <view class="wx-consent-item">
-      <view class="wx-consent-check"></view>
-      <view class="wx-consent-text">获取你的微信登录身份，用于绑定员工账号免密登录</view>
-    </view>
-    <view class="wx-consent-bottom">
-      <button class="wx-consent-agree {{wechatLoading ? 'is-disabled' : ''}}" loading="{{wechatLoading}}" disabled="{{wechatLoading}}" bindtap="onConsentAgree">同 意</button>
-      <view class="wx-consent-cancel" bindtap="onConsentCancel">取消</view>
-    </view>
-  </view>
-
   <view class="login-checking" wx:if="{{checking}}">
     <view class="login-checking-box">正在检查登录状态…</view>
   </view>
