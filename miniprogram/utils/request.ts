@@ -224,12 +224,12 @@ async function rawRequest<T>(options: RequestOptions): Promise<T> {
   return unwrap<T>(res.statusCode, res.data, options.silent);
 }
 
-/** 员工账号密码登录：账号由 Web 管理后台创建 */
-export async function login(loginName: string, password: string): Promise<CurrentUser> {
+/** 员工账号密码登录：账号由 Web 管理后台创建；remember=false 时本次会话有效期 1 天 */
+export async function login(loginName: string, password: string, remember = true): Promise<CurrentUser> {
   const data = await rawRequest<LoginResponse>({
     url: '/auth/password-login',
     method: 'POST',
-    data: { loginName, password },
+    data: { loginName, password, remember },
     auth: false,
     silent: true,
   });

@@ -20,8 +20,8 @@ export function getCurrentUser(): Promise<CurrentUser> {
   return get<CurrentUser>('/me');
 }
 
-export function login(loginName: string, password: string): Promise<CurrentUser> {
-  return loginRequest(loginName, password);
+export function login(loginName: string, password: string, remember = true): Promise<CurrentUser> {
+  return loginRequest(loginName, password, remember);
 }
 
 /** 微信一键登录：仅当后端已配置且当前微信号已绑定时成功 */

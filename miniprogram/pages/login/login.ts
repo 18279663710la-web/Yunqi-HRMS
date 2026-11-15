@@ -11,9 +11,15 @@ interface LoginData {
   password: string;
   loading: boolean;
   checking: boolean;
-  /** 服务端是否已配置微信一键登录（未配置时隐藏微信按钮） */
+  /** 服务端是否已配置微信一键登录（未配置时隐藏微信入口） */
   wxConfigured: boolean;
   wechatLoading: boolean;
+  /** 7天免登录勾选（默认勾选；取消则会话有效期 1 天） */
+  remember7: boolean;
+  /** 密码明文显示 */
+  showPassword: boolean;
+  /** 微信登录授权确认页（仿系统授权样式） */
+  consentVisible: boolean;
 }
 
 interface LoginCustom {
@@ -23,7 +29,12 @@ interface LoginCustom {
   onLoginNameInput(e: InputEvent): void;
   onPasswordInput(e: InputEvent): void;
   onSubmit(): Promise<void>;
-  onWechatLogin(): Promise<void>;
+  onToggleRemember(): void;
+  onToggleShowPassword(): void;
+  onForgotPassword(): void;
+  onWechatLogin(): void;
+  onConsentAgree(): Promise<void>;
+  onConsentCancel(): void;
   onServerSetting(): void;
 }
 
@@ -35,6 +46,9 @@ Page<LoginData, LoginCustom>({
     checking: true,
     wxConfigured: false,
     wechatLoading: false,
+    remember7: true,
+    showPassword: false,
+    consentVisible: false,
   },
 
   onLoad() {
@@ -86,14 +100,6 @@ Page<LoginData, LoginCustom>({
     }
   },
 
-  async onWechatLogin(): Promise<void> {
-    const { wechatLoading, checking } = this.data;
-    if (wechatLoading || checking) return;
-    this.setData({ wechatLoading: true });
-    const ok = await this.tryWechatLogin(false);
-    if (!ok) this.setData({ wechatLoading: false });
-  },
-
   onLoginNameInput(e: InputEvent) {
     this.setData({ loginName: e.detail.value });
   },
@@ -103,7 +109,7 @@ Page<LoginData, LoginCustom>({
   },
 
   async onSubmit(): Promise<void> {
-    const { loginName, password, loading, checking } = this.data;
+    const { loginName, password, loading, checking, remember7 } = this.data;
     if (loading || checking) return;
 
     if (!loginName.trim()) {
@@ -117,7 +123,7 @@ Page<LoginData, LoginCustom>({
 
     this.setData({ loading: true });
     try {
-      const user = await authApi.login(loginName.trim(), password);
+      const user = await authApi.login(loginName.trim(), password, remember7);
       getApp<IAppOption>().globalData.userInfo = user;
       // 密码登录成功后，若服务端启用微信登录且本账号尚未绑定，引导一次性绑定
       await this.maybeOfferWechatBind();
@@ -152,6 +158,42 @@ Page<LoginData, LoginCustom>({
       const message = (err as { message?: string })?.message;
       if (message) toast(message);
     }
+  },
+
+  onToggleRemember() {
+    this.setData({ remember7: !this.data.remember7 });
+  },
+
+  onToggleShowPassword() {
+    this.setData({ showPassword: !this.data.showPassword });
+  },
+
+  onForgotPassword() {
+    wx.showModal({
+      title: '忘记密码',
+      content: '请携带工号联系管理员，在 Web 管理后台「员工与账号」中重置密码。',
+      showCancel: false,
+      confirmText: '知道了',
+    });
+  },
+
+  /** 点击微信登录图标：先展示授权确认页，同意后执行微信一键登录 */
+  onWechatLogin() {
+    const { wechatLoading, checking } = this.data;
+    if (wechatLoading || checking) return;
+    this.setData({ consentVisible: true });
+  },
+
+  async onConsentAgree(): Promise<void> {
+    const { wechatLoading } = this.data;
+    if (wechatLoading) return;
+    this.setData({ wechatLoading: true });
+    const ok = await this.tryWechatLogin(false);
+    if (!ok) this.setData({ wechatLoading: false, consentVisible: false });
+  },
+
+  onConsentCancel() {
+    this.setData({ consentVisible: false });
   },
 
   /** 真机网络切换时，长按登录页底部手动指定后端地址；留空恢复自动探测。 */

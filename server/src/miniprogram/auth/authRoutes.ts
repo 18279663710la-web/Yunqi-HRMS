@@ -16,13 +16,15 @@ const router = Router();
 const passwordLoginSchema = z.object({
   loginName: z.string().trim().min(3).max(50),
   password: z.string().min(1).max(64),
+  /** 7天免登录；未传或 true 时会话 7 天，false 时 1 天 */
+  remember: z.boolean().optional(),
 });
 
 router.post(
   '/auth/password-login',
   asyncHandler(async (req, res) => {
     const body = parse(passwordLoginSchema, req.body);
-    success(res, await withLoginAttempt('employee', req.ip || '', body.loginName, () => passwordLogin(body.loginName, body.password)));
+    success(res, await withLoginAttempt('employee', req.ip || '', body.loginName, () => passwordLogin(body.loginName, body.password, body.remember ?? true)));
   })
 );
 

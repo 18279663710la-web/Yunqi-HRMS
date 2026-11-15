@@ -5,12 +5,17 @@
   </view>
 
   <view class="login-card">
-    <view class="login-card-title">账号登录</view>
+    <view class="login-brand-row">
+      <view class="login-brand-mark">云</view>
+      <view class="login-brand-name">云枢办公</view>
+      <view class="login-brand-divider"></view>
+      <view class="login-brand-tag">员工登录</view>
+    </view>
 
-    <view class="login-form-item">
-      <view class="login-label">登录名</view>
+    <view class="login-field">
+      <view class="login-field-icon icon-user"></view>
       <input
-        class="login-input"
+        class="login-field-input"
         value="{{loginName}}"
         placeholder="请输入登录名"
         placeholder-class="login-placeholder"
@@ -19,11 +24,11 @@
       />
     </view>
 
-    <view class="login-form-item">
-      <view class="login-label">密码</view>
+    <view class="login-field">
+      <view class="login-field-icon icon-lock"></view>
       <input
-        class="login-input"
-        password="{{true}}"
+        class="login-field-input"
+        password="{{!showPassword}}"
         value="{{password}}"
         placeholder="请输入密码"
         placeholder-class="login-placeholder"
@@ -32,6 +37,17 @@
         bindinput="onPasswordInput"
         bindconfirm="onSubmit"
       />
+      <view class="login-eye {{showPassword ? '' : 'is-off'}}" bindtap="onToggleShowPassword">
+        <view class="login-eye-slash"></view>
+      </view>
+    </view>
+
+    <view class="login-options">
+      <view class="login-remember" bindtap="onToggleRemember">
+        <view class="login-checkbox {{remember7 ? 'is-checked' : ''}}"></view>
+        <text>7天免登录</text>
+      </view>
+      <view class="login-forgot" bindtap="onForgotPassword">忘记密码</view>
     </view>
 
     <button
@@ -40,22 +56,34 @@
       disabled="{{loading || checking}}"
       bindtap="onSubmit"
     >
-      登录
+      登 录
     </button>
 
-    <button
-      wx:if="{{wxConfigured}}"
-      class="login-wechat {{loading || checking || wechatLoading ? 'is-disabled' : ''}}"
-      loading="{{wechatLoading}}"
-      disabled="{{loading || checking || wechatLoading}}"
-      bindtap="onWechatLogin"
-    >
-      微信一键登录
-    </button>
+    <view class="login-wx" wx:if="{{wxConfigured}}" bindtap="onWechatLogin">
+      <image class="login-wx-icon" src="/assets/wx-login-icon.png" mode="aspectFit" />
+      <view class="login-wx-label">微信登录</view>
+    </view>
 
   </view>
 
   <view class="login-foot" bindlongpress="onServerSetting">云启科技 · 企业办公</view>
+
+  <view class="wx-consent" wx:if="{{consentVisible}}">
+    <view class="wx-consent-app">
+      <view class="login-brand-mark">云</view>
+      <view class="wx-consent-app-name">云枢办公</view>
+      <view class="wx-consent-apply">申请获得</view>
+    </view>
+    <view class="wx-consent-title">以下权限</view>
+    <view class="wx-consent-item">
+      <view class="wx-consent-check"></view>
+      <view class="wx-consent-text">获取你的微信登录身份，用于绑定员工账号免密登录</view>
+    </view>
+    <view class="wx-consent-bottom">
+      <button class="wx-consent-agree {{wechatLoading ? 'is-disabled' : ''}}" loading="{{wechatLoading}}" disabled="{{wechatLoading}}" bindtap="onConsentAgree">同 意</button>
+      <view class="wx-consent-cancel" bindtap="onConsentCancel">取消</view>
+    </view>
+  </view>
 
   <view class="login-checking" wx:if="{{checking}}">
     <view class="login-checking-box">正在检查登录状态…</view>
