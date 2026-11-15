@@ -2,22 +2,27 @@ import * as noticesApi from '../../services/notices/api';
 import type { NoticeBlockView, NoticeDetailView } from '../../types/models';
 import type { TapEvent } from '../../types/ui';
 import { toast } from '../../utils/util';
+import { getBaseUrl, getToken } from '../../utils/request';
 
 /**
  * 订阅消息模板 ID
- * 使用步骤：小程序后台 → 订阅消息 → 申请「公告通知」类模板 → 把模板 ID 填到数组里
+ * 使用步骤：小程序后台 → 订阅消息 → 申请「公告通知」类模板 → 把模板 ID 填到数组里；
+ * 未替换占位符时详情页自动隐藏订阅入口。
  */
 const TMPL_IDS = ['请替换为你的订阅消息模板ID'];
+const SUBSCRIBE_ENABLED = TMPL_IDS.some((id) => !!id && !id.includes('替换'));
 
 interface NoticeDetailData {
   id: string;
   notice: NoticeDetailView | null;
   subscribed: boolean;
+  subscribeEnabled: boolean;
 }
 
 interface NoticeDetailCustom {
   load(): Promise<void>;
   onAttachment(e: TapEvent): void;
+  downloadAttachment(fileID: string, name: string): void;
   onSubscribe(): void;
 }
 
@@ -26,6 +31,7 @@ Page<NoticeDetailData, NoticeDetailCustom>({
     id: '',
     notice: null,
     subscribed: false,
+    subscribeEnabled: SUBSCRIBE_ENABLED,
   },
 
   onLoad(options: Record<string, string | undefined>) {
@@ -48,13 +54,43 @@ Page<NoticeDetailData, NoticeDetailCustom>({
     }
   },
 
+  /** 附件下载：真实附件经鉴权接口下载后打开；种子演示附件（无 fileID）保持提示 */
   onAttachment(e: TapEvent) {
     const name = String(e.currentTarget.dataset.name || '');
-    wx.showModal({
-      title: '附件下载',
-      content: `「${name}」将以文件消息形式发送到你的微信，请在小程序后台配置下载域名后启用。`,
-      showCancel: false,
-      confirmText: '我知道了',
+    const fileID = String(e.currentTarget.dataset.fileid || '');
+    if (!fileID) {
+      wx.showModal({
+        title: '附件下载',
+        content: `「${name}」为演示附件，暂无可下载文件。`,
+        showCancel: false,
+        confirmText: '我知道了',
+      });
+      return;
+    }
+    void this.downloadAttachment(fileID, name);
+  },
+
+  downloadAttachment(fileID: string, name: string) {
+    wx.showLoading({ title: '下载中…', mask: true });
+    wx.downloadFile({
+      url: `${getBaseUrl()}${fileID}`,
+      header: { Authorization: `Bearer ${getToken()}` },
+      success: (res) => {
+        wx.hideLoading();
+        if (res.statusCode !== 200) {
+          toast('附件下载失败');
+          return;
+        }
+        wx.openDocument({
+          filePath: res.tempFilePath,
+          showMenu: true,
+          fail: () => toast(`「${name}」已下载，但当前设备无法预览该格式`),
+        });
+      },
+      fail: () => {
+        wx.hideLoading();
+        toast('附件下载失败，请检查网络后重试');
+      },
     });
   },
 

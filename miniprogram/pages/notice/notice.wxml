@@ -73,5 +73,11 @@
       <view class="empty-icon">🔍</view>
       <view class="empty-text">没有找到符合条件的公告</view>
     </view>
+
+    <view class="list-more" wx:if="{{list.length && !loading}}">
+      <text wx:if="{{loadingMore}}">正在加载…</text>
+      <text wx:elif="{{hasMore}}">上拉加载更多</text>
+      <text wx:else>— 没有更多了 —</text>
+    </view>
   </view>
 </view>

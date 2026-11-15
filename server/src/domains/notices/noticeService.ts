@@ -74,42 +74,90 @@ export function getNoticeCategories(): NoticeCategory[] {
   return CATEGORIES.map((c) => ({ ...c }));
 }
 
+/** 在职员工口径：员工主档存在且未离职（待复职期间仍算离职） */
+const ACTIVE_EMPLOYEE_TOTAL_SQL =
+  "(SELECT COUNT(*) FROM employees e2 WHERE NOT EXISTS(SELECT 1 FROM hr_employee_departures d2 WHERE d2.employee_id = e2.id AND d2.status = 'departed'))";
+
+function activeReadCountSql(): string {
+  return `(SELECT COUNT(DISTINCT r2.employee_id) FROM notice_reads r2
+     JOIN employees er ON er.id = r2.employee_id
+     WHERE r2.notice_id = n.id
+       AND NOT EXISTS(SELECT 1 FROM hr_employee_departures d2 WHERE d2.employee_id = er.id AND d2.status = 'departed'))`;
+}
+
+function noticeWhere(params: { category?: string; keyword?: string }): { whereSql: string; whereArgs: unknown[] } {
+  const where: string[] = [];
+  const whereArgs: unknown[] = [];
+  const category = String(params.category || 'all').trim();
+  if (category && category !== 'all') {
+    where.push('n.category = ?');
+    whereArgs.push(category);
+  }
+  const keyword = String(params.keyword || '').trim();
+  if (keyword) {
+    where.push('(n.title LIKE ? OR n.summary LIKE ?)');
+    whereArgs.push(`%${keyword}%`, `%${keyword}%`);
+  }
+  return { whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '', whereArgs };
+}
+
+function listSelectSql(employeeId: string, whereSql: string): string {
+  return `SELECT n.*,
+     CASE WHEN r.employee_id IS NULL THEN 0 ELSE 1 END AS is_read,
+     ${activeReadCountSql()} AS read_count,
+     ${ACTIVE_EMPLOYEE_TOTAL_SQL} AS total_count
+   FROM notices n
+   LEFT JOIN notice_reads r ON r.notice_id = n.id AND r.employee_id = ?
+   ${whereSql}
+   ORDER BY n.is_top DESC, n.publish_time DESC, n.id DESC`;
+}
+
 export async function getNotices(
   employeeId: string,
   params: { category?: string; keyword?: string } = {}
 ): Promise<Notice[]> {
-  const where: string[] = [];
-  const args: unknown[] = [employeeId];
-
-  const category = String(params.category || 'all').trim();
-  if (category && category !== 'all') {
-    where.push('n.category = ?');
-    args.push(category);
-  }
-
-  const keyword = String(params.keyword || '').trim();
-  if (keyword) {
-    where.push('(n.title LIKE ? OR n.summary LIKE ?)');
-    args.push(`%${keyword}%`, `%${keyword}%`);
-  }
-
-  const rows = await queryRows<NoticeRow>(
-    `SELECT n.*, CASE WHEN r.employee_id IS NULL THEN 0 ELSE 1 END AS is_read
-     FROM notices n
-     LEFT JOIN notice_reads r ON r.notice_id = n.id AND r.employee_id = ?
-     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-     ORDER BY n.is_top DESC, n.publish_time DESC`,
-    args
-  );
-
+  const { whereSql, whereArgs } = noticeWhere(params);
+  const rows = await queryRows<NoticeRow>(listSelectSql(employeeId, whereSql), [employeeId, ...whereArgs]);
   return rows.map(mapNotice);
+}
+
+export interface NoticePageParams {
+  category?: string;
+  keyword?: string;
+  page: number;
+  pageSize: number;
+}
+
+/** 分页列表（小程序公告页触底加载） */
+export async function getNoticesPage(employeeId: string, params: NoticePageParams) {
+  const { whereSql, whereArgs } = noticeWhere(params);
+  const pageSize = Math.min(50, Math.max(1, Math.trunc(params.pageSize) || 10));
+  const page = Math.max(1, Math.trunc(params.page) || 1);
+  const [totalRow, rows] = await Promise.all([
+    queryOne<{ total: number }>(
+      `SELECT COUNT(*) AS total FROM notices n ${whereSql}`,
+      whereArgs
+    ),
+    queryRows<NoticeRow>(
+      `${listSelectSql(employeeId, whereSql)} LIMIT ? OFFSET ?`,
+      [employeeId, ...whereArgs, pageSize, (page - 1) * pageSize]
+    ),
+  ]);
+  const total = Number(totalRow?.total) || 0;
+  return {
+    items: rows.map(mapNotice),
+    total,
+    page,
+    pageSize,
+    hasMore: page * pageSize < total,
+  };
 }
 
 export async function getNoticeDetail(id: string, employeeId: string): Promise<NoticeDetail | null> {
   const exists = await queryOne<{ id: string }>('SELECT id FROM notices WHERE id = ?', [id]);
   if (!exists) return null;
 
-  // 首次阅读：写入回执并把全局已读数 +1（不超过总人数）
+  // 首次阅读：写入回执并把全局已读数 +1（不超过总人数）；同时把总人数刷新为当前在职员工数
   await transaction(async (conn) => {
     const [result] = await conn.query(
       'INSERT IGNORE INTO notice_reads (notice_id, employee_id, read_at) VALUES (?, ?, NOW())',
@@ -118,14 +166,16 @@ export async function getNoticeDetail(id: string, employeeId: string): Promise<N
     const info = result as { affectedRows?: number };
     if (info.affectedRows) {
       await conn.query(
-        'UPDATE notices SET read_count = LEAST(total_count, read_count + 1) WHERE id = ?',
+        `UPDATE notices SET read_count = LEAST(total_count, read_count + 1), total_count = ${ACTIVE_EMPLOYEE_TOTAL_SQL} WHERE id = ?`,
         [id]
       );
     }
   });
 
   const row = await queryOne<NoticeRow>(
-    `SELECT n.*, 1 AS is_read
+    `SELECT n.*, 1 AS is_read,
+     ${activeReadCountSql()} AS read_count,
+     ${ACTIVE_EMPLOYEE_TOTAL_SQL} AS total_count
      FROM notices n
      WHERE n.id = ?`,
     [id]

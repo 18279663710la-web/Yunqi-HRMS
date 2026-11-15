@@ -175,3 +175,10 @@
   font-size: 20rpx;
   color: #C4CAD6;
 }
+
+.list-more {
+  margin-top: 24rpx;
+  text-align: center;
+  color: #b6bdc9;
+  font-size: 24rpx;
+}

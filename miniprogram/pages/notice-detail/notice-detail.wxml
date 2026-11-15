@@ -32,8 +32,9 @@
       <view
         class="att-file"
         wx:for="{{notice.attachments}}"
-        wx:key="name"
+        wx:key="fileID"
         data-name="{{item.name}}"
+        data-fileid="{{item.fileID}}"
         bindtap="onAttachment"
         hover-class="row-item-hover"
         hover-stay-time="60"
@@ -62,7 +63,7 @@
     </view>
 
     <!-- ============ 订阅提醒 ============ -->
-    <view class="btn btn-ghost subscribe-btn" bindtap="onSubscribe">
+    <view class="btn btn-ghost subscribe-btn" wx:if="{{subscribeEnabled}}" bindtap="onSubscribe">
       <view class="subscribe-icon"></view>
       <text>{{subscribed ? '已开启公告提醒' : '开启公告消息提醒'}}</text>
     </view>

@@ -9,6 +9,7 @@ import { DepartmentsPage } from '../modules/organization/Departments';
 import { EmployeesPage } from '../modules/employees/Employees';
 import { HrEmployeesPage, HrLayout, HrOffboardingPage, HrOnboardingPage, HrPayrollBatchesPage, HrPayrollDisbursementPage, HrPayrollRecordsPage, HrPayrollRecordDetailPage } from '../modules/hr/Hr';
 import { ModelsFormulasPage } from '../modules/models-formulas/ModelsFormulas';
+import { NoticesPage } from '../modules/notices/Notices';
 
 export function AdminPageRoutes({ location }: { location: Location }) {
   return <Routes location={location}>
@@ -42,6 +43,7 @@ export function AdminPageRoutes({ location }: { location: Location }) {
     <Route path="/approvals" element={<Navigate to="/approvals/leave" replace />} />
     <Route path="/approvals/custom-workflow" element={<Navigate to="/approvals/leave" replace />} />
     <Route path="/approvals/:type" element={<ApprovalManagementPage />} />
+    <Route path="/notices" element={<NoticesPage />} />
     <Route path="/departments" element={<DepartmentsPage />} />
     <Route path="/admins" element={<AdminsPage />} />
     <Route path="*" element={<Navigate to="/dashboard" replace />} />

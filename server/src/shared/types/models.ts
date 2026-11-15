@@ -291,6 +291,8 @@ export interface NoticeAttachment {
   name: string;
   size: string;
   ext: string;
+  /** 服务端存储路径（/notice-files/<name>）；种子演示附件无此字段，不可下载 */
+  fileID?: string;
 }
 
 export interface Notice {

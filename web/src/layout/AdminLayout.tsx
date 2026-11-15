@@ -15,6 +15,7 @@ import {
   LockOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
+  NotificationOutlined,
   TagsOutlined,
   TeamOutlined,
   RightOutlined,
@@ -153,6 +154,7 @@ export function AdminLayout() {
     ...(attendanceModule ? [moduleItem(attendanceModule)] : []),
     ...(admin?.role === 'super_admin' && modelsModule ? [moduleItem(modelsModule)] : []),
     ...(approvalsModule ? [moduleItem(approvalsModule)] : []),
+    { key: '/notices', icon: <NotificationOutlined />, label: '公告管理' },
     { key: '/departments', icon: <TagsOutlined />, label: '组织架构' },
     ...(admin?.role === 'super_admin'
       ? [{ key: '/admins', icon: <SafetyCertificateOutlined />, label: '管理员账号' }]

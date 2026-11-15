@@ -396,8 +396,15 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
     read_count: number;
     total_count: number;
   }>(
-    `SELECT id, title, category_name, publisher, publish_time, summary, is_top, read_count, total_count
-     FROM notices ORDER BY is_top DESC, publish_time DESC LIMIT 5`
+    // 公告已读口径与员工端一致：已读数按在职员工的回执计，总数为当前在职员工数
+    `SELECT n.id, n.title, n.category_name, n.publisher, n.publish_time, n.summary, n.is_top,
+       (SELECT COUNT(DISTINCT r.employee_id) FROM notice_reads r
+          JOIN employees er ON er.id = r.employee_id
+          WHERE r.notice_id = n.id
+            AND NOT EXISTS(SELECT 1 FROM hr_employee_departures d WHERE d.employee_id = er.id AND d.status = 'departed')) AS read_count,
+       (SELECT COUNT(*) FROM employees e2
+          WHERE NOT EXISTS(SELECT 1 FROM hr_employee_departures d2 WHERE d2.employee_id = e2.id AND d2.status = 'departed')) AS total_count
+     FROM notices n ORDER BY n.is_top DESC, n.publish_time DESC LIMIT 5`
   );
 
   return {

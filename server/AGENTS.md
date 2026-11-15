@@ -7,6 +7,7 @@
 - `src/index.ts` 在启用自动迁移时建库、更新结构并播种，再由 `src/app.ts` 装配中间件和路由。
 - `admin/`、`miniprogram/` 按客户端及业务组织路由与各自的鉴权；`domains/` 保存跨端业务；`shared/db/` 提供连接池、结构初始化和种子，`shared/middleware/` 处理校验与错误。人事等部分路由仍包含 SQL 和事务，继续分层时须保持原事务边界。
 - 薪资构成模型的 `fieldOrder` 可选，独立保存全部字段显示顺序；写入校验字段名完整且不重复，字段变动时保留现存名称顺序并追加新字段，排序变更不重写员工定薪。
+- 公告管理：`admin/notices` 提供公告 CRUD（仅管理员）与附件上传（`uploads/notice/`，白名单扩展名、10MB）；员工端公告分页走 `/notices/page`（须在 `/notices/:id` 前注册），附件下载 `/notice-files/:name` 按 JSON_SEARCH 校验文件确属公告附件后回源。公告正文为 blocks_json（p/h/list/quote），banner 按分类固定分配；删除公告级联清理回执与附件文件。已读口径统一为在职员工：已读数=回执中在职员工数、总数=当前在职员工数（`noticeService` 与仪表盘聚合一致，详情读取时同步刷新存储列）。
 - 员工与管理员使用独立鉴权；发票原图存在 `uploads/`，只通过短期签名地址读取，旧 OCR 入口为模拟实现，查验使用腾讯云 SDK。
 - 微信一键登录：`employee_accounts.wx_openid`（唯一索引）绑定员工账号与微信号，由 `miniprogram/auth/wechatAuthService.ts` 实现；服务端始终经微信 `code2session` 用 wx.login 的 code 换 openid，绝不接受客户端直接传入 openid。绑定需密码登录态；一键登录与密码登录执行相同的到期离职、停用与会话版本校验；一个微信号仅可绑定一个账号，换绑须先解绑。`WECHAT_APPID`/`WECHAT_APP_SECRET` 均配置后启用，未配置时 `/api/auth/wechat-*` 返回「未配置」，前端隐藏入口。登录会话有效期由 `JWT_REFRESH_TTL` 控制默认 7 天：密码登录带 `remember=false`（登录页取消勾选「7天免登录」）时签发 1 天会话并在 refresh 续期时保持 1 天（token `rm` 声明）；到期需重新登录（密码或一键）。
 - 入职表附件存于 `hr_onboarding_attachments`，按申请和字段归属并在提交时校验；员工在待填写申请期间上传，超级管理员受鉴权下载，打回及封存保留历史附件。提交时普通附件字段和表格子字段均最多 5 个文件、单个不超过 10MB。上传时普通字段已有 5 个则拒绝；表格同一列共用字段键，该列上限 250 个。超过上限只拒绝新上传，不删除已有文件。不得放入公开静态目录。

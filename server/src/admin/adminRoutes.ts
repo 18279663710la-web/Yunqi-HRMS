@@ -12,6 +12,7 @@ import dashboardRoutes from './dashboard/routes';
 import employeeRoutes from './employees/routes';
 import attendanceRoutes from './attendance/routes';
 import accountRoutes from './admin-accounts/routes';
+import noticesRoutes from './notices/routes';
 
 const router = Router();
 const loginSchema = z.object({
@@ -35,4 +36,5 @@ router.use(dashboardRoutes);
 router.use(employeeRoutes);
 router.use(attendanceRoutes);
 router.use(accountRoutes);
+router.use(noticesRoutes);
 export default router;
