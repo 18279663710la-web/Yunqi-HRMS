@@ -82,6 +82,7 @@ const STATIC_TITLES: Record<string, string> = {
   '/dashboard': '仪表盘',
   '/employees': '员工与账号',
   '/approvals': '审批管理',
+  '/notices': '公告管理',
   '/departments': '组织架构',
   '/admins': '管理员账号',
 };

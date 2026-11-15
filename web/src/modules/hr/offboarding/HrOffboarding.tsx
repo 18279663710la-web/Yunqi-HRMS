@@ -16,7 +16,7 @@ import {
   type DepartureRecord,
 } from '../api';
 
-const avatarStyle = { background: '#F0F0F0', color: '#1A1A1A', fontWeight: 600 } as const;
+const avatarStyle = { background: '#3D6EF7', color: '#fff', fontWeight: 600 } as const;
 
 function positionTag(position: string) {
   const color = position === '研发员' ? '#8BA6C1' : position === '业务员' ? '#C9A75C' : 'default';

@@ -32,7 +32,7 @@ export function DepartmentsPage() {
   useEffect(() => { if (active) void load(); }, [active, load]);
   const rows = useMemo(() => titles.filter(title => !filter || title.id === filter).flatMap(title => title.employees).filter(employee => !organizationFilter || employee.deptId === organizationFilter), [titles, filter, organizationFilter]);
   const columns: ColumnsType<JobTitleEmployee> = [
-    { title: '员工', dataIndex: 'name', render: (_, row) => <Space><Avatar style={{ background: '#F0F0F0', color: '#1A1A1A' }}>{initialOf(row.name)}</Avatar><div><div className="table-primary">{row.name}{row.isLeader ? <span className="leader-dot">负责人</span> : null}</div><Typography.Text type="secondary">{row.employeeNo}</Typography.Text></div></Space> },
+    { title: '员工', dataIndex: 'name', render: (_, row) => <Space><Avatar style={{ background: '#3D6EF7', color: '#fff' }}>{initialOf(row.name)}</Avatar><div><div className="table-primary">{row.name}{row.isLeader ? <span className="leader-dot">负责人</span> : null}</div><Typography.Text type="secondary">{row.employeeNo}</Typography.Text></div></Space> },
     { title: '职务', dataIndex: 'position' },
     { title: '组织', dataIndex: 'deptName', render: value => value || '未分配' },
     { title: '手机号', dataIndex: 'phone' },

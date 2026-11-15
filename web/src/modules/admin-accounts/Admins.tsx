@@ -147,7 +147,7 @@ export function AdminsPage() {
       width: 220,
       render: (_, row) => (
         <Space>
-          <Avatar style={{ background: '#F0F0F0', color: '#1A1A1A' }}>
+          <Avatar style={{ background: '#3D6EF7', color: '#fff' }}>
             {row.name.slice(0, 1)}
           </Avatar>
           <div>

@@ -245,7 +245,7 @@ export function AttendanceRecordsPage() {
       width: 200,
       render: (_, row) => (
         <Space>
-          <Avatar size={30} style={{ background: '#F0F0F0', color: '#1A1A1A', fontSize: 13 }}>
+          <Avatar size={30} style={{ background: '#3D6EF7', color: '#fff', fontSize: 13 }}>
             {initialOf(row.employeeName)}
           </Avatar>
           <div>

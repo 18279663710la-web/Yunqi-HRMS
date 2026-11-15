@@ -27,20 +27,31 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
           colorError: '#C97474',
           colorTextLightSolid: '#1A1A1A',
           colorWhite: '#1A1A1A',
+          fontWeightStrong: 600,
           borderRadius: 10,
           colorBgLayout: '#141414',
           colorBgContainer: '#1F1F1F',
+          colorBgElevated: '#262626',
           colorText: '#E8E8E8',
+          colorBorder: '#333333',
+          colorBorderSecondary: '#2E2E2E',
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
         },
         components: {
+          Button: {
+            fontWeight: 500,
+          },
           Table: {
-            headerBg: '#262626',
-            headerColor: '#A3A3A3',
+            headerBg: 'transparent',
+            headerColor: '#FFFFFF',
             rowHoverBg: '#262626',
+            headerSplitColor: 'transparent',
           },
           Menu: {
+            itemHeight: 48,
+            itemMarginInline: 12,
+            itemBorderRadius: 9,
             itemSelectedBg: '#303030',
             itemSelectedColor: '#FFFFFF',
           },

@@ -65,7 +65,7 @@ export function DashboardPage() {
       dataIndex: 'name',
       render: (_, row) => (
         <Space>
-          <Avatar style={{ background: '#F0F0F0', color: '#1A1A1A' }}>{initialOf(row.name)}</Avatar>
+          <Avatar style={{ background: '#3D6EF7', color: '#fff' }}>{initialOf(row.name)}</Avatar>
           <div>
             <div style={{ fontWeight: 600 }}>{row.name}</div>
             <Text type="secondary" style={{ fontSize: 12 }}>{row.id}</Text>
@@ -151,7 +151,7 @@ export function DashboardPage() {
                       <List.Item>
                         <List.Item.Meta
                           avatar={
-                            <Avatar size={32} shape="square" style={{ background: '#F0F0F0', color: '#1A1A1A', fontSize: 13 }}>
+                            <Avatar size={32} shape="square" style={{ background: '#3D6EF7', color: '#fff', fontSize: 13 }}>
                               {notice.categoryName.slice(0, 1)}
                             </Avatar>
                           }

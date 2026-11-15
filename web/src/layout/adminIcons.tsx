@@ -22,7 +22,7 @@ function IconBase({ children, size = 20, label }: { children: ReactNode; size?: 
   );
 }
 
-export function DashboardIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function DashboardIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <rect x="3.5" y="3.5" width="7" height="7" rx="1.8" />
@@ -33,7 +33,7 @@ export function DashboardIcon({ size = 20, label }: { size?: number; label?: str
   );
 }
 
-export function EmployeesIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function EmployeesIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <circle cx="12" cy="7.8" r="3.6" />
@@ -42,7 +42,7 @@ export function EmployeesIcon({ size = 20, label }: { size?: number; label?: str
   );
 }
 
-export function HrIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function HrIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <rect x="3" y="5" width="18" height="14" rx="2.5" />
@@ -53,7 +53,7 @@ export function HrIcon({ size = 20, label }: { size?: number; label?: string }) 
   );
 }
 
-export function AttendanceIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function AttendanceIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <circle cx="12" cy="12" r="8.5" />
@@ -62,7 +62,7 @@ export function AttendanceIcon({ size = 20, label }: { size?: number; label?: st
   );
 }
 
-export function ModelsIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function ModelsIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <path d="M6 3.5v5.5M6 14.5v6M12 3.5v10M12 19.5v1M18 3.5v3M18 11.5v9" />
@@ -73,7 +73,7 @@ export function ModelsIcon({ size = 20, label }: { size?: number; label?: string
   );
 }
 
-export function ApprovalsIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function ApprovalsIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <rect x="5" y="3.5" width="14" height="17" rx="2.2" />
@@ -82,7 +82,15 @@ export function ApprovalsIcon({ size = 20, label }: { size?: number; label?: str
   );
 }
 
-export function NoticesIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function FunnelIcon({ size = 26, label }: { size?: number; label?: string }) {
+  return (
+    <IconBase size={size} label={label}>
+      <path d="M21 4H3l7 8.5V19l4 2v-6.5L21 4z" />
+    </IconBase>
+  );
+}
+
+export function NoticesIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <path d="M18 10a6 6 0 1 0-12 0c0 4-2 5.6-2 5.6h16S18 14 18 10z" />
@@ -91,7 +99,7 @@ export function NoticesIcon({ size = 20, label }: { size?: number; label?: strin
   );
 }
 
-export function DepartmentsIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function DepartmentsIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <rect x="9" y="3" width="6" height="5" rx="1.3" />
@@ -102,7 +110,7 @@ export function DepartmentsIcon({ size = 20, label }: { size?: number; label?: s
   );
 }
 
-export function AdminsIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function AdminsIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <path d="M12 3.5 19.5 6.2v5.6c0 4.6-3.1 7.7-7.5 8.7-4.4-1-7.5-4.1-7.5-8.7V6.2L12 3.5z" />
@@ -110,7 +118,7 @@ export function AdminsIcon({ size = 20, label }: { size?: number; label?: string
   );
 }
 
-export function LockIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function LockIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <rect x="5" y="10.5" width="14" height="9.5" rx="2.5" />
@@ -119,7 +127,7 @@ export function LockIcon({ size = 20, label }: { size?: number; label?: string }
   );
 }
 
-export function LogoutIcon({ size = 20, label }: { size?: number; label?: string }) {
+export function LogoutIcon({ size = 26, label }: { size?: number; label?: string }) {
   return (
     <IconBase size={size} label={label}>
       <path d="M13.5 4.5H6A1.5 1.5 0 0 0 4.5 6v12A1.5 1.5 0 0 0 6 19.5h7.5" />

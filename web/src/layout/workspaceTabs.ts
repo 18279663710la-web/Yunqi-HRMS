@@ -22,9 +22,7 @@ export function workspaceTabForLocation(location: Location): WorkspaceTab {
 }
 
 export function createWorkspaceTabs(location: Location): WorkspaceTab[] {
-  const current = workspaceTabForLocation(location);
-  const home = workspaceTabForLocation(homeLocation);
-  return current.key === HOME_KEY ? [current] : [home, current];
+  return [workspaceTabForLocation(location)];
 }
 
 export function openWorkspaceTab(tabs: WorkspaceTab[], location: Location): WorkspaceTab[] {
@@ -37,7 +35,7 @@ export function openWorkspaceTab(tabs: WorkspaceTab[], location: Location): Work
 
 export function closeWorkspaceTab(tabs: WorkspaceTab[], key: string, activeKey: string): { tabs: WorkspaceTab[]; nextLocation: Location | null } {
   const index = tabs.findIndex(tab => tab.key === key);
-  if (key === HOME_KEY || index < 0) return { tabs, nextLocation: null };
-  const nextLocation = key === activeKey ? (tabs[index + 1] ?? tabs[index - 1]).location : null;
+  if (index < 0) return { tabs, nextLocation: null };
+  const nextLocation = key === activeKey ? (tabs[index + 1] ?? tabs[index - 1] ?? workspaceTabForLocation(homeLocation)).location : null;
   return { tabs: tabs.filter(tab => tab.key !== key), nextLocation };
 }

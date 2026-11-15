@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   App as AntApp,
   Avatar,
+  Badge,
   Button,
   Col,
   DatePicker,
@@ -10,6 +11,7 @@ import {
   Form,
   Input,
   Modal,
+  Popover,
   Row,
   Select,
   Space,
@@ -18,13 +20,15 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import type { MenuProps } from 'antd';
+import type { InputRef, MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   DownOutlined,
+  ReloadOutlined,
   SearchOutlined,
-  TeamOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
+import { FunnelIcon } from '../../layout/adminIcons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { pinyin } from 'pinyin-pro';
 import { useSearchParams } from 'react-router-dom';
@@ -85,6 +89,22 @@ export function EmployeesPage() {
   const [keyword, setKeyword] = useState('');
   const [jobFilter, setJobFilter] = useState<JobCategoryName>();
   const [accountStatus, setAccountStatus] = useState<'all' | AccountStatus | 'none'>('all');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState('');
+  const searchInputRef = useRef<InputRef>(null);
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const path = event.composedPath();
+      const inside = path.some(node => node instanceof Element && Boolean(node.closest('.filter-search-input, .filter-popover-overlay, .filter-funnel')));
+      if (!inside) setSearchOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [searchOpen]);
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
 
   const [editOpen, setEditOpen] = useState(false);
@@ -359,7 +379,7 @@ export function EmployeesPage() {
       width: 220,
       render: (_, record) => (
         <Space>
-          <Avatar style={{ background: '#F0F0F0', color: '#1A1A1A', fontWeight: 600 }}>
+          <Avatar style={{ background: '#3D6EF7', color: '#fff', fontWeight: 600 }}>
             {initialOf(record.name)}
           </Avatar>
           <div>
@@ -444,53 +464,106 @@ export function EmployeesPage() {
 
   return (
     <div className="employees-page">
-      <div className="salary-model-entries" role="toolbar" aria-label="员工与账号操作">
-        <button type="button" className="salary-model-entry" onClick={() => { void load(); }}>刷新</button>
-        <button type="button" className="salary-model-entry" onClick={openCreate}>新增员工账号</button>
-      </div>
-
       <div className="filter-bar">
-        <Input.Search
+        <Input
+          ref={searchInputRef}
+          className={`filter-search-input${searchOpen ? ' is-open' : ''}`}
           allowClear
+          tabIndex={searchOpen ? 0 : -1}
           aria-label="搜索员工"
-          enterButton={<SearchOutlined />}
+          prefix={<SearchOutlined />}
           placeholder="搜索姓名 / 拼音 / 工号 / 手机号 / 登录名"
-          style={{ width: 'min(100%, 330px)' }}
-          onSearch={(value) => {
+          value={searchDraft}
+          onChange={(event) => {
+            setSearchDraft(event.target.value);
+            if (!event.target.value) {
+              setPage(1);
+              setKeyword('');
+            }
+          }}
+          onPressEnter={() => {
             setPage(1);
-            setKeyword(value.trim());
+            setKeyword(searchDraft.trim());
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setSearchOpen(false);
           }}
         />
-        <Select
-          style={{ width: 180, maxWidth: '100%' }}
-          aria-label="筛选职务"
-          value={jobFilter}
-          allowClear
-          placeholder="全部职务"
-          options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
-          onChange={(value) => {
-            setPage(1);
-            setJobFilter(value);
-          }}
+        {!searchOpen ? (
+          <Button
+            className="filter-circle"
+            type="text"
+            aria-label="搜索员工"
+            title="搜索"
+            icon={<Badge dot={Boolean(keyword)} color="#3D6EF7"><SearchOutlined /></Badge>}
+            onClick={() => setSearchOpen(true)}
+          />
+        ) : null}
+        <Popover
+          arrow={false}
+          trigger="click"
+          placement="bottomLeft"
+          overlayClassName="filter-popover-overlay"
+          content={<div className="filter-popover">
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">职务</span>
+              <Select
+                style={{ flex: 1 }}
+                aria-label="筛选职务"
+                value={jobFilter}
+                allowClear
+                placeholder="全部职务"
+                options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
+                onChange={(value) => {
+                  setPage(1);
+                  setJobFilter(value);
+                }}
+              />
+            </div>
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">账号状态</span>
+              <Select
+                style={{ flex: 1 }}
+                aria-label="筛选账号状态"
+                value={accountStatus}
+                onChange={(value) => {
+                  setPage(1);
+                  setAccountStatus(value);
+                }}
+                options={[
+                  { value: 'all', label: '全部账号状态' },
+                  { value: 'active', label: '已启用' },
+                  { value: 'disabled', label: '已停用' },
+                  { value: 'none', label: '未开通' },
+                ]}
+              />
+            </div>
+          </div>}
+        >
+          <Button
+            className="filter-circle filter-funnel"
+            type="text"
+            aria-label="筛选"
+            title="筛选"
+            icon={<Badge dot={Boolean(jobFilter) || accountStatus !== 'all'} color="#3D6EF7"><FunnelIcon /></Badge>}
+          />
+        </Popover>
+        <Button
+          className="filter-circle"
+          type="text"
+          aria-label="刷新列表"
+          title="刷新"
+          icon={<ReloadOutlined />}
+          onClick={() => { void load(); }}
         />
-        <Select
-          style={{ width: 160, maxWidth: '100%' }}
-          aria-label="筛选账号状态"
-          value={accountStatus}
-          onChange={(value) => {
-            setPage(1);
-            setAccountStatus(value);
-          }}
-          options={[
-            { value: 'all', label: '全部账号状态' },
-            { value: 'active', label: '已启用' },
-            { value: 'disabled', label: '已停用' },
-            { value: 'none', label: '未开通' },
-          ]}
+        <Button
+          className="filter-circle"
+          type="text"
+          aria-label="新增员工账号"
+          title="新增员工账号"
+          icon={<UserAddOutlined />}
+          onClick={openCreate}
         />
-        <div className="filter-count">
-          <TeamOutlined /> 共 {total} 人
-        </div>
       </div>
 
       <Table

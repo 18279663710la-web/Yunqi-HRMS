@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type Modifier } from '@dnd-kit/core';
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   App as AntApp,
   Avatar,
@@ -36,6 +39,44 @@ import { WorkspaceActiveContext } from './WorkspaceContext';
 import { closeWorkspaceTab, createWorkspaceTabs, openWorkspaceTab, workspaceTabForLocation, type WorkspaceTab } from './workspaceTabs';
 
 const { Header, Sider, Content } = Layout;
+// 页签拖动仅允许沿滑轨左右移动。
+const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
+
+const STATIC_TAB_ICONS: Record<string, ReactNode> = {
+  '/dashboard': <DashboardIcon />,
+  '/employees': <EmployeesIcon />,
+  '/notices': <NoticesIcon />,
+  '/departments': <DepartmentsIcon />,
+  '/admins': <AdminsIcon />,
+};
+
+function workspaceTabIcon(key: string): ReactNode {
+  if (STATIC_TAB_ICONS[key]) return STATIC_TAB_ICONS[key];
+  const module = SUB_MODULES.find(item => key === item.key || key.startsWith(`${item.key}/`));
+  return module ? module.icon : null;
+}
+
+interface SortableTabProps {
+  tab: WorkspaceTab;
+  active: boolean;
+  index: number;
+  onActivate: (tab: WorkspaceTab) => void;
+  onClose: (key: string) => void;
+  onTabKeyDown: (event: KeyboardEvent<HTMLButtonElement>, index: number) => void;
+  registerRef: (key: string, element: HTMLButtonElement | null) => void;
+}
+
+function SortableWorkspaceTab({ tab, active, index, onActivate, onClose, onTabKeyDown, registerRef }: SortableTabProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.key });
+  return (
+    <div ref={setNodeRef} className={`workspace-tab${active ? ' is-active' : ''}`} style={{ transform: CSS.Translate.toString(transform), transition, zIndex: isDragging ? 10 : undefined }} {...attributes} {...listeners}>
+      <button ref={element => { registerRef(tab.key, element); }} id={`workspace-tab-${encodeURIComponent(tab.key)}`} type="button" className="workspace-tab-label" role="tab" aria-selected={active} aria-controls={`workspace-panel-${encodeURIComponent(tab.key)}`} tabIndex={active ? 0 : -1} onClick={() => onActivate(tab)} onKeyDown={event => onTabKeyDown(event, index)}>
+        {workspaceTabIcon(tab.key)}{tab.label}
+      </button>
+      <button type="button" className="workspace-tab-close" aria-label={`关闭${tab.label}`} onClick={() => onClose(tab.key)}><CloseOutlined /></button>
+    </div>
+  );
+}
 
 interface PasswordForm {
   oldPassword: string;
@@ -65,6 +106,16 @@ export function AdminLayout() {
   const [tabs, setTabs] = useState(() => createWorkspaceTabs(location));
   const closingTab = useRef<string | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const onTabDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setTabs(previous => {
+      const from = previous.findIndex(tab => tab.key === active.id);
+      const to = previous.findIndex(tab => tab.key === over.id);
+      return from < 0 || to < 0 ? previous : arrayMove(previous, from, to);
+    });
+  };
   const tabsListRef = useRef<HTMLDivElement>(null);
   const activeTabKey = workspaceTabForLocation(location).key;
   const visibleTabs = closingTab.current === activeTabKey ? tabs : openWorkspaceTab(tabs, location);
@@ -121,7 +172,7 @@ export function AdminLayout() {
   const closeTab = (key: string) => {
     const result = closeWorkspaceTab(visibleTabs, key, activeTabKey);
     if (result.nextLocation) {
-      closingTab.current = key;
+      closingTab.current = result.tabs.length ? key : null;
       visitTab(result.nextLocation);
     }
     setTabs(result.tabs);
@@ -271,12 +322,11 @@ export function AdminLayout() {
         <Header className="admin-header">
           <nav className="workspace-tabs" aria-label="已打开的页面">
             <div ref={tabsListRef} className="workspace-tabs-list" role="tablist" aria-label="页面标签">
-              {visibleTabs.map((tab, index) => <div key={tab.key} role="presentation" className={`workspace-tab${activeTabKey === tab.key ? ' is-active' : ''}`}>
-                <button ref={element => { tabRefs.current[tab.key] = element; }} id={`workspace-tab-${encodeURIComponent(tab.key)}`} type="button" className="workspace-tab-label" role="tab" aria-selected={activeTabKey === tab.key} aria-controls={`workspace-panel-${encodeURIComponent(tab.key)}`} tabIndex={activeTabKey === tab.key ? 0 : -1} onClick={() => visitTab(tab.location)} onKeyDown={event => onTabKeyDown(event, index)}>
-                  {tab.key === '/dashboard' && <DashboardIcon size={15} />}{tab.label}
-                </button>
-                {tab.key !== '/dashboard' && <button type="button" className="workspace-tab-close" aria-label={`关闭${tab.label}`} onClick={() => closeTab(tab.key)}><CloseOutlined /></button>}
-              </div>)}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToHorizontalAxis]} accessibility={{ screenReaderInstructions: { draggable: '使用左右方向键调整顺序，也可拖动页签改变位置。' } }} onDragEnd={onTabDragEnd}>
+                <SortableContext items={visibleTabs.map(tab => tab.key)} strategy={horizontalListSortingStrategy}>
+                  {visibleTabs.map((tab, index) => <SortableWorkspaceTab key={tab.key} tab={tab} active={activeTabKey === tab.key} index={index} onActivate={item => visitTab(item.location)} onClose={closeTab} onTabKeyDown={onTabKeyDown} registerRef={(key, element) => { tabRefs.current[key] = element; }} />)}
+                </SortableContext>
+              </DndContext>
             </div>
           </nav>
 
