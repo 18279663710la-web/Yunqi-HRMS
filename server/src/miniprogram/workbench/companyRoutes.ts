@@ -16,10 +16,10 @@ function isApprovalType(key: string): key is ApprovalApproverType {
 }
 
 const router = Router();
-router.use(requireAuth);
 
 router.get(
   '/company',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     success(res, await getCompany());
   })
@@ -36,6 +36,7 @@ interface QuickActionRow {
 
 router.get(
   '/quick-actions',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const rows = await queryRows<QuickActionRow>('SELECT * FROM quick_actions ORDER BY sort_order');
     const list: QuickAction[] = rows.map((r) => ({
@@ -60,6 +61,7 @@ interface ApprovalTypeRow {
 
 router.get(
   '/approval-types',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const rows = await queryRows<ApprovalTypeRow>('SELECT * FROM approval_types ORDER BY sort_order');
     const publications = await readPublishedWorkflows();

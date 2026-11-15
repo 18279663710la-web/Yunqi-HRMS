@@ -14,11 +14,11 @@ import { success } from '../../shared/utils/response';
 import { listJobTitles } from '../../domains/employees/jobTitleService';
 
 const router = Router();
-router.use(requireAuth);
-router.get('/job-titles', asyncHandler(async (_req, res) => { success(res, await listJobTitles()); }));
+router.get('/job-titles', requireAuth, asyncHandler(async (_req, res) => { success(res, await listJobTitles()); }));
 
 router.get(
   '/departments/tree',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     success(res, await getDepartmentTree());
   })
@@ -26,6 +26,7 @@ router.get(
 
 router.get(
   '/departments',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     success(res, await getDepartmentList());
   })
@@ -33,6 +34,7 @@ router.get(
 
 router.get(
   '/employees',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const deptId = String(req.query.deptId || '');
     const keyword = String(req.query.keyword || '');
@@ -42,6 +44,7 @@ router.get(
 
 router.get(
   '/employees/groups',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const deptId = String(req.query.deptId || '');
     const keyword = String(req.query.keyword || '');
@@ -51,6 +54,7 @@ router.get(
 
 router.get(
   '/employees/:id',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const detail = await getEmployeeDetail(req.params.id);
     if (!detail) throw notFound('未找到该同事的信息');

@@ -2,6 +2,7 @@ import express, { Router } from 'express';
 import cors from 'cors';
 
 import { config } from './config';
+import { corsAllowedOrigins } from './shared/middleware/corsOrigin';
 import { errorHandler, notFoundHandler } from './shared/middleware/error';
 import adminRoutes from './admin/adminRoutes';
 import hrRoutes from './admin/hr/hrRoutes';
@@ -26,9 +27,16 @@ import { requireAdmin, requireSuperAdmin } from './admin/admin-accounts/authMidd
 export function createApp(): express.Express {
   const app = express();
 
+  const allowedOrigins = new Set(corsAllowedOrigins(config.corsOrigin));
   app.use(
     cors({
-      origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',').map((s) => s.trim()),
+      origin(origin, callback) {
+        if (!origin || allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: false,
     })
   );

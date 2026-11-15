@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from './authMiddleware';
+import { withLoginAttempt } from '../../shared/middleware/loginAttempts';
 import { parse } from '../../shared/middleware/validate';
 import { passwordLogin, refreshSession } from './authService';
 import { getCurrentUserById } from '../../domains/employees/userService';
@@ -20,7 +21,7 @@ router.post(
   '/auth/password-login',
   asyncHandler(async (req, res) => {
     const body = parse(passwordLoginSchema, req.body);
-    success(res, await passwordLogin(body.loginName, body.password));
+    success(res, await withLoginAttempt('employee', req.ip || '', body.loginName, () => passwordLogin(body.loginName, body.password)));
   })
 );
 

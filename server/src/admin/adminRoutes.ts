@@ -4,6 +4,7 @@ import { requireAdmin } from './admin-accounts/authMiddleware';
 import { parse } from '../shared/middleware/validate';
 import { asyncHandler } from '../shared/utils/asyncHandler';
 import { success } from '../shared/utils/response';
+import { withLoginAttempt } from '../shared/middleware/loginAttempts';
 import { loginAdmin } from './admin-accounts/adminAuthService';
 import approvalRoutes from './approvals/routes';
 import sessionRoutes from './admin-accounts/sessionRoutes';
@@ -22,7 +23,7 @@ router.post(
   '/auth/login',
   asyncHandler(async (req, res) => {
     const body = parse(loginSchema, req.body);
-    success(res, await loginAdmin(body.username, body.password));
+    success(res, await withLoginAttempt('admin', req.ip || '', body.username, () => loginAdmin(body.username, body.password)));
   })
 );
 

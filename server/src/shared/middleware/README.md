@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 主要文件：`error.ts`、`validate.ts`。
+- 主要文件：`error.ts`、`validate.ts`、`corsOrigin.ts`、`loginAttempts.ts`。
 
 ## 维护约束
 

@@ -21,6 +21,17 @@ const serverRoot = path.resolve(__dirname, '..');
 const localEnv = dotenv.config({ path: path.join(serverRoot, '.env.local') }).parsed;
 dotenv.config({ path: path.join(serverRoot, '.env') });
 
+export const DEV_JWT_SECRET = 'yunqi-office-dev-secret';
+
+/** 生产环境必须显式提供非开发默认值；本地未配置时仍使用开发回退值。 */
+export function resolveJwtSecret(env: NodeJS.ProcessEnv = process.env): string {
+  const secret = str(env.JWT_SECRET, DEV_JWT_SECRET);
+  if (env.NODE_ENV === 'production' && secret === DEV_JWT_SECRET) {
+    throw new Error('生产环境必须通过环境变量 JWT_SECRET 设置强随机密钥');
+  }
+  return secret;
+}
+
 export const config = {
   port: int(process.env.PORT, 3000),
   mysql: {
@@ -32,7 +43,7 @@ export const config = {
     connectionLimit: int(process.env.MYSQL_POOL_SIZE, 10),
   },
   jwt: {
-    secret: str(process.env.JWT_SECRET, 'yunqi-office-dev-secret'),
+    secret: resolveJwtSecret(),
     accessTtl: str(process.env.JWT_ACCESS_TTL, '7d'),
     refreshTtl: str(process.env.JWT_REFRESH_TTL, '30d'),
   },

@@ -22,7 +22,6 @@ import { success } from '../../shared/utils/response';
 import { signExpenseFile } from '../../domains/approvals/expenseFileAccess';
 
 const router = Router();
-router.use(requireAuth);
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -52,6 +51,7 @@ const upload = multer({
 
 router.get(
   '/invoices/meta',
+  requireAuth,
   asyncHandler(async (_req, res) => {
     success(res, getInvoiceMeta());
   })
@@ -64,6 +64,7 @@ const invoiceSchema = z.object({
 
 router.post(
   '/invoices/duplicate',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const body = parse(invoiceSchema, req.body);
     const result = await checkDuplicate(body.invoice as unknown as Invoice);
@@ -73,6 +74,7 @@ router.post(
 
 router.post(
   '/invoices/verify',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const body = parse(invoiceSchema, req.body);
     const result = await verifyInvoice(body.invoice as unknown as Invoice, { skipDuplicate: body.skipDuplicate === true });
@@ -82,6 +84,7 @@ router.post(
 
 router.post(
   '/invoices/image',
+  requireAuth,
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) throw badRequest('缺少发票图片');
@@ -93,6 +96,7 @@ router.post(
 
 router.post(
   '/ocr/invoice',
+  requireAuth,
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) throw badRequest('缺少发票图片');

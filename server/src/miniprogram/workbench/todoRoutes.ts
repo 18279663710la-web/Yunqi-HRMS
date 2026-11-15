@@ -6,10 +6,10 @@ import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { success } from '../../shared/utils/response';
 
 const router = Router();
-router.use(requireAuth);
 
 router.get(
   '/todo-stats',
+  requireAuth,
   asyncHandler(async (req, res) => {
     success(res, await getTodoStats(req.user));
   })

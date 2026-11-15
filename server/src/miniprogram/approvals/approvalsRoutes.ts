@@ -20,10 +20,10 @@ import { retryWorkflowAi } from '../../domains/approvals/workflowAiWorker';
 import { parseApproverType } from '../../domains/approvals/expenseApproverService';
 
 const router = Router();
-router.use(requireAuth);
 
 router.get(
   '/approvals',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const raw = String(req.query.tab || 'pending');
     const tab = raw === 'mine' || raw === 'done' ? raw : 'pending';
@@ -37,6 +37,7 @@ router.get(
 
 router.get(
   '/approvals/counts',
+  requireAuth,
   asyncHandler(async (req, res) => {
     success(res, await getApprovalTabCounts(req.user));
   })
@@ -44,6 +45,7 @@ router.get(
 
 router.get(
   '/approvals/pending-count',
+  requireAuth,
   asyncHandler(async (req, res) => {
     success(res, await getPendingCount(req.user));
   })
@@ -51,6 +53,7 @@ router.get(
 
 router.get(
   '/approvals/:id',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const detail = await getApprovalDetail(req.params.id, req.user);
     if (!detail) throw notFound('审批单不存在或已被删除');
@@ -79,19 +82,20 @@ const assigneeSchema = z.object({
   invoices: z.array(z.object({ totalAmount: z.number().optional() })).max(30).optional(),
 });
 
-router.post('/approvals/assignees', asyncHandler(async (req, res) => {
+router.post('/approvals/assignees', requireAuth, asyncHandler(async (req, res) => {
   success(res, await previewApprovalAssignees(parse(assigneeSchema, req.body)));
 }));
 
 router.post(
   '/approvals',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const payload = parse(createSchema, req.body);
     success(res, await createApproval(payload, req.user));
   })
 );
 
-router.post('/approvals/:id/retry-ai', asyncHandler(async (req, res) => {
+router.post('/approvals/:id/retry-ai', requireAuth, asyncHandler(async (req, res) => {
   success(res, await retryWorkflowAi(req.params.id, req.user));
 }));
 
@@ -102,6 +106,7 @@ const actionSchema = z.object({
 
 router.post(
   '/approvals/:id/action',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const body = parse(actionSchema, req.body);
     const result = await submitApprovalAction(req.params.id, body.action, body.comment || '', req.user);
@@ -113,6 +118,7 @@ const cancelSchema = z.object({}).passthrough();
 
 router.post(
   '/approvals/:id/cancel',
+  requireAuth,
   asyncHandler(async (req, res) => {
     parse(cancelSchema, req.body || {});
     const result = await cancelApproval(req.params.id, req.user);
