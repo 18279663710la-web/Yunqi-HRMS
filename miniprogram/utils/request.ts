@@ -278,6 +278,19 @@ export async function wechatBind(): Promise<void> {
   });
 }
 
+/**
+ * 查询服务端是否启用微信一键登录（公开接口）。
+ * 必须走 rawRequest：登录页无登录态时 get() 会被本地守卫拦截，按钮将永远隐藏。
+ */
+export async function wechatStatus(): Promise<{ configured: boolean }> {
+  return rawRequest<{ configured: boolean }>({
+    url: '/auth/wechat-status',
+    method: 'GET',
+    auth: false,
+    silent: true,
+  });
+}
+
 /** 解除当前账号的微信绑定 */
 export async function wechatUnbind(): Promise<void> {
   await rawRequest({

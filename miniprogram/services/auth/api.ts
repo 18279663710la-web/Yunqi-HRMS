@@ -8,6 +8,7 @@ getCachedUser,
 login as loginRequest,
 wechatBind as bindWechat,
 wechatLogin as loginWechat,
+wechatStatus as fetchWechatStatus,
 wechatUnbind as unbindWechat
 } from '../../utils/request';
 
@@ -29,7 +30,7 @@ export function wechatLogin(): Promise<CurrentUser> {
 }
 
 export function wechatStatus(): Promise<{ configured: boolean }> {
-  return get<{ configured: boolean }>('/auth/wechat-status');
+  return fetchWechatStatus();
 }
 
 export function wechatBinding(): Promise<{ configured: boolean; bound: boolean }> {
