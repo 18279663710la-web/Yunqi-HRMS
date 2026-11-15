@@ -104,6 +104,29 @@
   box-shadow: 0 14rpx 28rpx rgba(61, 110, 247, 0.26);
 }
 
+.login-wechat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 92rpx;
+  margin-top: 24rpx;
+  border-radius: 18rpx;
+  background: #07c160;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 14rpx 28rpx rgba(7, 193, 96, 0.22);
+}
+
+.login-wechat::after {
+  border: none;
+}
+
+.login-wechat.is-disabled {
+  opacity: 0.62;
+  box-shadow: none;
+}
+
 .login-submit::after {
   border: none;
 }

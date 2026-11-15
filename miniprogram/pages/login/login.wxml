@@ -43,6 +43,16 @@
       登录
     </button>
 
+    <button
+      wx:if="{{wxConfigured}}"
+      class="login-wechat {{loading || checking || wechatLoading ? 'is-disabled' : ''}}"
+      loading="{{wechatLoading}}"
+      disabled="{{loading || checking || wechatLoading}}"
+      bindtap="onWechatLogin"
+    >
+      微信一键登录
+    </button>
+
   </view>
 
   <view class="login-foot" bindlongpress="onServerSetting">云启科技 · 企业办公</view>

@@ -136,6 +136,14 @@ async function runMigrations(conn: Connection): Promise<void> {
     if (duplicates.length) throw new Error('员工工号存在重复，无法添加唯一约束');
     await conn.query('ALTER TABLE employees ADD UNIQUE KEY uk_employees_employee_no (employee_no)');
   }
+
+  // 小程序微信一键登录绑定：openid 唯一，未绑定为 NULL（MySQL 唯一索引允许多个 NULL）。
+  if (!(await hasColumn('employee_accounts', 'wx_openid'))) {
+    await conn.query('ALTER TABLE `employee_accounts` ADD COLUMN `wx_openid` VARCHAR(64) NULL DEFAULT NULL AFTER `password_hash`');
+  }
+  if (!(await hasIndex('employee_accounts', 'uk_employee_accounts_wx_openid'))) {
+    await conn.query('ALTER TABLE `employee_accounts` ADD UNIQUE INDEX `uk_employee_accounts_wx_openid` (`wx_openid`)');
+  }
   if (!(await hasColumn('hr_onboarding_tasks', 'description'))) {
     await conn.query("ALTER TABLE `hr_onboarding_tasks` ADD COLUMN `description` VARCHAR(500) NOT NULL DEFAULT ''");
   }

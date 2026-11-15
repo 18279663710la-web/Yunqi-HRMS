@@ -66,6 +66,12 @@ export const config = {
     /** 腾讯位置服务 WebServiceAPI Key，用于拜访地址逆解析；未配置时回退“当前位置”。 */
     tencentKey: str(process.env.TENCENT_MAP_KEY ?? process.env.VITE_TENCENT_MAP_KEY, ''),
   },
+  wechat: {
+    /** 小程序 AppID（与 project.config.json 一致）。两项均配置后微信一键登录才启用。 */
+    appid: str(process.env.WECHAT_APPID, ''),
+    /** 小程序 AppSecret（公众平台-开发管理-开发设置获取），仅保存在服务端环境变量。 */
+    appSecret: str(process.env.WECHAT_APP_SECRET, ''),
+  },
   u9ReceiptNotify: {
     /** 与 U9 邮件模板一致，默认只处理江西优科账套。 */
     orgCode: str(process.env.U9_RECEIPT_NOTIFY_ORG_CODE, '001'),

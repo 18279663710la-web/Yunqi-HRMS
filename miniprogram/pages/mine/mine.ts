@@ -26,6 +26,7 @@ interface MineCustom {
   load(): Promise<void>;
   onMenuTap(e: TapEvent): void;
   onSettingTap(e: TapEvent): void;
+  onWechatTap(): Promise<void>;
   showNotifySetting(): void;
   showAbout(): void;
   showLogout(): void;
@@ -69,10 +70,11 @@ Page<MineData, MineCustom>({
 
   async load(): Promise<void> {
     try {
-      const [user, stats, company] = await Promise.all([
+      const [user, stats, company, wechat] = await Promise.all([
         authApi.getCurrentUser(),
         workbenchApi.getTodoStats(),
         workbenchApi.getCompany(),
+        authApi.wechatBinding().catch(() => ({ configured: false, bound: false })),
       ]);
       const roleTitle = !user.isLeader
         ? ''
@@ -81,6 +83,21 @@ Page<MineData, MineCustom>({
           : user.jobCategory === '业务员'
             ? '业务组负责人'
             : '负责人';
+
+      const settings: MenuItem[] = [];
+      if (wechat.configured) {
+        settings.push({
+          key: 'wechat',
+          name: '微信一键登录',
+          icon: 'qr',
+          desc: wechat.bound ? '已绑定 · 点击解绑' : '未绑定 · 点击绑定',
+        });
+      }
+      settings.push(
+        { key: 'notify', name: '消息提醒设置', icon: 'bell' },
+        { key: 'about', name: '关于云启科技', icon: 'info' },
+        { key: 'logout', name: '退出登录', icon: 'logout', danger: true },
+      );
 
       this.setData({
         user,
@@ -100,6 +117,7 @@ Page<MineData, MineCustom>({
           { key: 'payslips', name: '我的工资条', icon: 'doc', desc: '' },
           { key: 'invoiceTool', name: '发票工具台', icon: 'qr', desc: '图片识别 · 发票查重' },
         ],
+        settings,
       });
     } catch {
       // 请求层已提示
@@ -119,7 +137,43 @@ Page<MineData, MineCustom>({
     const key = String(e.currentTarget.dataset.key || '');
     if (key === 'notify') this.showNotifySetting();
     else if (key === 'about') this.showAbout();
+    else if (key === 'wechat') void this.onWechatTap();
     else if (key === 'logout') this.showLogout();
+  },
+
+  /** 微信绑定管理：未绑定时一键绑定，已绑定时确认后解绑 */
+  async onWechatTap(): Promise<void> {
+    const binding = await authApi.wechatBinding().catch(() => null);
+    if (!binding || !binding.configured) return;
+    if (binding.bound) {
+      wx.showModal({
+        title: '解绑微信',
+        content: '解绑后将无法使用微信一键登录，需要重新输入账号密码登录。确定解绑吗？',
+        confirmText: '解绑',
+        confirmColor: '#F04438',
+        success: (res) => {
+          if (!res.confirm) return;
+          void authApi
+            .wechatUnbind()
+            .then(() => {
+              wx.showToast({ title: '已解绑', icon: 'success' });
+              void this.load();
+            })
+            .catch(() => {
+              void this.load();
+            });
+        },
+      });
+      return;
+    }
+    try {
+      await authApi.wechatBind();
+      wx.showToast({ title: '微信绑定成功', icon: 'success' });
+    } catch (err) {
+      const message = (err as { message?: string })?.message;
+      if (message) wx.showToast({ title: message, icon: 'none', duration: 2500 });
+    }
+    void this.load();
   },
 
   showNotifySetting() {

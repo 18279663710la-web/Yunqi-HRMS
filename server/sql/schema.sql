@@ -798,12 +798,14 @@ CREATE TABLE IF NOT EXISTS `employee_accounts` (
   `employee_id` VARCHAR(10) PRIMARY KEY,
   `login_name` VARCHAR(50) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
+  `wx_openid` VARCHAR(64) NULL DEFAULT NULL,
   `status` ENUM('active','disabled') NOT NULL DEFAULT 'active',
   `last_login_at` DATETIME NULL,
   `created_by` INT NULL,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   UNIQUE KEY `uk_employee_accounts_login` (`login_name`),
+  UNIQUE KEY `uk_employee_accounts_wx_openid` (`wx_openid`),
   KEY `idx_employee_accounts_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

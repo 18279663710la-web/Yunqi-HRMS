@@ -88,6 +88,7 @@
         <view class="menu-icon menu-icon-{{item.icon}} {{item.danger ? 'is-danger' : ''}}"></view>
         <view class="menu-main">
           <view class="menu-name">{{item.name}}</view>
+          <view class="menu-desc ellipsis" wx:if="{{item.desc}}">{{item.desc}}</view>
         </view>
         <view class="chevron"></view>
       </view>

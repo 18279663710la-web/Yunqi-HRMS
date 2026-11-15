@@ -2,10 +2,12 @@
  * utils/request.ts — 统一 HTTP 请求层（前后端分离）
  *
  * 登录体系：
- *   · 小程序只使用员工账号密码登录（POST /auth/password-login）
+ *   · 员工使用账号密码登录（POST /auth/password-login），并可在绑定微信号后
+ *     使用微信一键登录（POST /auth/wechat-login，静默无弹窗）
  *   · 账号只能由 Web 管理后台创建，小程序端不提供注册
  *   · 管理员账号与员工账号完全隔离：employee token 只能访问员工接口
- *   · 无 token 时直接跳转登录页；401 先尝试 refresh，失败后清登录态并跳转登录
+ *   · 无 token 时先静默尝试微信一键登录（仅冷启动，退出登录后本次抑制），
+ *     仍无登录态则跳转登录页；401 先尝试 refresh，失败后清登录态并跳转登录
  *
  * 注意：真机调试时 127.0.0.1 指向手机自身，后端地址由 utils/apiOrigin.ts 自动探测，
  * 也可在登录页长按底部手动指定；并在微信开发者工具中保持「不校验合法域名」。
@@ -235,9 +237,74 @@ export async function login(loginName: string, password: string): Promise<Curren
   return data.user;
 }
 
+/** wx.login 取临时凭证 code（5 分钟有效，单次使用） */
+function wxLoginCode(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    wx.login({
+      success: (res) => {
+        if (res.code) resolve(res.code);
+        else reject({ code: -1, message: '微信登录失败，请重试' } as ApiError);
+      },
+      fail: () => reject({ code: -1, message: '微信登录失败，请重试' } as ApiError),
+    });
+  });
+}
+
+/**
+ * 微信一键登录：仅当后端已配置密钥且当前微信号已绑定员工账号时成功；
+ * 未绑定/未配置/停用等失败由服务端返回明确 message，由调用方决定是否提示。
+ */
+export async function wechatLogin(): Promise<CurrentUser> {
+  const code = await wxLoginCode();
+  const data = await rawRequest<LoginResponse>({
+    url: '/auth/wechat-login',
+    method: 'POST',
+    data: { code },
+    auth: false,
+    silent: true,
+  });
+  storeSession(data);
+  return data.user;
+}
+
+/** 将当前登录账号绑定到当前微信号（一个微信号只能绑定一个账号，换绑须先解绑） */
+export async function wechatBind(): Promise<void> {
+  const code = await wxLoginCode();
+  await rawRequest({
+    url: '/auth/wechat-bind',
+    method: 'POST',
+    data: { code },
+    silent: true,
+  });
+}
+
+/** 解除当前账号的微信绑定 */
+export async function wechatUnbind(): Promise<void> {
+  await rawRequest({
+    url: '/auth/wechat-unbind',
+    method: 'POST',
+    silent: true,
+  });
+}
+
+/**
+ * 退出登录后抑制本次运行内的微信静默自动登录，
+ * 避免“退出后立刻被自动登录回去”；冷启动（app onLaunch）自动复位。
+ */
+let wechatAutoLoginSuppressed = false;
+
+export function isWechatAutoLoginSuppressed(): boolean {
+  return wechatAutoLoginSuppressed;
+}
+
+export function resetWechatAutoLoginSuppression(): void {
+  wechatAutoLoginSuppressed = false;
+}
+
 /** 退出登录：清空 token、用户缓存 */
 export function logout(): void {
   clearSession();
+  wechatAutoLoginSuppressed = true;
 }
 
 async function refreshTokens(): Promise<void> {

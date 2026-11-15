@@ -5,7 +5,7 @@
  * 登录后携带 Bearer Token；401 时自动刷新，失败则返回登录页。
  */
 
-import { getCachedUser, getToken } from './utils/request';
+import { getCachedUser, getToken, resetWechatAutoLoginSuppression } from './utils/request';
 import type { CurrentUser } from './types/models';
 import { getEntryDestination, ONBOARDING_REQUIRED } from './services/onboarding/onboardingGate';
 import { isOnboardingRoute } from './services/onboarding/onboardingRoutes';
@@ -43,6 +43,8 @@ App<IAppOption>({
 
   onLaunch() {
     this.initSystemInfo();
+    // 冷启动复位静默登录抑制：上次运行中的“退出登录”不延续到本次启动
+    resetWechatAutoLoginSuppression();
     this.globalData.userInfo = getCachedUser();
   },
 
