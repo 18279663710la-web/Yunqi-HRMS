@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { AuditOutlined, CalculatorOutlined, ClockCircleOutlined, IdcardOutlined } from '@ant-design/icons';
+
+import { ApprovalsIcon, AttendanceIcon, HrIcon, ModelsIcon } from './adminIcons';
 
 export interface SubModuleItem {
   key: string;
@@ -20,7 +21,7 @@ export const SUB_MODULES: SubModule[] = [
   {
     key: '/hr',
     title: '人事管理',
-    icon: <IdcardOutlined />,
+    icon: <HrIcon label="人事管理" />,
     sidebarId: 'hr-sidebar',
     superAdminOnly: true,
     items: [
@@ -35,7 +36,7 @@ export const SUB_MODULES: SubModule[] = [
   {
     key: '/attendance',
     title: '考勤管理',
-    icon: <ClockCircleOutlined />,
+    icon: <AttendanceIcon label="考勤管理" />,
     sidebarId: 'attendance-sidebar',
     items: [
       { key: '/attendance/groups', label: '考勤组' },
@@ -46,7 +47,7 @@ export const SUB_MODULES: SubModule[] = [
   {
     key: '/models-formulas',
     title: '模型与公式',
-    icon: <CalculatorOutlined />,
+    icon: <ModelsIcon label="模型与公式" />,
     sidebarId: 'models-formulas-sidebar',
     superAdminOnly: true,
     items: [
@@ -60,7 +61,7 @@ export const SUB_MODULES: SubModule[] = [
   {
     key: '/approvals',
     title: '审批管理',
-    icon: <AuditOutlined />,
+    icon: <ApprovalsIcon label="审批管理" />,
     sidebarId: 'approvals-sidebar',
     items: [
       { key: '/approvals/leave', label: '请假审批' },

@@ -15,7 +15,7 @@ export type MapSdk = {
 export function createAttendanceMap(sdk: MapSdk, element: HTMLElement, initial: MapPoint, onSelect: (lat: number, lng: number) => void, onReady: () => void) {
   const map = new sdk.Map(element, { center: new sdk.LatLng(initial.latitude ?? 23.1291, initial.longitude ?? 113.2644), zoom: 16 });
   const marker = new sdk.MultiMarker({ map, geometries: [] });
-  const circle = new sdk.MultiCircle({ map, styles: { range: new sdk.CircleStyle({ color: 'rgba(61,110,247,0.18)', borderColor: '#3d6ef7', borderWidth: 2 }) }, geometries: [] });
+  const circle = new sdk.MultiCircle({ map, styles: { range: new sdk.CircleStyle({ color: 'rgba(0,0,0,0.12)', borderColor: '#1A1A1A', borderWidth: 2 }) }, geometries: [] });
   let previous: MapPoint = {};
   const update = ({ latitude, longitude, radius }: MapPoint) => {
     if (latitude == null || longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {

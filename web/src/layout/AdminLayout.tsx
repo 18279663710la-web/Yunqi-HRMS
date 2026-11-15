@@ -10,23 +10,26 @@ import {
   Menu,
   Modal,
 } from 'antd';
-import {
-  DashboardOutlined,
-  LockOutlined,
-  LogoutOutlined,
-  SafetyCertificateOutlined,
-  NotificationOutlined,
-  TagsOutlined,
-  TeamOutlined,
-  RightOutlined,
-  CloseOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+import { RightOutlined, CloseOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, type Location } from 'react-router-dom';
 
 import { changePassword } from '../modules/auth/api';
 import { useAuth } from '../auth/AuthContext';
+import { roleLabel } from '../utils/helpers';
 import { BrandSymbol } from '../components/BrandSymbol';
+import {
+  AdminsIcon,
+  ApprovalsIcon,
+  AttendanceIcon,
+  DashboardIcon,
+  DepartmentsIcon,
+  EmployeesIcon,
+  HrIcon,
+  LockIcon,
+  LogoutIcon,
+  ModelsIcon,
+  NoticesIcon,
+} from './adminIcons';
 import { accessibleSubModules, SUB_MODULES, matchSubModule, resolvePageKey, subModuleMetrics, type SubModule } from './subModules';
 import { AdminPageRoutes } from './AdminPageRoutes';
 import { WorkspaceActiveContext } from './WorkspaceContext';
@@ -148,16 +151,16 @@ export function AdminLayout() {
   const approvalsModule = SUB_MODULES.find(module => module.key === '/approvals');
 
   const menuItems = [
-    { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
-    { key: '/employees', icon: <TeamOutlined />, label: '员工与账号' },
+    { key: '/dashboard', icon: <DashboardIcon label="仪表盘" />, label: '仪表盘' },
+    { key: '/employees', icon: <EmployeesIcon label="员工与账号" />, label: '员工与账号' },
     ...(admin?.role === 'super_admin' && hrModule ? [moduleItem(hrModule)] : []),
     ...(attendanceModule ? [moduleItem(attendanceModule)] : []),
     ...(admin?.role === 'super_admin' && modelsModule ? [moduleItem(modelsModule)] : []),
     ...(approvalsModule ? [moduleItem(approvalsModule)] : []),
-    { key: '/notices', icon: <NotificationOutlined />, label: '公告管理' },
-    { key: '/departments', icon: <TagsOutlined />, label: '组织架构' },
+    { key: '/notices', icon: <NoticesIcon label="公告管理" />, label: '公告管理' },
+    { key: '/departments', icon: <DepartmentsIcon label="组织架构" />, label: '组织架构' },
     ...(admin?.role === 'super_admin'
-      ? [{ key: '/admins', icon: <SafetyCertificateOutlined />, label: '管理员账号' }]
+      ? [{ key: '/admins', icon: <AdminsIcon label="管理员账号" />, label: '管理员账号' }]
       : []),
   ];
 
@@ -202,10 +205,25 @@ export function AdminLayout() {
             trigger={['click']}
             placement="topLeft"
             menu={{
+              className: 'admin-user-menu',
               items: [
-                { key: 'password', icon: <LockOutlined />, label: '修改密码' },
+                {
+                  key: 'profile',
+                  type: 'group',
+                  label: <div className="admin-user-menu-profile">
+                    <Avatar size={44} style={{ background: '#3D6EF7', color: '#fff', fontWeight: 600 }}>
+                      {(admin?.name || '管').slice(0, 1)}
+                    </Avatar>
+                    <div className="admin-user-menu-profile-text">
+                      <div className="admin-user-menu-name">{admin?.name || '管理员'}</div>
+                      <div className="admin-user-menu-role">{admin ? roleLabel(admin.role) : ''}</div>
+                    </div>
+                  </div>,
+                },
                 { type: 'divider' },
-                { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
+                { key: 'password', icon: <LockIcon />, label: '修改密码' },
+                { type: 'divider' },
+                { key: 'logout', icon: <LogoutIcon />, label: '退出登录' },
               ],
               onClick: ({ key }) => {
                 if (key === 'password') {
@@ -220,7 +238,9 @@ export function AdminLayout() {
             }}
           >
             <button type="button" className="admin-user" aria-label="管理员菜单" title={admin?.name || '管理员菜单'}>
-              <Avatar size={36} icon={<UserOutlined />} style={{ background: '#3D6EF7' }} />
+              <Avatar size={40} style={{ background: '#3D6EF7', color: '#fff', fontWeight: 600 }}>
+                {(admin?.name || '管').slice(0, 1)}
+              </Avatar>
             </button>
           </Dropdown>
         </div>
@@ -253,7 +273,7 @@ export function AdminLayout() {
             <div ref={tabsListRef} className="workspace-tabs-list" role="tablist" aria-label="页面标签">
               {visibleTabs.map((tab, index) => <div key={tab.key} role="presentation" className={`workspace-tab${activeTabKey === tab.key ? ' is-active' : ''}`}>
                 <button ref={element => { tabRefs.current[tab.key] = element; }} id={`workspace-tab-${encodeURIComponent(tab.key)}`} type="button" className="workspace-tab-label" role="tab" aria-selected={activeTabKey === tab.key} aria-controls={`workspace-panel-${encodeURIComponent(tab.key)}`} tabIndex={activeTabKey === tab.key ? 0 : -1} onClick={() => visitTab(tab.location)} onKeyDown={event => onTabKeyDown(event, index)}>
-                  {tab.key === '/dashboard' && <DashboardOutlined aria-hidden="true" />}{tab.label}
+                  {tab.key === '/dashboard' && <DashboardIcon size={15} />}{tab.label}
                 </button>
                 {tab.key !== '/dashboard' && <button type="button" className="workspace-tab-close" aria-label={`关闭${tab.label}`} onClick={() => closeTab(tab.key)}><CloseOutlined /></button>}
               </div>)}

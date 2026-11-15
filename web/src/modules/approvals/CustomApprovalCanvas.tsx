@@ -79,7 +79,7 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
       const name = condition.field === definition?.numericCondition?.value ? definition.numericCondition.label : definition?.choices.find(choice => choice.value === condition.field)?.label ?? fields.find(field => field.key === condition.field)?.label ?? condition.field;
       return `${name} ${condition.operator === 'gte' ? '≥' : condition.operator === 'lt' ? '<' : '='} ${condition.value}`;
     }).join(' 且 ');
-    return label ? { ...edge, label, labelStyle: { fill: '#52647f', fontSize: 11 }, labelBgStyle: { fill: '#fff' } } : edge;
+    return label ? { ...edge, label, labelStyle: { fill: '#A3A3A3', fontSize: 11 }, labelBgStyle: { fill: '#262626' } } : edge;
   }), [edges, fields, approvalType]);
   useEffect(() => {
     if (!addRequest || addRequest.id === lastAdd.current || !canvasRef.current) return;
@@ -100,8 +100,8 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
   return <div ref={canvasRef} className="workflow-canvas" onDrop={onDrop} onDragOver={event => event.preventDefault()}>
     <NodeActions.Provider value={{ configure: onConfigure, readOnly }}><ReactFlow nodes={displayNodes} edges={displayEdges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onBeforeDelete={async () => !readOnly}
       deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']} connectOnClick minZoom={0.4} maxZoom={1.6} panOnDrag={tool === 'pan'} selectionOnDrag={tool === 'select' && !readOnly}
-      nodesDraggable={tool === 'select' && !readOnly} nodesConnectable={tool === 'select' && !readOnly} elementsSelectable={!readOnly} defaultEdgeOptions={{ type: 'default', style: { stroke: '#9aa9bf', strokeWidth: 2 } }}>
-      <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#cfd8e3" />
+      nodesDraggable={tool === 'select' && !readOnly} nodesConnectable={tool === 'select' && !readOnly} elementsSelectable={!readOnly} defaultEdgeOptions={{ type: 'default', style: { stroke: '#8c8c8c', strokeWidth: 2 } }}>
+      <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#3a3a3a" />
       <Controls showInteractive={false} />
     </ReactFlow></NodeActions.Provider>
   </div>;

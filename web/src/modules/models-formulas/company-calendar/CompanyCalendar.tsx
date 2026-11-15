@@ -199,8 +199,8 @@ export function CompanyCalendar() {
       title: '例外',
       width: 150,
       render: (_value, rule) => <Space size={4} wrap>
-        {rule.restDates.length > 0 && <Tag color="blue">休息 {rule.restDates.length}</Tag>}
-        {rule.workDates.length > 0 && <Tag color="orange">上班 {rule.workDates.length}</Tag>}
+        {rule.restDates.length > 0 && <Tag>休息 {rule.restDates.length}</Tag>}
+        {rule.workDates.length > 0 && <Tag color="#C9A75C">上班 {rule.workDates.length}</Tag>}
         {!rule.restDates.length && !rule.workDates.length && <Typography.Text type="secondary">—</Typography.Text>}
       </Space>,
     },

@@ -147,13 +147,13 @@ export function AdminsPage() {
       width: 220,
       render: (_, row) => (
         <Space>
-          <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7' }}>
+          <Avatar style={{ background: '#F0F0F0', color: '#1A1A1A' }}>
             {row.name.slice(0, 1)}
           </Avatar>
           <div>
             <div className="table-primary">
               {row.name}
-              {row.id === currentAdmin.id ? <Tag color="blue" bordered={false} style={{ marginLeft: 8 }}>当前账号</Tag> : null}
+              {row.id === currentAdmin.id ? <Tag color="#F5F5F5" bordered={false} style={{ marginLeft: 8 }}>当前账号</Tag> : null}
             </div>
             <Text type="secondary" className="table-secondary">{row.username}</Text>
           </div>
@@ -165,7 +165,7 @@ export function AdminsPage() {
       dataIndex: 'role',
       width: 130,
       render: (role: AdminRole) => (
-        <Tag color={role === 'super_admin' ? 'gold' : 'blue'}>{roleLabel(role)}</Tag>
+        <Tag color={role === 'super_admin' ? '#C9A75C' : 'default'}>{roleLabel(role)}</Tag>
       ),
     },
     {

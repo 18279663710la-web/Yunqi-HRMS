@@ -245,7 +245,7 @@ export function AttendanceRecordsPage() {
       width: 200,
       render: (_, row) => (
         <Space>
-          <Avatar size={30} style={{ background: '#EAF0FF', color: '#3D6EF7', fontSize: 13 }}>
+          <Avatar size={30} style={{ background: '#F0F0F0', color: '#1A1A1A', fontSize: 13 }}>
             {initialOf(row.employeeName)}
           </Avatar>
           <div>
@@ -392,16 +392,16 @@ export function AttendanceRecordsPage() {
 
         <Row gutter={[12, 12]} className="mini-stat-row">
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="正常" value={(summary?.normal || 0) + (summary?.travel || 0)} valueStyle={{ color: '#16B364' }} /></div>
+            <div className="mini-stat"><Statistic title="正常" value={(summary?.normal || 0) + (summary?.travel || 0)} valueStyle={{ color: '#80BB9E' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="异常" value={(summary?.missingIn ?? 0) + (summary?.missingOut ?? 0)} valueStyle={{ color: '#F79009' }} /></div>
+            <div className="mini-stat"><Statistic title="异常" value={(summary?.missingIn ?? 0) + (summary?.missingOut ?? 0)} valueStyle={{ color: '#C9A75C' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="缺卡" value={summary?.absent || 0} valueStyle={{ color: '#F04438' }} /></div>
+            <div className="mini-stat"><Statistic title="缺卡" value={summary?.absent || 0} valueStyle={{ color: '#C97474' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="请假" value={summary?.leave || 0} valueStyle={{ color: '#3D6EF7' }} /></div>
+            <div className="mini-stat"><Statistic title="请假" value={summary?.leave || 0} valueStyle={{ color: '#8BA6C1' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="休息" value={summary?.rest || 0} /></div>

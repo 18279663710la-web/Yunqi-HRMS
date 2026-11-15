@@ -8,7 +8,7 @@ export function AttendanceModeRulesFields({ mode }: { mode: AttendanceRuleMode }
   const days = mode.startsWith('days_');
   const label = `${mode.endsWith('absence') ? '缺勤' : '出勤'}${days ? '天数' : '率'}`;
   const unit = days ? '天' : '%';
-  return <Card size="small" style={{ margin: '0 0 24px', borderColor: '#ccd8ea', background: '#f8faff' }}>
+  return <Card size="small" style={{ margin: '0 0 24px', borderColor: '#d9d9d9', background: '#fafafa' }}>
     <Form.List name="attendanceRules" rules={[{ validator: async (_, values: AttendanceRange[] | undefined) => { const error = validateRanges(mode, buildRanges(mode, values)); if (error) throw new Error(error); } }]}>
       {(fields, { add, remove }, { errors }) => {
         const last = fields.length - 1;

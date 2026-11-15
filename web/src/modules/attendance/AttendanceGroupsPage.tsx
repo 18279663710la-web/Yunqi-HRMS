@@ -542,7 +542,7 @@ export function AttendanceGroupsPage() {
                     <span>{employee.name}</span>
                     <Typography.Text type="secondary">{employee.employeeNo}</Typography.Text>
                     <Tag>{employee.position}</Tag>
-                    {showOtherGroup && <Tag color="orange">已在{otherGroup.name}</Tag>}
+                    {showOtherGroup && <Tag color="#C9A75C">已在{otherGroup.name}</Tag>}
                   </Space>
                 </Checkbox>
               </div>

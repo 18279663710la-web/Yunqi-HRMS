@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App as AntApp, ConfigProvider } from 'antd';
+import { App as AntApp, ConfigProvider, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -17,23 +17,32 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <ConfigProvider
       locale={zhCN}
       theme={{
+        // 黑底白字暗色主题：白色为主交互色，仅保留用于区分种类的低饱和辅助色，其余一律灰阶。
+        algorithm: theme.darkAlgorithm,
         token: {
-          colorPrimary: '#3D6EF7',
+          colorPrimary: '#FFFFFF',
+          colorInfo: '#8BA6C1',
+          colorSuccess: '#80BB9E',
+          colorWarning: '#C9A75C',
+          colorError: '#C97474',
+          colorTextLightSolid: '#1A1A1A',
+          colorWhite: '#1A1A1A',
           borderRadius: 10,
-          colorBgLayout: '#F5F7FB',
-          colorText: '#1F2937',
+          colorBgLayout: '#141414',
+          colorBgContainer: '#1F1F1F',
+          colorText: '#E8E8E8',
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
         },
         components: {
           Table: {
-            headerBg: '#F8FAFC',
-            headerColor: '#5B6475',
-            rowHoverBg: '#F7F9FF',
+            headerBg: '#262626',
+            headerColor: '#A3A3A3',
+            rowHoverBg: '#262626',
           },
           Menu: {
-            itemSelectedBg: '#EAF0FF',
-            itemSelectedColor: '#3D6EF7',
+            itemSelectedBg: '#303030',
+            itemSelectedColor: '#FFFFFF',
           },
         },
       }}

@@ -74,7 +74,7 @@ export function NoticesPage() {
       render: (_, record) => (
         <Space size={6}>
           <span>{record.title}</span>
-          {record.isTop ? <Tag color="red" bordered={false}>置顶</Tag> : null}
+          {record.isTop ? <Tag color="#C97474" bordered={false}>置顶</Tag> : null}
         </Space>
       ),
     },

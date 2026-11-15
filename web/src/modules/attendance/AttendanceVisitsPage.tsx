@@ -265,7 +265,7 @@ export function AttendanceVisitsPage() {
         width={620}
         destroyOnClose
       >
-        {photoLoading ? <div style={{ padding: '40px 0', textAlign: 'center', color: '#9AA1AC' }}>照片加载中…</div> : null}
+        {photoLoading ? <div style={{ padding: '40px 0', textAlign: 'center', color: '#8C8C8C' }}>照片加载中…</div> : null}
         {!photoLoading && photoUrls.length ? (
           <Image.PreviewGroup>
             <Space wrap size={12}>

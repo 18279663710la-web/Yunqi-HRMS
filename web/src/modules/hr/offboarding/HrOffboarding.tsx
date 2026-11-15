@@ -16,10 +16,10 @@ import {
   type DepartureRecord,
 } from '../api';
 
-const avatarStyle = { background: '#EAF0FF', color: '#3D6EF7', fontWeight: 600 } as const;
+const avatarStyle = { background: '#F0F0F0', color: '#1A1A1A', fontWeight: 600 } as const;
 
 function positionTag(position: string) {
-  const color = position === '研发员' ? 'blue' : position === '业务员' ? 'orange' : 'default';
+  const color = position === '研发员' ? '#8BA6C1' : position === '业务员' ? '#C9A75C' : 'default';
   return <Tag color={color} bordered={false}>{position}</Tag>;
 }
 
@@ -184,7 +184,7 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
           render: (_: unknown, row: DepartureRecord) => {
             if (row.status === 'applied') return <Tag color="processing">已申请</Tag>;
             if (row.status === 'pending_reinstatement') {
-              return <span><Tag color="gold">待复职</Tag>{row.reinstatementDate ? <div className="table-secondary">{row.reinstatementDate}</div> : null}</span>;
+              return <span><Tag color="#C9A75C">待复职</Tag>{row.reinstatementDate ? <div className="table-secondary">{row.reinstatementDate}</div> : null}</span>;
             }
             return <Tag>已离职</Tag>;
           },

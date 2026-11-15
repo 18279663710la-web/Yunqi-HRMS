@@ -89,7 +89,7 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
     </div>
     <Table rowKey="id" dataSource={rows} scroll={{ x: 800 }} columns={[
       { title: '申请编号', dataIndex: 'id' }, { title: '员工', render: (_, r) => `${r.name} · ${r.employeeNo}` }, { title: '员工账号', dataIndex: 'loginName' },
-      { title: '预计入职日期', dataIndex: 'expectedDate' }, { title: '填写状态', render: (_, r) => <Tag color={r.archivedAt ? 'blue' : r.submittedAt ? 'green' : 'orange'}>{r.archivedAt ? '已封存' : r.submittedAt ? '已提交' : '待填写'}</Tag> },
+      { title: '预计入职日期', dataIndex: 'expectedDate' }, { title: '填写状态', render: (_, r) => <Tag color={r.archivedAt ? 'default' : r.submittedAt ? 'success' : 'warning'}>{r.archivedAt ? '已封存' : r.submittedAt ? '已提交' : '待填写'}</Tag> },
       { title: '登记时间', dataIndex: 'createdAt', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
       { title: '操作', render: (_, r) => <Button type="link" onClick={() => setDetail(r)}>查看详情</Button> },
     ]} />
@@ -109,7 +109,7 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
         </Space>
         <Button onClick={() => setDetail(undefined)}>关闭</Button>
       </div> : null}>
-      {detail && !detail.submittedAt && detail.answers && <Tag color="orange" style={{ marginBottom: 16 }}>已打回，等待员工重新提交；可在填写历史中查看上次提交内容</Tag>}
+      {detail && !detail.submittedAt && detail.answers && <Tag color="#C9A75C" style={{ marginBottom: 16 }}>已打回，等待员工重新提交；可在填写历史中查看上次提交内容</Tag>}
       {detail && (detail.submittedAt && detail.answers ? detail.template.map(f => <div key={f.name} style={{ marginBottom: 12 }}><b>{f.name}：</b><OnboardingAnswer field={f} value={detail.answers?.[f.name]} /></div>) : <Typography.Text type="secondary">员工尚未提交入职信息。</Typography.Text>)}
       {detail?.submittedAt && detail.answers && <Space direction="vertical"><div><b>照片：</b>{detail.photo ? <img src={detail.photo} alt="员工照片" style={{ maxWidth: 150, maxHeight: 150, verticalAlign: 'top' }} /> : '未填写'}</div><div><b>签名：</b>{detail.signature ? <img src={detail.signature} alt="员工手写签名" style={{ maxWidth: 280, maxHeight: 150, verticalAlign: 'top', border: '1px solid #eee' }} /> : '未填写'}</div></Space>}
       {detail?.submittedAt && detail.declaration && <div style={{ marginTop: 16 }}><b>声明：</b><p>{detail.declaration}</p><p>{detail.declarationAccepted ? '员工已勾选确认' : '员工未勾选确认'}</p></div>}

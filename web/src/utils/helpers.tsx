@@ -4,9 +4,9 @@ import { Tag } from 'antd';
 import type { AccountStatus, AdminRole, DepartmentNode, JobCategoryName } from '../types';
 
 const JOB_CATEGORY_COLOR: Record<JobCategoryName, string> = {
-  研发员: 'blue',
-  业务员: 'orange',
-  员工: 'purple',
+  研发员: '#8BA6C1',
+  业务员: '#C9A75C',
+  员工: '#A18BC2',
 };
 
 export function jobCategoryTag(category: JobCategoryName): ReactNode {
@@ -49,11 +49,11 @@ export function accountStatusTag(status: AccountStatus | 'none'): ReactNode {
 const ATTENDANCE_TAG: Record<string, { color: string; text: string }> = {
   normal: { color: 'success', text: '正常' },
   missing_in: { color: 'warning', text: '未打上班卡' },
-  missing_out: { color: 'orange', text: '未打下班卡' },
+  missing_out: { color: 'warning', text: '未打下班卡' },
   absent: { color: 'error', text: '缺卡' },
   leave: { color: 'processing', text: '请假' },
   rest: { color: 'default', text: '休息' },
-  travel: { color: 'cyan', text: '出差' },
+  travel: { color: '#7FB2B0', text: '出差' },
 };
 
 export function attendanceTag(status: string, text?: string): ReactNode {

@@ -89,7 +89,7 @@ export function PayrollAttendanceRules({ onSaved }: { onSaved: () => void }) {
       <Form.Item label="统计单位"><Select aria-label="统计单位" style={{ width: 180 }} disabled={loading || saving} value={mode.startsWith('rate_') ? 'rate' : 'days'} onChange={(unit: 'rate' | 'days') => changeMode(`${unit}_${mode.endsWith('absence') ? 'absence' : 'attendance'}`)} options={[{ value: 'rate', label: '按比例' }, { value: 'days', label: '按天数' }]} /></Form.Item>
       <Form.Item label="统计方式"><Select aria-label="统计方式" style={{ width: 180 }} disabled={loading || saving} value={mode.endsWith('absence') ? 'absence' : 'attendance'} onChange={(basis: 'attendance' | 'absence') => changeMode(`${mode.startsWith('rate_') ? 'rate' : 'days'}_${basis}`)} options={[{ value: 'attendance', label: '按出勤' }, { value: 'absence', label: '按缺勤' }]} /></Form.Item>
     </Space>
-    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#ccd8ea', background: '#f8faff' }}>
+    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#d9d9d9', background: '#fafafa' }}>
       <Form.Item name="unitAdjustment" label={`每 ${mode.startsWith('rate_') ? '1 个百分点' : '1 天'}绩效调整（元）`} rules={[{ required: true, message: '请输入每单位绩效调整金额' }]} style={{ maxWidth: 360 }}>
         <InputNumber min={-9999999999.99} max={9999999999.99} precision={2} style={{ width: '100%' }} />
       </Form.Item>

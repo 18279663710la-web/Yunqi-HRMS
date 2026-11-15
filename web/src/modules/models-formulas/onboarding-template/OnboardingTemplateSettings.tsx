@@ -6,7 +6,7 @@ import { ONBOARDING_FORM_URL, type Field, type Template, type TemplateChange, ty
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
 
 const actionLabels = { create: '新建', update: '修改', delete: '删除' } as const;
-const actionColors = { create: 'green', update: 'blue', delete: 'red' } as const;
+const actionColors = { create: '#80BB9E', update: '#8BA6C1', delete: '#C97474' } as const;
 const fieldTypeLabels = { text: '字符串', number: '数字', date: '日期', select: '单选', attachment: '附件', table: '表格' } as const;
 
 const cloneFields = (fields: Field[]): Field[] => JSON.parse(JSON.stringify(fields)) as Field[];
@@ -99,7 +99,7 @@ export function OnboardingTemplateSettings() {
       <Space wrap align="start" size={[12, 12]}>{templates.map(t => <div className="onboarding-template" key={t.id}>
         <button type="button" className={`onboarding-template-select${t.isDefault ? ' onboarding-template-select-active' : ''}`} aria-pressed={t.isDefault} aria-label={`选择模板${t.id}${t.isDefault ? '，现用模板' : ''}`} disabled={saving} onClick={() => void setDefault(t.id)}>
           <span className="onboarding-template-title" title={t.name}>{t.name}</span>
-          <span className="onboarding-template-meta">{t.fields.length} 个字段 {t.isDefault && <Tag color="blue">现用</Tag>}</span>
+          <span className="onboarding-template-meta">{t.fields.length} 个字段 {t.isDefault && <Tag color="#F5F5F5">现用</Tag>}</span>
         </button>
         <Button className="onboarding-template-edit" type="link" size="small" aria-label={`编辑模板${t.id}`} disabled={saving} onClick={() => openEdit(t)}>编辑</Button>
       </div>)}</Space>

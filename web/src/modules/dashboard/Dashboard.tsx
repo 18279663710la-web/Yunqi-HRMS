@@ -65,7 +65,7 @@ export function DashboardPage() {
       dataIndex: 'name',
       render: (_, row) => (
         <Space>
-          <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7' }}>{initialOf(row.name)}</Avatar>
+          <Avatar style={{ background: '#F0F0F0', color: '#1A1A1A' }}>{initialOf(row.name)}</Avatar>
           <div>
             <div style={{ fontWeight: 600 }}>{row.name}</div>
             <Text type="secondary" style={{ fontSize: 12 }}>{row.id}</Text>
@@ -92,19 +92,19 @@ export function DashboardPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="员工总数" value={data?.employeeCount || 0} prefix={<TeamOutlined style={{ color: '#3D6EF7' }} />} />
+                <Statistic title="员工总数" value={data?.employeeCount || 0} prefix={<TeamOutlined style={{ color: '#F0F0F0' }} />} />
                 <div className="stat-card-foot">组织内在职员工</div>
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="启用账号" value={data?.activeAccountCount || 0} prefix={<SafetyOutlined style={{ color: '#16B364' }} />} />
+                <Statistic title="启用账号" value={data?.activeAccountCount || 0} prefix={<SafetyOutlined style={{ color: '#80BB9E' }} />} />
                 <div className="stat-card-foot">可登录小程序 / 账号体系</div>
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="职务类型" value={data?.jobCategoryCounts.length || 0} prefix={<TagsOutlined style={{ color: '#7A5AF8' }} />} />
+                <Statistic title="职务类型" value={data?.jobCategoryCounts.length || 0} prefix={<TagsOutlined style={{ color: '#A18BC2' }} />} />
                 <div className="stat-card-foot">
                   {(data?.jobCategoryCounts || []).map((item) => `${item.name} ${item.count}`).join(' · ') || '暂无职务'}
                 </div>
@@ -112,7 +112,7 @@ export function DashboardPage() {
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="待审批单据" value={data?.pendingApprovalCount || 0} prefix={<AuditOutlined style={{ color: '#F79009' }} />} />
+                <Statistic title="待审批单据" value={data?.pendingApprovalCount || 0} prefix={<AuditOutlined style={{ color: '#C9A75C' }} />} />
               </Card>
             </Col>
           </Row>
@@ -125,7 +125,7 @@ export function DashboardPage() {
                     type="circle"
                     percent={percent}
                     size={132}
-                    strokeColor={{ '0%': '#3D6EF7', '100%': '#7A5AF8' }}
+                    strokeColor={{ '0%': '#8C8C8C', '100%': '#F0F0F0' }}
                     format={() => (
                       <div>
                         <div className="progress-value">{today?.checkedIn || 0}</div>
@@ -151,14 +151,14 @@ export function DashboardPage() {
                       <List.Item>
                         <List.Item.Meta
                           avatar={
-                            <Avatar size={32} shape="square" style={{ background: '#EAF0FF', color: '#3D6EF7', fontSize: 13 }}>
+                            <Avatar size={32} shape="square" style={{ background: '#F0F0F0', color: '#1A1A1A', fontSize: 13 }}>
                               {notice.categoryName.slice(0, 1)}
                             </Avatar>
                           }
                           title={
                             <Space size={6}>
                               <span>{notice.title}</span>
-                              {notice.isTop ? <Tag color="red" bordered={false}>置顶</Tag> : null}
+                              {notice.isTop ? <Tag color="#C97474" bordered={false}>置顶</Tag> : null}
                             </Space>
                           }
                           description={

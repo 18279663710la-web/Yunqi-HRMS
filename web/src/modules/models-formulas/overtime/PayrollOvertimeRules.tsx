@@ -62,7 +62,7 @@ export function PayrollOvertimeRules({ onSaved }: { onSaved: () => void }) {
       <Form.Item label="计算方式"><Select aria-label="计算方式" style={{ width: 180 }} disabled={loading || failed || saving} value={calculation} onChange={changeCalculation} options={[{ value: 'range', label: '按区间' }, { value: 'unit', label: '按单位' }]} /></Form.Item>
       <Form.Item label="统计单位"><Select aria-label="统计单位" style={{ width: 180 }} disabled value="hours" options={[{ value: 'hours', label: '小时' }]} /></Form.Item>
     </Space>
-    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#ccd8ea', background: '#f8faff' }}>
+    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#d9d9d9', background: '#fafafa' }}>
       <Form.Item label="每 1 小时金额（元）" required style={{ maxWidth: 360 }}><InputNumber aria-label="每 1 小时金额（元）" min={0} max={9999999999.99} precision={2} value={hourlyRate} onChange={setHourlyRate} style={{ width: '100%' }} /></Form.Item>
     </Card> : <OvertimeRulesFields
       rules={rules}

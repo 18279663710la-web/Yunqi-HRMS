@@ -359,7 +359,7 @@ export function EmployeesPage() {
       width: 220,
       render: (_, record) => (
         <Space>
-          <Avatar style={{ background: '#EAF0FF', color: '#3D6EF7', fontWeight: 600 }}>
+          <Avatar style={{ background: '#F0F0F0', color: '#1A1A1A', fontWeight: 600 }}>
             {initialOf(record.name)}
           </Avatar>
           <div>
@@ -381,7 +381,7 @@ export function EmployeesPage() {
       width: 150,
       render: (_, record) => {
         const color =
-          record.jobCategory === '研发员' ? 'blue' : record.jobCategory === '业务员' ? 'orange' : 'default';
+          record.jobCategory === '研发员' ? '#8BA6C1' : record.jobCategory === '业务员' ? '#C9A75C' : 'default';
         return <Tag color={color} bordered={false}>{record.jobCategory}</Tag>;
       },
     },
