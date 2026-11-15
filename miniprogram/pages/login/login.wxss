@@ -59,55 +59,26 @@
   box-shadow: 0 20rpx 48rpx rgba(20, 48, 110, 0.12);
 }
 
-/* 品牌行：logo + 名称 | 员工登录 */
-.login-brand-row {
-  display: flex;
-  align-items: center;
-}
-
-.login-brand-mark {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 18rpx;
-  background: linear-gradient(135deg, #3d6ef7, #6b8dff);
-  color: #ffffff;
-  font-size: 34rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8rpx 18rpx rgba(61, 110, 247, 0.28);
-}
-
-.login-brand-name {
-  margin-left: 18rpx;
+.login-card-title {
   color: #16233b;
-  font-size: 34rpx;
+  font-size: 38rpx;
   font-weight: 700;
 }
 
-.login-brand-divider {
-  width: 2rpx;
-  height: 40rpx;
-  margin: 0 20rpx;
-  background: #e3e9f4;
+.login-form-item {
+  margin-top: 34rpx;
 }
 
-.login-brand-tag {
-  color: #6b7280;
-  font-size: 28rpx;
+.login-label {
+  color: #3f4a5c;
+  font-size: 26rpx;
   font-weight: 600;
 }
 
-/* 带图标的输入行 */
-.login-field {
-  position: relative;
-  margin-top: 32rpx;
-}
-
-.login-field-input {
-  height: 96rpx;
-  padding: 0 88rpx 0 84rpx;
+.login-input {
+  height: 92rpx;
+  margin-top: 14rpx;
+  padding: 0 26rpx;
   border-radius: 18rpx;
   background: #f7f9fd;
   border: 2rpx solid #edf1f8;
@@ -117,160 +88,6 @@
 
 .login-placeholder {
   color: #b6bdc9;
-}
-
-.login-field-icon {
-  position: absolute;
-  left: 26rpx;
-  top: 26rpx;
-  width: 44rpx;
-  height: 44rpx;
-}
-
-/* 用户图标：头部 + 肩部 */
-.icon-user::before {
-  content: '';
-  position: absolute;
-  left: 13rpx;
-  top: 3rpx;
-  width: 18rpx;
-  height: 18rpx;
-  border: 3rpx solid #9aa3b2;
-  border-radius: 50%;
-}
-
-.icon-user::after {
-  content: '';
-  position: absolute;
-  left: 6rpx;
-  bottom: 5rpx;
-  width: 32rpx;
-  height: 18rpx;
-  border: 3rpx solid #9aa3b2;
-  border-bottom: none;
-  border-radius: 16rpx 16rpx 0 0;
-}
-
-/* 锁图标：锁环 + 锁体 */
-.icon-lock::before {
-  content: '';
-  position: absolute;
-  left: 13rpx;
-  top: 4rpx;
-  width: 18rpx;
-  height: 14rpx;
-  border: 3rpx solid #9aa3b2;
-  border-bottom: none;
-  border-radius: 10rpx 10rpx 0 0;
-}
-
-.icon-lock::after {
-  content: '';
-  position: absolute;
-  left: 9rpx;
-  bottom: 6rpx;
-  width: 26rpx;
-  height: 20rpx;
-  background: #9aa3b2;
-  border-radius: 6rpx;
-}
-
-/* 密码可见切换（眼睛） */
-.login-eye {
-  position: absolute;
-  right: 24rpx;
-  top: 26rpx;
-  width: 44rpx;
-  height: 44rpx;
-}
-
-.login-eye::before {
-  content: '';
-  position: absolute;
-  left: 4rpx;
-  top: 12rpx;
-  width: 36rpx;
-  height: 22rpx;
-  border: 3rpx solid #9aa3b2;
-  border-radius: 50%;
-}
-
-.login-eye::after {
-  content: '';
-  position: absolute;
-  left: 16rpx;
-  top: 18rpx;
-  width: 12rpx;
-  height: 12rpx;
-  background: #9aa3b2;
-  border-radius: 50%;
-}
-
-.login-eye.is-off::after {
-  left: 20rpx;
-  top: 16rpx;
-}
-
-.login-eye-slash {
-  display: none;
-  position: absolute;
-  left: 2rpx;
-  top: 20rpx;
-  width: 40rpx;
-  height: 3rpx;
-  background: #9aa3b2;
-  transform: rotate(-32deg);
-}
-
-.login-eye.is-off .login-eye-slash {
-  display: block;
-}
-
-/* 7天免登录 + 忘记密码 */
-.login-options {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 26rpx;
-}
-
-.login-remember {
-  display: flex;
-  align-items: center;
-  color: #3f4a5c;
-  font-size: 26rpx;
-}
-
-.login-checkbox {
-  width: 34rpx;
-  height: 34rpx;
-  margin-right: 14rpx;
-  border: 3rpx solid #cfd6e0;
-  border-radius: 10rpx;
-  background: #ffffff;
-  position: relative;
-}
-
-.login-checkbox.is-checked {
-  background: #3d6ef7;
-  border-color: #3d6ef7;
-}
-
-.login-checkbox.is-checked::after {
-  content: '';
-  position: absolute;
-  left: 9rpx;
-  top: 4rpx;
-  width: 12rpx;
-  height: 20rpx;
-  border-right: 4rpx solid #ffffff;
-  border-bottom: 4rpx solid #ffffff;
-  transform: rotate(40deg);
-}
-
-.login-forgot {
-  color: #3d6ef7;
-  font-size: 26rpx;
 }
 
 .login-submit {
@@ -296,12 +113,38 @@
   box-shadow: none;
 }
 
+.login-foot {
+  margin-top: 50rpx;
+  color: #b6bdc9;
+  font-size: 22rpx;
+  text-align: center;
+}
+
+.login-checking {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fb;
+}
+
+.login-checking-box {
+  padding: 22rpx 34rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 26rpx;
+  box-shadow: 0 10rpx 30rpx rgba(19, 42, 92, 0.08);
+}
+
 /* 底部微信登录入口：圆形图标 + 文字 */
 .login-wx {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 46rpx;
+  margin-top: 44rpx;
 }
 
 .login-wx-icon {
@@ -313,6 +156,21 @@
   margin-top: 10rpx;
   color: #3f4a5c;
   font-size: 26rpx;
+}
+
+/* 品牌标识（授权确认页使用） */
+.login-brand-mark {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #3d6ef7, #6b8dff);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 18rpx rgba(61, 110, 247, 0.28);
 }
 
 /* 微信登录授权确认（全屏，仿系统授权页样式） */
@@ -327,13 +185,6 @@
 .wx-consent-app {
   display: flex;
   align-items: center;
-}
-
-.wx-consent-app .login-brand-mark {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 14rpx;
-  font-size: 30rpx;
 }
 
 .wx-consent-app-name {
@@ -422,30 +273,4 @@
   text-align: center;
   color: #6b7280;
   font-size: 28rpx;
-}
-
-.login-foot {
-  margin-top: 50rpx;
-  color: #b6bdc9;
-  font-size: 22rpx;
-  text-align: center;
-}
-
-.login-checking {
-  position: fixed;
-  inset: 0;
-  z-index: 99;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f7fb;
-}
-
-.login-checking-box {
-  padding: 22rpx 34rpx;
-  border-radius: 16rpx;
-  background: #ffffff;
-  color: #6b7280;
-  font-size: 26rpx;
-  box-shadow: 0 10rpx 30rpx rgba(19, 42, 92, 0.08);
 }

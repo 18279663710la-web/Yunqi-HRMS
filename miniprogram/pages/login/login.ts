@@ -14,10 +14,6 @@ interface LoginData {
   /** 服务端是否已配置微信一键登录（未配置时隐藏微信入口） */
   wxConfigured: boolean;
   wechatLoading: boolean;
-  /** 7天免登录勾选（默认勾选；取消则会话有效期 1 天） */
-  remember7: boolean;
-  /** 密码明文显示 */
-  showPassword: boolean;
   /** 微信登录授权确认页（仿系统授权样式） */
   consentVisible: boolean;
 }
@@ -29,9 +25,6 @@ interface LoginCustom {
   onLoginNameInput(e: InputEvent): void;
   onPasswordInput(e: InputEvent): void;
   onSubmit(): Promise<void>;
-  onToggleRemember(): void;
-  onToggleShowPassword(): void;
-  onForgotPassword(): void;
   onWechatLogin(): void;
   onConsentAgree(): Promise<void>;
   onConsentCancel(): void;
@@ -46,8 +39,6 @@ Page<LoginData, LoginCustom>({
     checking: true,
     wxConfigured: false,
     wechatLoading: false,
-    remember7: true,
-    showPassword: false,
     consentVisible: false,
   },
 
@@ -109,7 +100,7 @@ Page<LoginData, LoginCustom>({
   },
 
   async onSubmit(): Promise<void> {
-    const { loginName, password, loading, checking, remember7 } = this.data;
+    const { loginName, password, loading, checking } = this.data;
     if (loading || checking) return;
 
     if (!loginName.trim()) {
@@ -123,7 +114,7 @@ Page<LoginData, LoginCustom>({
 
     this.setData({ loading: true });
     try {
-      const user = await authApi.login(loginName.trim(), password, remember7);
+      const user = await authApi.login(loginName.trim(), password);
       getApp<IAppOption>().globalData.userInfo = user;
       // 密码登录成功后，若服务端启用微信登录且本账号尚未绑定，引导一次性绑定
       await this.maybeOfferWechatBind();
@@ -158,23 +149,6 @@ Page<LoginData, LoginCustom>({
       const message = (err as { message?: string })?.message;
       if (message) toast(message);
     }
-  },
-
-  onToggleRemember() {
-    this.setData({ remember7: !this.data.remember7 });
-  },
-
-  onToggleShowPassword() {
-    this.setData({ showPassword: !this.data.showPassword });
-  },
-
-  onForgotPassword() {
-    wx.showModal({
-      title: '忘记密码',
-      content: '请携带工号联系管理员，在 Web 管理后台「员工与账号」中重置密码。',
-      showCancel: false,
-      confirmText: '知道了',
-    });
   },
 
   /** 点击微信登录图标：先展示授权确认页，同意后执行微信一键登录 */

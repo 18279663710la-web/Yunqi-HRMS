@@ -5,17 +5,12 @@
   </view>
 
   <view class="login-card">
-    <view class="login-brand-row">
-      <view class="login-brand-mark">云</view>
-      <view class="login-brand-name">云枢办公</view>
-      <view class="login-brand-divider"></view>
-      <view class="login-brand-tag">员工登录</view>
-    </view>
+    <view class="login-card-title">账号登录</view>
 
-    <view class="login-field">
-      <view class="login-field-icon icon-user"></view>
+    <view class="login-form-item">
+      <view class="login-label">登录名</view>
       <input
-        class="login-field-input"
+        class="login-input"
         value="{{loginName}}"
         placeholder="请输入登录名"
         placeholder-class="login-placeholder"
@@ -24,11 +19,11 @@
       />
     </view>
 
-    <view class="login-field">
-      <view class="login-field-icon icon-lock"></view>
+    <view class="login-form-item">
+      <view class="login-label">密码</view>
       <input
-        class="login-field-input"
-        password="{{!showPassword}}"
+        class="login-input"
+        password="{{true}}"
         value="{{password}}"
         placeholder="请输入密码"
         placeholder-class="login-placeholder"
@@ -37,17 +32,6 @@
         bindinput="onPasswordInput"
         bindconfirm="onSubmit"
       />
-      <view class="login-eye {{showPassword ? '' : 'is-off'}}" bindtap="onToggleShowPassword">
-        <view class="login-eye-slash"></view>
-      </view>
-    </view>
-
-    <view class="login-options">
-      <view class="login-remember" bindtap="onToggleRemember">
-        <view class="login-checkbox {{remember7 ? 'is-checked' : ''}}"></view>
-        <text>7天免登录</text>
-      </view>
-      <view class="login-forgot" bindtap="onForgotPassword">忘记密码</view>
     </view>
 
     <button
@@ -56,7 +40,7 @@
       disabled="{{loading || checking}}"
       bindtap="onSubmit"
     >
-      登 录
+      登录
     </button>
 
     <view class="login-wx" wx:if="{{wxConfigured}}" bindtap="onWechatLogin">
