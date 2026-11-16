@@ -433,16 +433,16 @@ export function AttendanceRecordsPage() {
 
         <Row gutter={[12, 12]} className="mini-stat-row">
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="正常" value={(summary?.normal || 0) + (summary?.travel || 0)} valueStyle={{ color: '#80BB9E' }} /></div>
+            <div className="mini-stat"><Statistic title="正常" value={(summary?.normal || 0) + (summary?.travel || 0)} valueStyle={{ color: 'var(--sf-accent-green)' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="异常" value={(summary?.missingIn ?? 0) + (summary?.missingOut ?? 0)} valueStyle={{ color: '#C9A75C' }} /></div>
+            <div className="mini-stat"><Statistic title="异常" value={(summary?.missingIn ?? 0) + (summary?.missingOut ?? 0)} valueStyle={{ color: 'var(--sf-accent-amber)' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="缺卡" value={summary?.absent || 0} valueStyle={{ color: '#C97474' }} /></div>
+            <div className="mini-stat"><Statistic title="缺卡" value={summary?.absent || 0} valueStyle={{ color: 'var(--sf-accent-red)' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
-            <div className="mini-stat"><Statistic title="请假" value={summary?.leave || 0} valueStyle={{ color: '#8BA6C1' }} /></div>
+            <div className="mini-stat"><Statistic title="请假" value={summary?.leave || 0} valueStyle={{ color: 'var(--sf-accent-blue)' }} /></div>
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <div className="mini-stat"><Statistic title="休息" value={summary?.rest || 0} /></div>

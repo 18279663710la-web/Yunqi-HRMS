@@ -79,7 +79,7 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
       const name = condition.field === definition?.numericCondition?.value ? definition.numericCondition.label : definition?.choices.find(choice => choice.value === condition.field)?.label ?? fields.find(field => field.key === condition.field)?.label ?? condition.field;
       return `${name} ${condition.operator === 'gte' ? '≥' : condition.operator === 'lt' ? '<' : '='} ${condition.value}`;
     }).join(' 且 ');
-    return label ? { ...edge, label, labelStyle: { fill: '#A3A3A3', fontSize: 11 }, labelBgStyle: { fill: '#262626' } } : edge;
+    return label ? { ...edge, label, labelStyle: { fill: 'var(--sf-edge-label)', fontSize: 11 }, labelBgStyle: { fill: 'var(--sf-edge-label-bg)' } } : edge;
   }), [edges, fields, approvalType]);
   useEffect(() => {
     if (!addRequest || addRequest.id === lastAdd.current || !canvasRef.current) return;

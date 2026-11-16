@@ -85,8 +85,9 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="page-stack">
+    <>
       <SubModuleHeader title="仪表盘" />
+      <div className="page-stack">
       {loading && !data ? (
         <Card><Skeleton active /></Card>
       ) : (
@@ -94,19 +95,19 @@ export function DashboardPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="员工总数" value={data?.employeeCount || 0} prefix={<TeamOutlined style={{ color: '#F0F0F0' }} />} />
+                <Statistic title="员工总数" value={data?.employeeCount || 0} prefix={<TeamOutlined style={{ color: 'var(--sf-text-strong)' }} />} />
                 <div className="stat-card-foot">组织内在职员工</div>
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="启用账号" value={data?.activeAccountCount || 0} prefix={<SafetyOutlined style={{ color: '#80BB9E' }} />} />
+                <Statistic title="启用账号" value={data?.activeAccountCount || 0} prefix={<SafetyOutlined style={{ color: 'var(--sf-accent-green)' }} />} />
                 <div className="stat-card-foot">可登录小程序 / 账号体系</div>
               </Card>
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="职务类型" value={data?.jobCategoryCounts.length || 0} prefix={<TagsOutlined style={{ color: '#A18BC2' }} />} />
+                <Statistic title="职务类型" value={data?.jobCategoryCounts.length || 0} prefix={<TagsOutlined style={{ color: 'var(--sf-accent-purple)' }} />} />
                 <div className="stat-card-foot">
                   {(data?.jobCategoryCounts || []).map((item) => `${item.name} ${item.count}`).join(' · ') || '暂无职务'}
                 </div>
@@ -114,7 +115,7 @@ export function DashboardPage() {
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="待审批单据" value={data?.pendingApprovalCount || 0} prefix={<AuditOutlined style={{ color: '#C9A75C' }} />} />
+                <Statistic title="待审批单据" value={data?.pendingApprovalCount || 0} prefix={<AuditOutlined style={{ color: 'var(--sf-accent-amber)' }} />} />
               </Card>
             </Col>
           </Row>
@@ -200,6 +201,7 @@ export function DashboardPage() {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

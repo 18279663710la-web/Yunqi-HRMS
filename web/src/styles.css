@@ -5,6 +5,17 @@
   --muted: #a3a3a3;
   --line: #2e2e2e;
   --bg: #141414;
+  /* 供 TSX 内联样式使用的主题色 */
+  --sf-surface: #1f1f1f;
+  --sf-line-strong: #333333;
+  --sf-text-strong: #f0f0f0;
+  --sf-accent-green: #80bb9e;
+  --sf-accent-purple: #a18bc2;
+  --sf-accent-amber: #c9a75c;
+  --sf-accent-blue: #8ba6c1;
+  --sf-accent-red: #c97474;
+  --sf-edge-label: #a3a3a3;
+  --sf-edge-label-bg: #262626;
 }
 
 * {
@@ -392,6 +403,12 @@ code {
   display: none;
 }
 
+/* 左上角系统标志：点击切换界面主题 */
+.admin-brand-mark { cursor: pointer; }
+.admin-brand-mark:hover { background: #3a3a3a; }
+.admin-brand-mark:focus-visible { outline: 2px solid #f0f0f0; outline-offset: 2px; }
+html.admin-theme-light .admin-brand-mark:hover { background: #2f5fd6; }
+html.admin-theme-light .admin-brand-mark:focus-visible { outline-color: #1f1f1f; }
 .admin-brand-mark {
   display: flex;
   align-items: center;
@@ -1816,3 +1833,227 @@ code {
 .departure-option-name { color: #e8e8e8; }
 .departure-option-meta { color: #8c8c8c; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+
+/* ================= 浅色主题 =================
+   管理员在「界面主题」选择浅色后，html 根元素带 admin-theme-light。
+   仅覆盖颜色（背景、文字、边框、阴影、选中描边），不改布局、字体和结构。 */
+html.admin-theme-light {
+  --brand: #1f1f1f;
+  --brand-soft: #e8eef9;
+  --text: #1f1f1f;
+  --muted: #6b7280;
+  --line: #e8ecf2;
+  --bg: #f5f7fb;
+  --sf-surface: #ffffff;
+  --sf-line-strong: #e0e3ea;
+  --sf-text-strong: #1a1d26;
+  --sf-accent-green: #2e9e63;
+  --sf-accent-purple: #7c64b8;
+  --sf-accent-amber: #a97f2c;
+  --sf-accent-blue: #5b84b8;
+  --sf-accent-red: #d45b5b;
+  --sf-edge-label: #5a6472;
+  --sf-edge-label-bg: #ffffff;
+}
+
+/* 滚动条 */
+html.admin-theme-light * { scrollbar-color: #c4cbd8 transparent; }
+html.admin-theme-light *::-webkit-scrollbar-thumb { background: #c4cbd8; background-clip: padding-box; }
+html.admin-theme-light *::-webkit-scrollbar-thumb:hover { background-color: #a8b3c7; }
+
+html.admin-theme-light code { background: #eef1f6; }
+
+/* 侧栏与品牌 */
+html.admin-theme-light .admin-sider { background: #ffffff !important; }
+html.admin-theme-light .admin-brand-name { color: #1a1d26; }
+html.admin-theme-light .admin-brand-mark { background: #3d6ef7; }
+html.admin-theme-light .admin-menu .ant-menu-item,
+html.admin-theme-light .admin-menu .ant-menu-submenu-title { color: #5a6472; }
+html.admin-theme-light .admin-menu .ant-menu-item-selected { background: #e8eef9 !important; }
+html.admin-theme-light .ant-menu-inline-collapsed-tooltip .ant-tooltip-inner,
+html.admin-theme-light .app-tooltip .ant-tooltip-inner { color: #ffffff; }
+html.admin-theme-light .sub-sidebar { background: #ffffff; }
+html.admin-theme-light .admin-header { background: linear-gradient(to bottom, #ffffff calc(100% - 1px), #e0e3ea calc(100% - 1px)); }
+html.admin-theme-light .admin-user:hover { background: #dfe4ee; }
+html.admin-theme-light .admin-user:focus-visible { outline: 2px solid #3d6ef7; }
+
+/* 顶部页签：活动页签融入页面底色 */
+html.admin-theme-light .workspace-tab.is-active { background: #f5f7fb; }
+html.admin-theme-light .workspace-tab.is-active::before { box-shadow: 5px 5px 0 0 #f5f7fb; }
+html.admin-theme-light .workspace-tab.is-active::after { box-shadow: -5px 5px 0 0 #f5f7fb; }
+html.admin-theme-light .workspace-tab.is-active .workspace-tab-label { color: #1f1f1f; }
+html.admin-theme-light .workspace-tab-label:hover { color: #1f1f1f; }
+html.admin-theme-light .workspace-tab-close:hover { color: #1f1f1f; background: #e8eef9; }
+
+/* 面板与卡片 */
+html.admin-theme-light .panel-card .ant-card-head { border-bottom-color: #e8ecf2; }
+html.admin-theme-light .progress-value,
+html.admin-theme-light .today-stat strong { color: #1a1d26; }
+html.admin-theme-light .dot-blue { background: #3d6ef7; }
+html.admin-theme-light .dot-orange { background: #c9a75c; }
+html.admin-theme-light .dot-red { background: #d45b5b; }
+html.admin-theme-light .leader-dot { background: #3d6ef7; color: #ffffff; }
+html.admin-theme-light .mini-stat { border-color: #e3e7ef; background: #ffffff; }
+html.admin-theme-light .attendance-records-content .mini-stat { border-color: #e3e7ef; }
+html.admin-theme-light .modal-target,
+html.admin-theme-light .form-tip { background: #f7f8fb; }
+html.admin-theme-light .table-primary { color: #1f1f1f; }
+html.admin-theme-light .submodule-header,
+html.admin-theme-light .employee-records-header { border-bottom-color: #e0e3ea; }
+
+/* 工具栏圆形按钮 */
+html.admin-theme-light .filter-circle { color: #1f1f1f; background: #d3dbe6 !important; }
+html.admin-theme-light .filter-circle:hover { background: #c2cdda !important; }
+html.admin-theme-light .filter-primary-circle.ant-btn:not(:disabled),
+html.admin-theme-light .filter-primary-circle.ant-btn:not(:disabled):hover,
+html.admin-theme-light .payroll-issue-button.ant-btn:not(:disabled),
+html.admin-theme-light .payroll-issue-button.ant-btn:not(:disabled):hover { color: #ffffff !important; }
+html.admin-theme-light .filter-popover-actions { border-top-color: #e8ecf2; }
+html.admin-theme-light .approval-summary-save.ant-btn:hover,
+html.admin-theme-light .approval-summary-save.ant-btn:focus { background: #f0f2f6; border-color: #d9dee7; }
+
+/* 人事 / 员工档案 */
+html.admin-theme-light .employee-records-sections { background: #ffffff; }
+html.admin-theme-light .employee-records-section:hover:not(:disabled) { color: #1f1f1f; }
+html.admin-theme-light .employee-records-section[aria-pressed='true'] { background: #d3dbe6; }
+html.admin-theme-light .payroll-batches-content { border-color: #e0e3ea; background: #ffffff; }
+
+/* 工资批次表格 */
+html.admin-theme-light .payroll-batches-table .ant-table-content::-webkit-scrollbar-track { background: #e8ecf2; }
+html.admin-theme-light .payroll-batches-table .ant-table-content:focus-visible,
+html.admin-theme-light .payroll-record-sheet-scroll:focus-visible { outline-color: #3d6ef7; }
+html.admin-theme-light .payroll-batches-table .ant-table-thead > tr > th { border-color: #dde2eb; background: #f0f3f9; }
+html.admin-theme-light .payroll-batches-table .ant-table-tbody > tr > td { border-color: #dde2eb; background: #ffffff; }
+html.admin-theme-light .payroll-batches-table .ant-table-summary td { border-color: #dde2eb; background: #ffffff; }
+html.admin-theme-light .payroll-batches-table .ant-table-tbody > tr:hover > td { background: #f0f4fa !important; }
+html.admin-theme-light .payroll-cell-edit:hover:not(:disabled),
+html.admin-theme-light .payroll-cell-edit:focus-visible { background: #f0f4fa; }
+
+/* 薪资构成模型 */
+html.admin-theme-light .salary-model-entries,
+html.admin-theme-light .salary-model-entry,
+html.admin-theme-light .company-calendar-entry,
+html.admin-theme-light .attendance-groups-entry,
+html.admin-theme-light .attendance-records-entry { color: #1a1d26; }
+html.admin-theme-light .salary-model-entries,
+html.admin-theme-light .company-calendar-entries,
+html.admin-theme-light .attendance-groups-entries,
+html.admin-theme-light .attendance-records-entries { background: #ffffff; border-bottom-color: #dde2eb; }
+html.admin-theme-light .salary-model-entry:focus-visible,
+html.admin-theme-light .company-calendar-entry:focus-visible,
+html.admin-theme-light .attendance-groups-entry:focus-visible,
+html.admin-theme-light .attendance-records-entry:focus-visible,
+html.admin-theme-light .salary-model-scroll:focus-visible { outline-color: #3d6ef7; }
+html.admin-theme-light .salary-model-entry-danger:not(:disabled),
+html.admin-theme-light .company-calendar-entry-danger:not(:disabled),
+html.admin-theme-light .attendance-groups-entry-danger:not(:disabled),
+html.admin-theme-light .attendance-records-entry-danger:not(:disabled),
+html.admin-theme-light .salary-fixed-marker,
+html.admin-theme-light .approval-field-caption .form-req { color: #d45b5b; }
+html.admin-theme-light .company-calendar-page,
+html.admin-theme-light .attendance-groups-page,
+html.admin-theme-light .attendance-records-page { background: #f5f7fb; }
+html.admin-theme-light .company-calendar-content,
+html.admin-theme-light .attendance-groups-content,
+html.admin-theme-light .module-list-card { background: #ffffff; border-color: #e0e3ea; }
+html.admin-theme-light .company-calendar-content .ant-table-thead > tr > th,
+html.admin-theme-light .attendance-groups-content .ant-table-thead > tr > th { border-color: #dde2eb; }
+html.admin-theme-light .company-calendar-content .ant-table-tbody > tr > td,
+html.admin-theme-light .attendance-groups-content .ant-table-tbody > tr > td { border-color: #e0e3ea; }
+html.admin-theme-light .salary-model-scroll { border-color: #e0e3ea; background: #ffffff; scrollbar-color: #c4cbd8 #e8ecf2; }
+html.admin-theme-light .salary-model-field-list th { border-color: #dde2eb; background: #f0f3f9; }
+html.admin-theme-light .salary-drag-overlay { background: #ffffff; }
+html.admin-theme-light .salary-field-drag:hover { color: #1f1f1f; background: #dde3ec; }
+html.admin-theme-light .salary-field-drag.is-selected { outline-color: #3d6ef7; background: #dde3ec; color: #1f1f1f; }
+html.admin-theme-light .salary-field-drag:focus-visible { outline-color: #3d6ef7; }
+html.admin-theme-light .salary-field-group { border-color: #d9dee7; border-left-color: #3d6ef7; }
+html.admin-theme-light .salary-field-group-heading,
+html.admin-theme-light .onboarding-field-heading,
+html.admin-theme-light .onboarding-subfields-heading { color: #1f1f1f; }
+html.admin-theme-light .job-category-name,
+html.admin-theme-light .job-category-count strong { color: #1a1d26; }
+html.admin-theme-light .resign-summary { background: #f7f8fb; border-color: #e3e7ef; }
+html.admin-theme-light .onboarding-template-select { background: #ffffff; border-color: #e0e3ea; }
+html.admin-theme-light .onboarding-template-select-active,
+html.admin-theme-light .onboarding-template-select-active:hover { border-color: #3d6ef7; box-shadow: 0 0 0 1px #3d6ef7; }
+html.admin-theme-light .onboarding-template-editor .onboarding-field-card > .ant-card-head { background: #f0f3f9; border-bottom-color: #dde2eb; }
+html.admin-theme-light .onboarding-field-number { color: #1f1f1f; background: #e9edf4; }
+html.admin-theme-light .onboarding-subfields { background: #f7f9fc; border-color: #d9dee7; }
+html.admin-theme-light .onboarding-template-editor .onboarding-subfield-card { background: #ffffff; }
+html.admin-theme-light .onboarding-template-editor .onboarding-subfield-card > .ant-card-head { background: #ffffff; border-bottom-color: #e0e3ea; color: #5a6472; }
+html.admin-theme-light .onboarding-history-change,
+html.admin-theme-light .departure-option-name { color: #1f1f1f; }
+
+/* 审批流程画布 */
+html.admin-theme-light .workflow-rail { background: #ffffff; border-color: #d9dee7; }
+html.admin-theme-light .workflow-rail-button { color: #5a6472; }
+html.admin-theme-light .workflow-rail-button:hover,
+html.admin-theme-light .workflow-rail-button.is-active { color: #3d6ef7; background: #d3dbe6; }
+html.admin-theme-light .workflow-canvas,
+html.admin-theme-light .workflow-canvas-placeholder { border-color: #d9dee7; background: #ffffff; }
+html.admin-theme-light .workflow-canvas-placeholder { background: #ffffff radial-gradient(circle, #d5dbe6 1px, transparent 1px) 0 0 / 20px 20px; }
+html.admin-theme-light .workflow-node-panel { background: #ffffff; border-color: #d9dee7; }
+html.admin-theme-light .workflow-node-option { color: #1f1f1f; }
+html.admin-theme-light .workflow-node-option:hover { background: #f0f4fa; }
+html.admin-theme-light .workflow-node-option-title { color: #1f1f1f; }
+html.admin-theme-light .workflow-node-icon.is-system-calc,
+html.admin-theme-light .workflow-node-icon.is-import-fields,
+html.admin-theme-light .workflow-node-icon.approval-node-form,
+html.admin-theme-light .workflow-node-icon.approval-node-start,
+html.admin-theme-light .workflow-node-icon.approval-node-end { color: #1f1f1f; background: #e9edf4; }
+html.admin-theme-light .workflow-node-icon.is-review { color: #2e9e63; }
+html.admin-theme-light .workflow-node-icon.is-payslip { color: #a97f2c; }
+html.admin-theme-light .workflow-node-icon.approval-node-approver { color: #2e9e63; background: #e2f0e8; }
+html.admin-theme-light .workflow-node-icon.approval-node-branch { color: #a97f2c; background: #f3e8cd; }
+html.admin-theme-light .approval-node-config { background: #ffffff; }
+html.admin-theme-light .approval-node-config:hover { color: #3d6ef7; background: #d3dbe6; }
+html.admin-theme-light .workflow-node { background: #ffffff; border-color: #d9dee7; }
+html.admin-theme-light .workflow-node.is-selected { border-color: #3d6ef7; box-shadow: 0 0 0 1px #3d6ef7; }
+html.admin-theme-light .workflow-node-title { color: #1f1f1f; }
+html.admin-theme-light .workflow-node .react-flow__handle { background: #ffffff; border-color: #3d6ef7; }
+html.admin-theme-light .workflow-node-delete { background: #ffffff; }
+html.admin-theme-light .workflow-node-delete:hover { color: #d45b5b; background: #f5f7fb; }
+html.admin-theme-light .workflow-node-add { color: #ffffff; background: #3d6ef7; }
+html.admin-theme-light .approval-config-heading { color: #1f1f1f; }
+html.admin-theme-light .approval-field-caption { color: #5a6472; }
+html.admin-theme-light .approval-form-field,
+html.admin-theme-light .approval-branch-route { border-color: #e0e3ea; background: #ffffff; }
+html.admin-theme-light .approval-node-modal .approval-branch-route { border-color: #d9dee7; border-left-color: #3d6ef7; }
+html.admin-theme-light .workflow-canvas .react-flow__edge.selected .react-flow__edge-path,
+html.admin-theme-light .workflow-canvas .react-flow__edge:hover .react-flow__edge-path { stroke: #3d6ef7; }
+html.admin-theme-light .workflow-canvas .react-flow__controls-button,
+html.admin-theme-light .workflow-canvas .react-flow__controls-button:hover { background: #ffffff; border-bottom-color: #e0e3ea; }
+html.admin-theme-light .workflow-canvas .react-flow__controls-button:hover { background: #dfe4ee; }
+/* 浅色补充：白字/白底硬编码的翻转（保持布局不变） */
+html.admin-theme-light .admin-menu .ant-menu-item-selected { color: #1f1f1f !important; }
+html.admin-theme-light .ant-menu-inline-collapsed-tooltip .ant-tooltip-inner,
+html.admin-theme-light .app-tooltip .ant-tooltip-inner { background: #303030; }
+html.admin-theme-light .page-title { color: #1a1d26; }
+html.admin-theme-light .stat-card .ant-statistic-content { color: #1a1d26; }
+html.admin-theme-light .filter-circle:hover { color: #1f1f1f !important; }
+html.admin-theme-light .filter-primary-circle.ant-btn:not(:disabled):hover,
+html.admin-theme-light .payroll-issue-button.ant-btn:not(:disabled):hover { background: #2f5fd6 !important; }
+html.admin-theme-light .employee-records-section[aria-pressed='true'] { color: #1f1f1f; }
+html.admin-theme-light .approval-summary-save.ant-btn { border-color: #d9dee7; }
+html.admin-theme-light .payroll-batches-table .ant-table-thead > tr > th,
+html.admin-theme-light .company-calendar-content .ant-table-thead > tr > th,
+html.admin-theme-light .attendance-groups-content .ant-table-thead > tr > th,
+html.admin-theme-light .salary-model-field-list th { color: #1f1f1f; }
+html.admin-theme-light .salary-model-entry:hover:not(:disabled),
+html.admin-theme-light .company-calendar-entry:hover:not(:disabled),
+html.admin-theme-light .attendance-groups-entry:hover:not(:disabled),
+html.admin-theme-light .attendance-records-entry:hover:not(:disabled) { color: #3d6ef7; }
+html.admin-theme-light .salary-drag-overlay { color: #1f1f1f; }
+html.admin-theme-light .salary-model-editor .salary-field-group-heading { color: #1f1f1f; }
+html.admin-theme-light .workflow-node-add { border-color: #3d6ef7; }
+
+
+/* 管理员账号页标签：随主题切换底色与文字 */
+.current-account-tag.ant-tag { background: #f5f5f5; color: #1a1a1a; }
+html.admin-theme-light .current-account-tag.ant-tag { background: #e8ecf2; color: #1f1f1f; }
+.role-tag-super.ant-tag { background: #c9a75c; color: #1a1a1a; }
+html.admin-theme-light .role-tag-super.ant-tag { background: #f3e8cd; color: #8a6d1f; }
+
+/* 管理员菜单：图标统一列宽，图标与文字间距加大 40% */
+.admin-user-menu .ant-dropdown-menu-item > svg,
+.admin-user-menu .ant-dropdown-menu-submenu-title > svg { width: 26px; height: 26px; flex: 0 0 26px; margin-inline-end: 11.2px; }

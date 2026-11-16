@@ -12,7 +12,7 @@ interface OvertimeRulesFieldsProps {
 export function OvertimeRulesFields({ rules, onUpperChange, onRateChange, onRemove, onAdd }: OvertimeRulesFieldsProps) {
   return <Card
     size="small"
-    style={{ margin: '0 0 24px', borderColor: '#333333', background: '#1f1f1f' }}
+    style={{ margin: '0 0 24px', borderColor: 'var(--sf-line-strong)', background: 'var(--sf-surface)' }}
   >
     <div id="overtime-rules-body">
       <Form component={false} layout="vertical">

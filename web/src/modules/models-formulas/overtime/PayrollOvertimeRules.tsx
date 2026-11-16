@@ -84,7 +84,7 @@ export function PayrollOvertimeRules({ onSaved }: { onSaved: () => void }) {
       </Tooltip>
     </div>
     {failed && <Alert type="error" showIcon message="加班规则加载失败" action={<Button size="small" onClick={() => setLoadAttempt(value => value + 1)}>重试</Button>} style={{ marginBottom: 16 }} />}
-    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#333333', background: '#1f1f1f' }}>
+    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: 'var(--sf-line-strong)', background: 'var(--sf-surface)' }}>
       <Form.Item label="每 1 小时金额（元）" required style={{ maxWidth: 360 }}><InputNumber aria-label="每 1 小时金额（元）" min={0} max={9999999999.99} precision={2} value={hourlyRate} onChange={setHourlyRate} style={{ width: '100%' }} /></Form.Item>
     </Card> : <OvertimeRulesFields
       rules={rules}

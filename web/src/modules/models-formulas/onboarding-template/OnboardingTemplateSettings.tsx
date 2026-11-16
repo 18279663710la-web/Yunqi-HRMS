@@ -111,7 +111,7 @@ export function OnboardingTemplateSettings() {
         columns={[
           { title: '模板名称', dataIndex: 'name' },
           { title: '字段数量', render: (_, t) => `${t.fields.length} 个字段` },
-          { title: '状态', render: (_, t) => (t.isDefault ? <Tag color="#F5F5F5">现用</Tag> : <Typography.Text type="secondary">—</Typography.Text>) },
+          { title: '状态', render: (_, t) => (t.isDefault ? <Tag className="current-account-tag">现用</Tag> : <Typography.Text type="secondary">—</Typography.Text>) },
           {
             title: '操作',
             width: 180,

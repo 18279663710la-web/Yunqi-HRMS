@@ -114,7 +114,7 @@ export function PayrollAttendanceRules({ onSaved }: { onSaved: () => void }) {
     </div>
     {failure && <Alert type="error" showIcon message="出勤绩效规则加载失败" description={typeof failure === 'string' ? failure : '请重试'} action={<Button onClick={() => void load()} disabled={loading}>重试</Button>} style={{ marginBottom: 24 }} />}
     <div hidden={!!failure}>
-    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#333333', background: '#1f1f1f' }}>
+    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: 'var(--sf-line-strong)', background: 'var(--sf-surface)' }}>
       <Form.Item name="unitAdjustment" label={`每 ${mode.startsWith('rate_') ? '1 个百分点' : '1 天'}绩效调整（元）`} rules={[{ required: true, message: '请输入每单位绩效调整金额' }]} style={{ maxWidth: 360 }}>
         <InputNumber min={-9999999999.99} max={9999999999.99} precision={2} style={{ width: '100%' }} />
       </Form.Item>

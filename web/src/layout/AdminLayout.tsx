@@ -12,6 +12,7 @@ import {
   Layout,
   Menu,
   Modal,
+  Tooltip,
 } from 'antd';
 import { RightOutlined, CloseOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, type Location } from 'react-router-dom';
@@ -32,9 +33,12 @@ import {
   LogoutIcon,
   ModelsIcon,
   NoticesIcon,
+  ThemeIcon,
+  AdminUserIcon,
 } from './adminIcons';
 import { accessibleSubModules, SUB_MODULES, matchSubModule, resolvePageKey, subModuleMetrics, type SubModule } from './subModules';
 import { AdminPageRoutes } from './AdminPageRoutes';
+import { useAdminTheme } from './AdminTheme';
 import { WorkspaceActiveContext } from './WorkspaceContext';
 import { closeWorkspaceTab, createWorkspaceTabs, openWorkspaceTab, workspaceTabForLocation, type WorkspaceTab } from './workspaceTabs';
 
@@ -110,6 +114,7 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { message } = AntApp.useApp();
+  const { theme: adminTheme, setTheme: setAdminTheme } = useAdminTheme();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [openModuleKey, setOpenModuleKey] = useState<string | null>(null);
@@ -243,7 +248,19 @@ export function AdminLayout() {
     <Layout className="admin-shell is-sider-collapsed">
       <Sider width={236} collapsedWidth={72} collapsed className="admin-sider" theme="light">
         <div className="admin-brand">
-          <div className="admin-brand-mark" aria-hidden="true"><BrandSymbol /></div>
+          <div
+            className="admin-brand-mark"
+            role="button"
+            tabIndex={0}
+            aria-label="切换界面主题"
+            onClick={() => setAdminTheme(adminTheme === 'dark' ? 'light' : 'dark')}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setAdminTheme(adminTheme === 'dark' ? 'light' : 'dark');
+              }
+            }}
+          ><BrandSymbol /></div>
           <div className="admin-brand-text">
             <div className="admin-brand-name">云枢办公</div>
             <div className="admin-brand-sub">管理后台</div>
@@ -272,8 +289,8 @@ export function AdminLayout() {
                   key: 'profile',
                   type: 'group',
                   label: <div className="admin-user-menu-profile">
-                    <Avatar size={44} style={{ background: '#3D6EF7', color: '#fff', fontWeight: 600 }}>
-                      {(admin?.name || '管').slice(0, 1)}
+                    <Avatar size={44} style={{ background: '#3D6EF7', color: '#fff' }}>
+                      <AdminUserIcon size={24} />
                     </Avatar>
                     <div className="admin-user-menu-profile-text">
                       <div className="admin-user-menu-name">{admin?.name || '管理员'}</div>
@@ -284,6 +301,16 @@ export function AdminLayout() {
                 { type: 'divider' },
                 { key: 'password', icon: <LockIcon />, label: '修改密码' },
                 { type: 'divider' },
+                {
+                  key: 'theme',
+                  icon: <ThemeIcon />,
+                  label: '界面主题',
+                  children: [
+                    { key: 'theme-dark', label: adminTheme === 'dark' ? '深色主题（当前）' : '深色主题' },
+                    { key: 'theme-light', label: adminTheme === 'light' ? '浅色主题（当前）' : '浅色主题' },
+                  ],
+                },
+                { type: 'divider' },
                 { key: 'logout', icon: <LogoutIcon />, label: '退出登录' },
               ],
               onClick: ({ key }) => {
@@ -291,6 +318,8 @@ export function AdminLayout() {
                   form.resetFields();
                   setPasswordOpen(true);
                 }
+                if (key === 'theme-dark') setAdminTheme('dark');
+                if (key === 'theme-light') setAdminTheme('light');
                 if (key === 'logout') {
                   logout();
                   navigate('/login', { replace: true });

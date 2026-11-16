@@ -153,7 +153,7 @@ export function AdminsPage() {
           <div>
             <div className="table-primary">
               {row.name}
-              {row.id === currentAdmin.id ? <Tag color="#F5F5F5" bordered={false} style={{ marginLeft: 8 }}>当前账号</Tag> : null}
+              {row.id === currentAdmin.id ? <Tag className="current-account-tag" bordered={false} style={{ marginLeft: 8 }}>当前账号</Tag> : null}
             </div>
             <Text type="secondary" className="table-secondary">{row.username}</Text>
           </div>
@@ -165,7 +165,7 @@ export function AdminsPage() {
       dataIndex: 'role',
       width: 130,
       render: (role: AdminRole) => (
-        <Tag color={role === 'super_admin' ? '#C9A75C' : 'default'}>{roleLabel(role)}</Tag>
+        <Tag className={role === 'super_admin' ? 'role-tag-super' : undefined}>{roleLabel(role)}</Tag>
       ),
     },
     {

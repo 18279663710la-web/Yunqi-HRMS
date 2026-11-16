@@ -135,3 +135,21 @@ export function LogoutIcon({ size = 26, label }: { size?: number; label?: string
     </IconBase>
   );
 }
+
+export function ThemeIcon({ size = 26, label }: { size?: number; label?: string }) {
+  return (
+    <IconBase size={size} label={label}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none" />
+    </IconBase>
+  );
+}
+
+export function AdminUserIcon({ size = 26, label }: { size?: number; label?: string }) {
+  return (
+    <IconBase size={size} label={label}>
+      <circle cx="12" cy="8.2" r="3.7" />
+      <path d="M5.2 19.6c.9-3.7 3.5-5.7 6.8-5.7s5.9 2 6.8 5.7" />
+    </IconBase>
+  );
+}
