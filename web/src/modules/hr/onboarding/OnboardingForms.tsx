@@ -4,6 +4,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { request } from '../../../api/client';
 import { getOnboardingRecords, type OnboardingRecord } from '../api';
+import { UserAddOutlined } from '@ant-design/icons';
 import { ONBOARDING_FORM_URL, type Field } from './api';
 import { OnboardingAnswer } from './OnboardingSubmission';
 
@@ -84,8 +85,8 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
     finally { setApplicationHistoryLoading(false); }
   };
   return <div className="onboarding-page">
-    <div className="salary-model-entries" role="toolbar" aria-label="入职管理操作">
-      <button type="button" className="salary-model-entry" onClick={() => { form.resetFields(); setRegister(true); }}>登记申请</button>
+    <div className="filter-bar">
+      <Button className="filter-primary" type="primary" icon={<UserAddOutlined />} onClick={() => { form.resetFields(); setRegister(true); }}>登记申请</Button>
     </div>
     <Table rowKey="id" dataSource={rows} scroll={{ x: 800 }} columns={[
       { title: '申请编号', dataIndex: 'id' }, { title: '员工', render: (_, r) => `${r.name} · ${r.employeeNo}` }, { title: '员工账号', dataIndex: 'loginName' },

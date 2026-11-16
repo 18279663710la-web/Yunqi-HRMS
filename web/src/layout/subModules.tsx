@@ -112,7 +112,8 @@ export interface SubModuleMetrics {
 }
 
 export function subModuleMetrics(module: SubModule): SubModuleMetrics {
+  // 子栏目菜单字号 14px，全角字宽约等于字号；再加左右内边距 32px 与余量，保证名称完整显示。
   const longestItem = Math.max(1, ...module.items.map(item => Array.from(item.label).length));
-  const itemWidth = longestItem * 13 + 32;
+  const itemWidth = longestItem * 14 + 40;
   return { sidebarWidth: itemWidth + 24, itemWidth };
 }

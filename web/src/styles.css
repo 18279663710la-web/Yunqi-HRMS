@@ -862,6 +862,11 @@ code {
   color: #ffffff !important;
 }
 
+/* 功能行右侧的主操作按钮：白底黑字 */
+.filter-bar .filter-primary {
+  margin-left: auto;
+}
+
 .filter-search-input {
   width: 0;
   min-width: 0;

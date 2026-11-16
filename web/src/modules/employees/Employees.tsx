@@ -558,15 +558,7 @@ export function EmployeesPage() {
             onClick={() => { void load(); }}
           />
         </Tooltip>
-        <Tooltip title="新增员工账号" arrow={false} overlayClassName="app-tooltip">
-          <Button
-            className="filter-circle"
-            type="text"
-            aria-label="新增员工账号"
-            icon={<UserAddOutlined />}
-            onClick={openCreate}
-          />
-        </Tooltip>
+        <Button className="filter-primary" type="primary" icon={<UserAddOutlined />} onClick={openCreate}>新增员工账号</Button>
       </div>
 
       <Table
