@@ -12,15 +12,33 @@
   padding: 32rpx 12rpx 20rpx;
 }
 
-.type-grid {
-  display: flex;
+.type-scroll {
+  width: 100%;
+  line-height: 0;
+}
+
+/* 使用自绘滑动条，隐藏部分环境下的原生滚动条 */
+.type-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* 单元格固定宽度：每屏 5 个，新增类型时向右延伸，不压缩图标；顶部留出选中上移的空间 */
+.type-track {
+  display: inline-flex;
+  min-width: 100%;
+  padding: 10rpx 8rpx 0;
+  box-sizing: border-box;
 }
 
 .type-cell {
-  width: 20%;
+  flex: 0 0 132rpx;
+  width: 132rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-bottom: 10rpx;
 }
 
 .type-cell-hover {
@@ -28,17 +46,19 @@
 }
 
 .type-cell-icon {
-  width: 82rpx;
-  height: 82rpx;
-  border-radius: 24rpx;
+  width: 106rpx;
+  height: 106rpx;
+  border-radius: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #FFFFFF;
-  font-size: 34rpx;
-  font-weight: 600;
   opacity: 0.42;
   transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.type-icon {
+  width: 60rpx;
+  height: 60rpx;
 }
 
 .type-cell.active .type-cell-icon {
@@ -50,6 +70,7 @@
 .type-cell-name {
   margin-top: 14rpx;
   font-size: 24rpx;
+  line-height: 1.4;
   color: #9AA1AC;
 }
 

@@ -204,6 +204,7 @@ export interface ApprovalDetail extends ApprovalDecorated {
   /** 申请人视角下审批被驳回时的驳回意见。 */
   finalComment?: string;
   attachments?: Array<{ name: string; fileID: string }>;
+  fieldAttachments?: Array<{ key: string; label: string; files: Array<{ name: string; fileID: string }> }>;
   aiAdvice?: { status: string; advice: import('../../domains/approvals/expenseAiPolicy').AiAdvice | null } | null;
   aiRetryAvailable?: boolean;
   workflowAiStatus?: string | null;

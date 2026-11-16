@@ -4,16 +4,17 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { App, Button, Card, Checkbox, Input, Modal, Select } from 'antd';
-import type { CustomApprovalField, CustomApprovalType } from './api';
+import type { CustomApprovalField } from './api';
 import { composeApprovalFormFields } from './approvalBuiltinFields';
 import { normalizeExpenseOptions } from './expenseFormOptions';
-import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
+import { definitionFor } from './approvalTypeDefinitions';
 
 type EditingField = Omit<CustomApprovalField, 'options'> & { options: string[] };
 const FIELD_TYPES = [
   { value: 'text', label: '字符串' }, { value: 'textarea', label: '多行文字' }, { value: 'number', label: '数字' },
   { value: 'money', label: '金额' }, { value: 'date', label: '日期' }, { value: 'time', label: '时间' }, { value: 'picker', label: '单选' },
 ];
+const EXPENSE_FIELD_TYPES = [...FIELD_TYPES, { value: 'attachment' as const, label: '附件' }];
 const RESERVED_LABELS = ['补偿方式'];
 
 function toEditing(field: CustomApprovalField): EditingField {
@@ -27,14 +28,14 @@ function SortableField({ id, disabled, children }: { id: string; disabled: boole
 }
 
 export function ExpenseFormDesigner({ approvalType, fields, initialized, onCancel, onSave }: {
-  approvalType: CustomApprovalType;
+  approvalType: string;
   fields: CustomApprovalField[];
   initialized: boolean;
   onCancel: () => void;
   onSave: (fields: CustomApprovalField[]) => boolean;
 }) {
   const { message } = App.useApp();
-  const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
+  const definition = definitionFor(approvalType);
   const [items, setItems] = useState<EditingField[]>(() => composeApprovalFormFields(approvalType, fields, initialized).map(toEditing));
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const update = (index: number, change: Partial<EditingField>) => setItems(current => current.map((item, i) => i === index ? { ...item, ...change } : item));
@@ -74,7 +75,7 @@ export function ExpenseFormDesigner({ approvalType, fields, initialized, onCance
         </span>} extra={item.locked ? undefined : <Button onClick={() => setItems(current => current.filter((_, i) => i !== index))}>删除</Button>}>
           <div className="onboarding-field-controls">
             <label className="onboarding-field-name"><span className="approval-field-caption"><span className="form-req">*</span>字段名称</span><Input aria-label={`字段${index + 1}名称`} maxLength={100} value={item.label} disabled={item.locked} onChange={event => update(index, { label: event.target.value })} /></label>
-            <label className="onboarding-field-type"><span className="approval-field-caption"><span className="form-req">*</span>字段类型</span><Select aria-label={`字段${index + 1}类型`} value={item.type} disabled={item.locked} options={item.type === 'attachment' ? [{ value: 'attachment', label: '附件' }] : FIELD_TYPES} onChange={type => update(index, { type, options: type === 'picker' && !item.options.length ? ['', ''] : item.options })} /></label>
+            <label className="onboarding-field-type"><span className="approval-field-caption"><span className="form-req">*</span>字段类型</span><Select aria-label={`字段${index + 1}类型`} value={item.type} disabled={item.locked} options={item.locked ? (item.type === 'attachment' ? [{ value: 'attachment', label: '附件' }] : FIELD_TYPES) : approvalType === 'expense' ? EXPENSE_FIELD_TYPES : FIELD_TYPES} onChange={type => update(index, { type, options: type === 'picker' && !item.options.length ? ['', ''] : item.options })} /></label>
           </div>
           <Checkbox className="onboarding-field-required" checked={item.required} disabled={item.locked} onChange={event => update(index, { required: event.target.checked })}>必填</Checkbox>
           {!item.locked && item.type === 'picker' && <section className="onboarding-subfields" aria-label={`${item.label.trim() || `字段 ${index + 1}`}的选项`}>

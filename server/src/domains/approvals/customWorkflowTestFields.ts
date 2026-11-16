@@ -14,13 +14,13 @@ export interface WorkflowTestField {
   maxlength?: number;
 }
 
-export async function readFixedWorkflowTestFields(type: ApprovalApproverType): Promise<WorkflowTestField[]> {
+export async function readFixedWorkflowTestFields(type: string): Promise<WorkflowTestField[]> {
   const row = await queryOne<{ fields_json: string | WorkflowTestField[] }>('SELECT fields_json FROM approval_types WHERE `key` = ?', [type]);
   if (!row) throw badRequest('审批类型不存在');
   return normalizeFixedWorkflowTestFields(type, row.fields_json);
 }
 
-export function normalizeFixedWorkflowTestFields(type: ApprovalApproverType, data: string | WorkflowTestField[]): WorkflowTestField[] {
+export function normalizeFixedWorkflowTestFields(type: string, data: string | WorkflowTestField[]): WorkflowTestField[] {
   const fields = typeof data === 'string' ? JSON.parse(data) as WorkflowTestField[] : data;
   const fixed = fields.filter(field => type !== 'overtime' || field.key !== 'compensation');
   if (type === 'expense') fixed.push(
@@ -54,7 +54,7 @@ export function validateWorkflowTestValues(fields: WorkflowTestField[], values: 
   return null;
 }
 
-export function validateWorkflowTestCase(type: ApprovalApproverType, fields: WorkflowTestField[], values: Record<string, string>): string | null {
+export function validateWorkflowTestCase(type: string, fields: WorkflowTestField[], values: Record<string, string>): string | null {
   const error = validateWorkflowTestValues(fields, values);
   if (error) return error;
   if (type === 'travel' && values.startDate && values.endDate && values.endDate < values.startDate) return '结束日期不能早于开始日期';

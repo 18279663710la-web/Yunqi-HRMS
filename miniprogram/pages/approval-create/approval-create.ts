@@ -28,18 +28,23 @@ interface InvoiceSummary {
 }
 
 interface FormSegment {
-  kind: 'fields' | 'invoice' | 'materials';
+  kind: 'fields' | 'invoice' | 'materials' | 'files';
   key: string;
+  title?: string;
+  required?: boolean;
   fields: ApprovalField[];
 }
 
-/** 连续填写项合成一张卡片。发票附件和补充材料按设计顺序插入；未发布报销仍排在表单末尾。 */
+interface FieldFile { name: string; fileID: string; preview: string }
+
+/** 连续填写项合成一张卡片。发票附件、补充材料和自定义附件按设计顺序插入；未发布报销仍把前两项排在表单末尾。 */
 function formSegments(typeKey: string, fields: ApprovalField[]): FormSegment[] {
   const segments: FormSegment[] = [];
   for (const field of fields) {
     if (field.type === 'attachment') {
-      const kind: FormSegment['kind'] = field.key === 'invoiceFiles' ? 'invoice' : 'materials';
-      segments.push({ kind, key: kind, fields: [] });
+      if (field.key === 'invoiceFiles') segments.push({ kind: 'invoice', key: 'invoice', fields: [] });
+      else if (field.key === 'supplementFiles') segments.push({ kind: 'materials', key: 'materials', fields: [] });
+      else segments.push({ kind: 'files', key: field.key, title: field.label, required: field.required, fields: [] });
       continue;
     }
     const last = segments[segments.length - 1];
@@ -79,6 +84,8 @@ interface ApprovalCreateData {
   expenseCheckVerify: boolean;
   attachments: Array<{ name: string; fileID: string; preview: string }>;
   uploadingAttachments: boolean;
+  fieldFiles: Record<string, FieldFile[]>;
+  uploadingFieldKey: string;
 }
 
 interface ApprovalCreateCustom {
@@ -104,6 +111,10 @@ interface ApprovalCreateCustom {
   addAttachments(): void;
   removeAttachment(e: TapEvent): void;
   onAttachmentName(e: InputEvent): void;
+  addFieldFiles(e: TapEvent): void;
+  removeFieldFile(e: TapEvent): void;
+  onFieldFileName(e: InputEvent): void;
+  filesReady(segments?: FormSegment[], fieldFiles?: Record<string, FieldFile[]>): boolean;
   buildPayload(): CreateApprovalPayload;
   onSubmit(): Promise<void>;
 }
@@ -135,6 +146,8 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     expenseCheckVerify: true,
     attachments: [],
     uploadingAttachments: false,
+    fieldFiles: {},
+    uploadingFieldKey: '',
   },
 
   /** 表单自动填写前的原值快照（删除发票后回滚） */
@@ -203,7 +216,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       segments,
       values,
       urgent: false,
-      canSubmit: this.validate(values, fields, type.key),
+      canSubmit: this.validate(values, fields, type.key) && this.filesReady(segments, {}),
       isExpense: type.key === 'expense',
       recognized: [],
       invoiceSummary: null,
@@ -214,6 +227,8 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       expenseCheckDuplicate: true,
       expenseCheckVerify: true,
       attachments: [],
+      fieldFiles: Object.fromEntries(segments.filter((segment) => segment.kind === 'files').map((segment) => [segment.key, []])),
+      uploadingFieldKey: '',
       approvers: [],
       approverReady: false,
       approverHint: '',
@@ -273,6 +288,12 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     const list = (fields || this.data.fields).filter((field) => field.type !== 'attachment');
     return list.every((f) => !f.required || String(values[f.key] || '').trim() !== '') &&
       ((typeKey || this.data.typeKey) !== 'leave' || calculateLeaveDays(values.startDate, values.startClock, values.endDate, values.endClock) !== null);
+  },
+
+  filesReady(segments?: FormSegment[], fieldFiles?: Record<string, FieldFile[]>): boolean {
+    const list = segments || this.data.segments;
+    const files = fieldFiles || this.data.fieldFiles;
+    return list.filter((segment) => segment.kind === 'files' && segment.required).every((segment) => (files[segment.key] || []).some((file) => file.name.trim()));
   },
 
   onInput(e: InputEvent) {
@@ -433,7 +454,7 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
       case 'purchase':
         return `${v.item || ''}，预估 ¥${v.amount || '0'}`;
       default:
-        return '';
+        return Object.values(v).map(value => value.trim()).filter(Boolean).slice(0, 3).join(' · ');
     }
   },
 
@@ -473,20 +494,65 @@ Page<ApprovalCreateData, ApprovalCreateCustom>({
     this.setData({ attachments: this.data.attachments.map((item, i) => i === index ? { ...item, name: e.detail.value } : item) });
   },
 
+  addFieldFiles(e: TapEvent) {
+    const key = String(e.currentTarget.dataset.key || '');
+    if (!key || this.data.uploadingFieldKey) return;
+    const current = this.data.fieldFiles[key] || [];
+    const remaining = 9 - current.length;
+    const label = this.data.segments.find((segment) => segment.key === key)?.title || '附件';
+    if (remaining <= 0) { toast(`最多上传 9 张${label}`); return; }
+    wx.chooseMedia({ count: remaining, mediaType: ['image'], sourceType: ['album', 'camera'], success: (result) => {
+      void (async () => {
+        this.setData({ uploadingFieldKey: key });
+        try {
+          const next = [...(this.data.fieldFiles[key] || [])];
+          for (const file of result.tempFiles) {
+            const uploaded = await upload<{ fileUrl: string; previewUrl: string }>({ url: '/invoices/image', filePath: file.tempFilePath, name: 'file' });
+            next.push({ name: '', fileID: uploaded.fileUrl, preview: resolveFileUrl(uploaded.previewUrl) });
+          }
+          const fieldFiles = { ...this.data.fieldFiles, [key]: next };
+          this.setData({ fieldFiles, canSubmit: this.validate(this.data.values) && this.filesReady(this.data.segments, fieldFiles) });
+        } finally { this.setData({ uploadingFieldKey: '' }); }
+      })().catch(() => toast('附件上传失败，请重试'));
+    } });
+  },
+
+  removeFieldFile(e: TapEvent) {
+    const key = String(e.currentTarget.dataset.key || '');
+    const index = Number(e.currentTarget.dataset.index);
+    const fieldFiles = { ...this.data.fieldFiles, [key]: (this.data.fieldFiles[key] || []).filter((_, i) => i !== index) };
+    this.setData({ fieldFiles, canSubmit: this.validate(this.data.values) && this.filesReady(this.data.segments, fieldFiles) });
+  },
+
+  onFieldFileName(e: InputEvent) {
+    const key = String(e.currentTarget.dataset.key || '');
+    const index = Number(e.currentTarget.dataset.index);
+    const fieldFiles = {
+      ...this.data.fieldFiles,
+      [key]: (this.data.fieldFiles[key] || []).map((item, i) => i === index ? { ...item, name: e.detail.value } : item),
+    };
+    this.setData({ fieldFiles, canSubmit: this.validate(this.data.values) && this.filesReady(this.data.segments, fieldFiles) });
+  },
+
   buildPayload(): CreateApprovalPayload {
     const { type, fields, values } = this.data;
     const form = fields.filter((field) => field.type !== 'attachment').map((f) => ({ label: f.label, value: this.formatValue(f, values[f.key]) }));
     const staticBase = getStaticBase();
     const invoices = type.key === 'expense' ? this.data.recognized.map((item) => ({ ...item, fileID: item.fileID?.startsWith(`${staticBase}/uploads/`) ? item.fileID.slice(staticBase.length) : item.fileID })) : [];
     if (invoices.length) form.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${this.data.invoiceSummary?.totalAmountText || '0.00'}` });
-    return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, urgent: this.data.urgent, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], ...(type.workflowPublicationVersion ? { workflowPublicationVersion: type.workflowPublicationVersion, workflowValues: { ...values } } : {}) };
+    const fieldAttachments = Object.entries(this.data.fieldFiles).flatMap(([fieldKey, files]) => files.map(({ name, fileID }) => ({ fieldKey, name: name.trim(), fileID })));
+    return { type: type.key, title: this.buildTitle(type, values), summary: this.buildSummary(type, values), form, invoices, urgent: this.data.urgent, attachments: type.key === 'expense' ? this.data.attachments.map(({ name, fileID }) => ({ name: name.trim(), fileID })) : [], ...(fieldAttachments.length ? { fieldAttachments } : {}), ...(type.workflowPublicationVersion ? { workflowPublicationVersion: type.workflowPublicationVersion, workflowValues: { ...values } } : {}) };
   },
 
   async onSubmit(): Promise<void> {
     const { type, fields, values, submitting, recognizingInvoices } = this.data;
     if (submitting) return;
-    if (this.data.uploadingAttachments) { toast('材料上传中，请稍候'); return; }
+    if (this.data.uploadingAttachments || this.data.uploadingFieldKey) { toast('材料上传中，请稍候'); return; }
     if (type.key === 'expense' && this.data.attachments.some((item) => !item.name.trim())) { toast('请填写补充材料名称'); return; }
+    const missingFile = this.data.segments.find((segment) => segment.kind === 'files' && (this.data.fieldFiles[segment.key] || []).some((file) => !file.name.trim()));
+    if (missingFile) { toast(`请填写${missingFile.title || '附件'}名称`); return; }
+    const requiredFile = this.data.segments.find((segment) => segment.kind === 'files' && segment.required && !(this.data.fieldFiles[segment.key] || []).length);
+    if (requiredFile) { toast(`请上传${requiredFile.title || '附件'}`); return; }
 
     if (recognizingInvoices) {
       toast('发票识别中，请稍候再提交');

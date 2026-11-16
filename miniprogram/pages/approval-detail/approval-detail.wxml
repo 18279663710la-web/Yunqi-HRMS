@@ -74,6 +74,16 @@
       </view>
     </block>
 
+    <block wx:for="{{detail.fieldAttachments}}" wx:for-item="group" wx:for-index="groupIndex" wx:key="key">
+      <view class="section-head"><view class="section-title">{{group.label}}</view></view>
+      <view class="card">
+        <view class="extra-item" wx:for="{{group.files}}" wx:for-item="file" wx:key="fileID" data-group-index="{{groupIndex}}" data-index="{{index}}" bindtap="onPreviewFieldAttachment">
+          <image class="extra-image" src="{{file.fileID}}" mode="aspectFill" />
+          <view class="extra-name">{{file.name}}</view>
+        </view>
+      </view>
+    </block>
+
     <view class="card workflow-ai-status" wx:if="{{detail.aiRetryAvailable}}">
       <view class="workflow-ai-tip">审批处理出现异常，可重试或联系管理员</view>
       <button class="workflow-ai-retry" loading="{{retryingAi}}" disabled="{{retryingAi}}" bindtap="retryAi">重试</button>

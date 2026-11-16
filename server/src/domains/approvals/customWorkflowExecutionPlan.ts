@@ -17,7 +17,7 @@ export function expenseVerificationSelection(steps: Array<{ kind: string; checkD
 }
 
 /** 依据已发布版本及申请字段固定路径；调用方负责保存快照与处理节点。 */
-export function planWorkflowExecution(type: ApprovalApproverType, workflow: CustomWorkflow, values: Record<string, string>): WorkflowExecutionPlan {
+export function planWorkflowExecution(type: string, workflow: CustomWorkflow, values: Record<string, string>): WorkflowExecutionPlan {
   const errors = validateExecutableWorkflow(type, workflow);
   if (errors.length) throw badRequest('审批流程配置无效，请联系管理员');
   const result = simulateApprovalWorkflow(workflow, values);

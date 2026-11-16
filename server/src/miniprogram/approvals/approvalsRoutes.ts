@@ -71,6 +71,11 @@ const createSchema = z.object({
     .optional(),
   invoices: z.array(z.record(z.string(), z.any())).max(30).optional(),
   attachments: z.array(z.object({ name: z.string().trim().min(1).max(100), fileID: z.string().min(1).max(200) })).max(9).optional(),
+  fieldAttachments: z.array(z.object({
+    fieldKey: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,39}$/),
+    name: z.string().trim().min(1).max(100),
+    fileID: z.string().min(1).max(200),
+  })).max(360).optional(),
   urgent: z.boolean().optional(),
   workflowPublicationVersion: z.number().int().min(1).optional(),
   workflowValues: z.record(z.string().max(40), z.string().max(2000)).optional(),

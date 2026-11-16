@@ -26,6 +26,10 @@ function toPublishedWorkflow(row: PublishedRow): PublishedWorkflow {
 }
 
 const publishedCache = new Map<string, PublishedWorkflow>();
+
+export function discardPublishedWorkflow(type: string) {
+  publishedCache.delete(type);
+}
 const PUBLISHED_ROW_SQL = 'SELECT approval_type, publication_version, workflow_version, case_version, graph_json, fixed_fields_json, credentials_json FROM custom_approval_publications';
 
 async function rememberPublished(rows: Array<PublishedRow & { approval_type: string }>): Promise<void> {
@@ -33,7 +37,7 @@ async function rememberPublished(rows: Array<PublishedRow & { approval_type: str
 }
 
 /** 发布版本未变时复用解析结果。版本号单独读取，其他进程发布后会重新解析。 */
-export async function readPublishedWorkflow(type: ApprovalApproverType): Promise<PublishedWorkflow | null> {
+export async function readPublishedWorkflow(type: string): Promise<PublishedWorkflow | null> {
   const current = await queryOne<{ publication_version: number }>('SELECT publication_version FROM custom_approval_publications WHERE approval_type = ?', [type]);
   if (!current) {
     publishedCache.delete(type);
@@ -66,7 +70,7 @@ export async function readPublishedWorkflows(): Promise<Map<string, PublishedWor
 }
 
 /** 仅发布通过测试的版本，并在事务中固定流程和凭据快照。 */
-export async function publishCustomWorkflow(type: ApprovalApproverType, workflowVersion: number, caseVersion: number, adminId: number): Promise<PublishedWorkflow> {
+export async function publishCustomWorkflow(type: string, workflowVersion: number, caseVersion: number, adminId: number): Promise<PublishedWorkflow> {
   return transaction(async conn => {
     const [workflows] = await conn.query<RowDataPacket[]>('SELECT version, graph_json FROM custom_approval_workflows WHERE approval_type = ? FOR UPDATE', [type]);
     const [cases] = await conn.query<RowDataPacket[]>('SELECT version FROM custom_approval_test_cases WHERE approval_type = ? FOR UPDATE', [type]);

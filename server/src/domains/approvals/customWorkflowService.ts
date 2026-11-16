@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { RowDataPacket } from 'mysql2';
 import { queryOne, queryRows, transaction } from '../../shared/db/pool';
 import { badRequest, conflict } from '../../shared/utils/errors';
-import type { ApprovalApproverType } from './expenseApproverService';
+import { isBuiltinApprovalType, isCustomApprovalType, type ApprovalApproverType } from './expenseApproverService';
 import { validateWorkflowConditions, type WorkflowFieldPolicy } from './expenseWorkflowPolicy';
 import { normalizeEditableFormFields, type EditableApprovalField } from './approvalFormFields';
 import { decryptWorkflowCredential, encryptWorkflowCredential } from './workflowCredentials';
@@ -32,7 +32,12 @@ export const customWorkflowSchema = z.object({
 });
 export type CustomWorkflow = z.infer<typeof customWorkflowSchema>;
 
-export function validateCustomWorkflowGraph(type: ApprovalApproverType, workflow: CustomWorkflow): void {
+function fieldPolicy(type: string): WorkflowFieldPolicy {
+  if (isBuiltinApprovalType(type)) return TYPE_FIELDS[type];
+  return { reserved: ['compensation'], labels: ['补偿方式'], choices: {} };
+}
+
+export function validateCustomWorkflowGraph(type: string, workflow: CustomWorkflow): void {
   const nodeIds = new Set(workflow.nodes.map(node => node.id));
   const edgeIds = new Set<string>();
   const pairs = new Set<string>();
@@ -59,7 +64,7 @@ export function validateCustomWorkflowGraph(type: ApprovalApproverType, workflow
   }
   workflow.formFields = normalizeEditableFormFields(type, (workflow.formFields ?? []) as EditableApprovalField[], workflow.fieldsInitialized === true);
   const fields = workflow.formFields ?? [];
-  const check = (branches: Array<{ conditions: z.infer<typeof condition>[]; approvers: string[] }>) => validateWorkflowConditions({ version: 1, enabled: false, fields, branches }, TYPE_FIELDS[type]);
+  const check = (branches: Array<{ conditions: z.infer<typeof condition>[]; approvers: string[] }>) => validateWorkflowConditions({ version: 1, enabled: false, fields, branches }, fieldPolicy(type));
   check([]);
   for (const node of workflow.nodes.filter(item => item.kind === 'branch')) {
     const branches = workflow.edges.filter(edge => edge.source === node.id && edge.conditions?.length).map(edge => ({ conditions: edge.conditions!, approvers: ['draft'] }));
@@ -67,7 +72,7 @@ export function validateCustomWorkflowGraph(type: ApprovalApproverType, workflow
   }
 }
 
-export async function readCustomWorkflow(type: ApprovalApproverType): Promise<CustomWorkflow> {
+export async function readCustomWorkflow(type: string): Promise<CustomWorkflow> {
   const row = await queryOne<{ version: number; graph_json: string | object }>('SELECT version, graph_json FROM custom_approval_workflows WHERE approval_type = ?', [type]);
   if (!row) return { version: 0, nodes: [], edges: [] };
   const graph = typeof row.graph_json === 'string' ? JSON.parse(row.graph_json) as object : row.graph_json;
@@ -80,8 +85,12 @@ export async function readCustomWorkflow(type: ApprovalApproverType): Promise<Cu
   return { ...parsed.data, nodes: parsed.data.nodes.map(node => node.kind === 'ai' ? { ...node, config: { ...node.config, hasApiKey: ids.has(node.id) } } : node) };
 }
 
-export async function saveCustomWorkflow(type: ApprovalApproverType, workflow: CustomWorkflow, adminId: number): Promise<CustomWorkflow> {
+export async function saveCustomWorkflow(type: string, workflow: CustomWorkflow, adminId: number): Promise<CustomWorkflow> {
   validateCustomWorkflowGraph(type, workflow);
+  if (isCustomApprovalType(type)) {
+    const owned = await queryOne('SELECT `key` FROM approval_types WHERE `key` = ? AND is_custom = 1', [type]);
+    if (!owned) throw badRequest('审批类型不存在');
+  }
   return transaction(async conn => {
     await conn.execute('INSERT IGNORE INTO custom_approval_workflows (approval_type, version, graph_json, updated_by, updated_at) VALUES (?, 0, ?, ?, NOW())', [type, JSON.stringify({ nodes: [], edges: [] }), adminId]);
     const [rows] = await conn.query<RowDataPacket[]>('SELECT version, graph_json FROM custom_approval_workflows WHERE approval_type = ? FOR UPDATE', [type]);
@@ -106,7 +115,9 @@ export async function saveCustomWorkflow(type: ApprovalApproverType, workflow: C
       return { ...node, config };
     });
     const next = { version: workflow.version + 1, ...(hasExtendedData(workflow) || workflow.fieldsInitialized ? { formFields: workflow.formFields ?? [], ...(workflow.fieldsInitialized ? { fieldsInitialized: true } : {}) } : {}), nodes, edges: workflow.edges };
-    await conn.execute('UPDATE custom_approval_workflows SET version = ?, graph_json = ?, updated_by = ?, updated_at = NOW() WHERE approval_type = ?', [next.version, JSON.stringify({ nodes: next.nodes, edges: next.edges, formFields: next.formFields, ...(next.fieldsInitialized ? { fieldsInitialized: true } : {}) }), adminId, type]);
+    const graphJson = JSON.stringify({ nodes: next.nodes, edges: next.edges, formFields: next.formFields, ...(next.fieldsInitialized ? { fieldsInitialized: true } : {}) });
+    await conn.execute('UPDATE custom_approval_workflows SET version = ?, graph_json = ?, updated_by = ?, updated_at = NOW() WHERE approval_type = ?', [next.version, graphJson, adminId, type]);
+    if (isCustomApprovalType(type)) await conn.execute('UPDATE approval_types SET fields_json = ? WHERE `key` = ? AND is_custom = 1', [JSON.stringify(next.formFields ?? []), type]);
     return { ...next, nodes: nodes.map(node => node.kind === 'ai' ? { ...node, config: { ...node.config, hasApiKey: existing.has(node.id) } } : node) };
   });
 }

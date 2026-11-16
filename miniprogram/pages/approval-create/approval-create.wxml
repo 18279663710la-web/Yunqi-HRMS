@@ -6,20 +6,29 @@
     </view>
 
     <view class="card type-card">
-      <view class="type-grid">
-        <view
-          class="type-cell {{typeKey === item.key ? 'active' : ''}}"
-          wx:for="{{types}}"
-          wx:key="key"
-          data-key="{{item.key}}"
-          bindtap="onTypeTap"
-          hover-class="type-cell-hover"
-          hover-stay-time="60"
-        >
-          <view class="type-cell-icon" style="background-color: {{item.color}}">{{item.initial}}</view>
-          <view class="type-cell-name">{{item.name}}</view>
+      <scroll-view class="type-scroll" scroll-x="{{true}}" enable-flex="{{true}}">
+        <view class="type-track">
+          <view
+            class="type-cell {{typeKey === item.key ? 'active' : ''}}"
+            wx:for="{{types}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="onTypeTap"
+            hover-class="type-cell-hover"
+            hover-stay-time="60"
+          >
+            <view class="type-cell-icon" style="background-color: {{item.color}}">
+              <image wx:if="{{item.key === 'leave'}}" class="type-icon" src="/assets/approvals/leave.png" mode="aspectFit" />
+              <image wx:elif="{{item.key === 'expense'}}" class="type-icon" src="/assets/approvals/expense.png" mode="aspectFit" />
+              <image wx:elif="{{item.key === 'overtime'}}" class="type-icon" src="/assets/approvals/overtime.png" mode="aspectFit" />
+              <image wx:elif="{{item.key === 'travel'}}" class="type-icon" src="/assets/approvals/travel.png" mode="aspectFit" />
+              <image wx:elif="{{item.key === 'purchase'}}" class="type-icon" src="/assets/approvals/purchase.png" mode="aspectFit" />
+              <image wx:else class="type-icon" src="/assets/approvals/custom.png" mode="aspectFit" />
+            </view>
+            <view class="type-cell-name">{{item.name}}</view>
+          </view>
         </view>
-      </view>
+      </scroll-view>
     </view>
 
     <!-- ============ 动态表单 ============ -->
@@ -111,7 +120,7 @@
         <view class="form-tip" wx:if="{{!invoiceCheckReady}}">{{invoiceCheckMessage}}</view>
       </block>
 
-      <block wx:else>
+      <block wx:elif="{{segment.kind === 'materials'}}">
         <view class="section-head"><view class="section-title">补充材料</view></view>
         <view class="card">
           <view class="attachment-row" wx:for="{{attachments}}" wx:for-item="file" wx:key="fileID">
@@ -120,6 +129,18 @@
             <view class="attachment-remove" data-index="{{index}}" bindtap="removeAttachment">删除</view>
           </view>
           <view class="attachment-add" bindtap="addAttachments">{{uploadingAttachments ? '上传中…' : '添加材料图片'}}</view>
+        </view>
+      </block>
+
+      <block wx:elif="{{segment.kind === 'files'}}">
+        <view class="section-head"><view class="section-title"><text class="form-req" wx:if="{{segment.required}}">*</text>{{segment.title}}</view></view>
+        <view class="card">
+          <view class="attachment-row" wx:for="{{fieldFiles[segment.key]}}" wx:for-item="file" wx:key="fileID">
+            <image class="attachment-thumb" src="{{file.preview}}" mode="aspectFill" />
+            <input class="attachment-name" value="{{file.name}}" placeholder="附件名称" maxlength="100" data-key="{{segment.key}}" data-index="{{index}}" bindinput="onFieldFileName" />
+            <view class="attachment-remove" data-key="{{segment.key}}" data-index="{{index}}" bindtap="removeFieldFile">删除</view>
+          </view>
+          <view class="attachment-add" data-key="{{segment.key}}" bindtap="addFieldFiles">{{uploadingFieldKey === segment.key ? '上传中…' : '添加附件图片'}}</view>
         </view>
       </block>
     </block>

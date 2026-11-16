@@ -1,20 +1,22 @@
 import { Alert } from 'antd';
-import { Navigate, useParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import type { AdminRole } from '../../types';
-import type { CustomApprovalType } from './api';
+import { approvalTypeFromSearch } from './approvalTypeDefinitions';
 import { CustomApprovalWorkflow } from './CustomApprovalWorkflow';
 
-const APPROVAL_TYPES: CustomApprovalType[] = ['leave', 'expense', 'overtime', 'travel', 'purchase'];
-
-export function ApprovalManagementView({ role, type }: { role: AdminRole | undefined; type: CustomApprovalType }) {
+export function ApprovalManagementView({ role, type, onTypeChange }: { role: AdminRole | undefined; type: string; onTypeChange?: (type: string) => void }) {
   if (role !== 'super_admin') return <Alert type="warning" message="仅超级管理员可访问审批流程配置" />;
-  return <CustomApprovalWorkflow key={type} approvalType={type} />;
+  return <CustomApprovalWorkflow approvalType={type} onTypeChange={onTypeChange} />;
 }
 
 export function ApprovalManagementPage() {
-  const { type } = useParams();
+  const [params, setParams] = useSearchParams();
   const { admin } = useAuth();
-  if (!APPROVAL_TYPES.includes(type as CustomApprovalType)) return <Navigate to="/approvals/leave" replace />;
-  return <ApprovalManagementView role={admin?.role} type={type as CustomApprovalType} />;
+  const changeType = (next: string) => {
+    const search = new URLSearchParams(params);
+    search.set('type', next);
+    setParams(search, { replace: true });
+  };
+  return <ApprovalManagementView role={admin?.role} type={approvalTypeFromSearch(params.get('type'))} onTypeChange={changeType} />;
 }

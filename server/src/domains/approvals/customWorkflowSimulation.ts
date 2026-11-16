@@ -13,7 +13,7 @@ export interface WorkflowSimulationResult {
 }
 
 /** 发布前检查所有节点及连线，设计稿保存仍允许未完成的画布。 */
-export function validateExecutableWorkflow(type: ApprovalApproverType, workflow: CustomWorkflow): string[] {
+export function validateExecutableWorkflow(type: string, workflow: CustomWorkflow): string[] {
   const errors: string[] = [];
   const nodeMap = new Map(workflow.nodes.map(node => [node.id, node]));
   const outgoing = new Map<string, WorkflowEdge[]>();
@@ -112,7 +112,7 @@ export interface WorkflowTestReport {
 
 /** 测试不执行审批或模型调用；AI 节点只检查所配置地址是否返回 HTTP 响应。 */
 export async function runWorkflowTests(
-  type: ApprovalApproverType,
+  type: string,
   workflow: CustomWorkflow,
   cases: WorkflowTestCase[],
   probe: (url: string) => Promise<WorkflowAiUrlProbeResult> = probeWorkflowAiUrl,

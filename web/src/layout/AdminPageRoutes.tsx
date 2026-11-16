@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes, type Location } from 'react-router-dom';
 import { AdminsPage } from '../modules/admin-accounts/Admins';
 import { ApprovalManagementPage } from '../modules/approvals/ApprovalManagement';
+import { ApprovalSummaryPage } from '../modules/approvals/ApprovalSummary';
+import { CustomApprovalsPage } from '../modules/approvals/CustomApprovals';
 import { AttendanceGroupsPage } from '../modules/attendance/AttendanceGroupsPage';
 import { AttendanceRecordsPage } from '../modules/attendance/AttendanceRecordsPage';
 import { AttendanceVisitsPage } from '../modules/attendance/AttendanceVisitsPage';
@@ -39,10 +41,17 @@ export function AdminPageRoutes({ location }: { location: Location }) {
     <Route path="/models-formulas/salary" element={<ModelsFormulasPage section="salary" />} />
     <Route path="/models-formulas/onboarding-template" element={<ModelsFormulasPage section="onboarding-template" />} />
     <Route path="/models-formulas/offboarding-template" element={<Navigate to="/models-formulas/attendance" replace />} />
-    <Route path="/models-formulas/payroll-workflow" element={<Navigate to="/approvals/leave" replace />} />
-    <Route path="/approvals" element={<Navigate to="/approvals/leave" replace />} />
-    <Route path="/approvals/custom-workflow" element={<Navigate to="/approvals/leave" replace />} />
-    <Route path="/approvals/:type" element={<ApprovalManagementPage />} />
+    <Route path="/models-formulas/payroll-workflow" element={<Navigate to="/approvals/workflow" replace />} />
+    <Route path="/approvals" element={<Navigate to="/approvals/workflow" replace />} />
+    <Route path="/approvals/custom-workflow" element={<Navigate to="/approvals/workflow" replace />} />
+    <Route path="/approvals/leave" element={<Navigate to="/approvals/workflow?type=leave" replace />} />
+    <Route path="/approvals/expense" element={<Navigate to="/approvals/workflow?type=expense" replace />} />
+    <Route path="/approvals/overtime" element={<Navigate to="/approvals/workflow?type=overtime" replace />} />
+    <Route path="/approvals/travel" element={<Navigate to="/approvals/workflow?type=travel" replace />} />
+    <Route path="/approvals/purchase" element={<Navigate to="/approvals/workflow?type=purchase" replace />} />
+    <Route path="/approvals/workflow" element={<ApprovalManagementPage />} />
+    <Route path="/approvals/custom" element={<CustomApprovalsPage />} />
+    <Route path="/approvals/summary" element={<ApprovalSummaryPage />} />
     <Route path="/notices" element={<NoticesPage />} />
     <Route path="/departments" element={<DepartmentsPage />} />
     <Route path="/admins" element={<AdminsPage />} />

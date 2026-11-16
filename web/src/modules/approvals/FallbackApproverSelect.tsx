@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { App, Select } from 'antd';
 import { getApprovalApproverSettings, setApprovalApprover, type CustomApprovalType } from './api';
 
-export function FallbackApproverSelect({ approvalType }: { approvalType: CustomApprovalType }) {
+export function FallbackApproverSelect({ approvalType }: { approvalType: string }) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

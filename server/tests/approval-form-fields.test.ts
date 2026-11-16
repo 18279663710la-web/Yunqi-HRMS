@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { employeeApprovalFields, normalizeEditableFormFields } from '../src/domains/approvals/approvalFormFields';
+import { employeeApprovalFields, normalizeEditableFormFields, partitionExpenseAttachments } from '../src/domains/approvals/approvalFormFields';
+import { parseApproverType } from '../src/domains/approvals/expenseApproverService';
 import { validateCustomWorkflowGraph } from '../src/domains/approvals/customWorkflowService';
 
 test('原固定字段可保存为自定义字段，报销附件字段保持固定', () => {
@@ -46,4 +47,39 @@ test('已转换的表单按设计顺序展示，旧发布快照仍把固定字�
     { key: 'invoiceFiles', label: '发票附件', type: 'attachment', required: true, locked: true },
   ]);
   assert.deepEqual(converted.map(field => field.key), ['project', 'amount', 'invoiceFiles']);
+});
+
+test('报销自定义字段可以使用附件类型，其他类型仍然拒绝', () => {
+  const fields = [
+    { key: 'contract', label: '合同附件', type: 'attachment' as const, required: true },
+    { key: 'invoiceFiles', label: '发票附件', type: 'attachment' as const, required: true, locked: true },
+    { key: 'supplementFiles', label: '补充材料', type: 'attachment' as const, required: false, locked: true },
+  ];
+  const normalized = normalizeEditableFormFields('expense', fields, true);
+  assert.deepEqual(normalized[0], { key: 'contract', label: '合同附件', type: 'attachment', required: true });
+  assert.throws(() => normalizeEditableFormFields('leave', [{ key: 'proof', label: '证明', type: 'attachment', required: false }], true), /字段类型无效|字段名称或标识重复/);
+});
+
+test('自定义审批编号可识别，表单只展示自定义字段', () => {
+  assert.equal(parseApproverType('c1234abcd'), 'c1234abcd');
+  assert.throws(() => parseApproverType('custom'));
+  assert.deepEqual(employeeApprovalFields('c1234abcd', [], [{ key: 'topic', label: '主题', type: 'text', required: true }]), [{ key: 'topic', label: '主题', type: 'text', required: true }]);
+  assert.throws(() => normalizeEditableFormFields('c1234abcd', [{ key: 'file', label: '附件', type: 'attachment', required: false }], true));
+});
+
+test('报销附件按字段归组，每个字段最多 9 个且必填字段不能为空', () => {
+  const fields = [
+    { key: 'contract', label: '合同附件', type: 'attachment' as const, required: true },
+    { key: 'supplementFiles', label: '补充材料', type: 'attachment' as const, required: false },
+    { key: 'invoiceFiles', label: '发票附件', type: 'attachment' as const, required: true },
+  ];
+  const grouped = partitionExpenseAttachments(fields, [
+    { name: '说明', fileID: 'uploads/a.jpg' },
+    { fieldKey: 'contract', name: '合同', fileID: 'uploads/b.jpg' },
+  ]);
+  assert.deepEqual(grouped.supplement, [{ name: '说明', fileID: 'uploads/a.jpg' }]);
+  assert.deepEqual(grouped.fields, [{ key: 'contract', label: '合同附件', files: [{ name: '合同', fileID: 'uploads/b.jpg' }] }]);
+  assert.throws(() => partitionExpenseAttachments(fields, []), /请上传合同附件/);
+  assert.throws(() => partitionExpenseAttachments(fields, [{ fieldKey: 'invoiceFiles', name: '票', fileID: 'uploads/c.jpg' }, { fieldKey: 'contract', name: '合同', fileID: 'uploads/b.jpg' }]), /附件字段无效/);
+  assert.throws(() => partitionExpenseAttachments(fields, Array.from({ length: 10 }, (_, index) => ({ fieldKey: 'contract', name: `文件${index}`, fileID: `uploads/${index}.jpg` }))), /最多上传 9 张/);
 });

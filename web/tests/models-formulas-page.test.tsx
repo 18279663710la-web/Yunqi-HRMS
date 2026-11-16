@@ -60,15 +60,16 @@ test('入职申请表设置是独立子页面且限制超级管理员', () => {
   assert.ok(!denied.includes('新建模板'));
 });
 
-test('五类审批各显示自己的流程画布，不显示类型选择，也不显示 AI 审批规则', () => {
+test('审批流程页显示类型选择和对应流程画布，不显示 AI 审批规则', () => {
   for (const type of ['leave', 'expense', 'overtime', 'travel', 'purchase'] as const) {
     const html = renderToStaticMarkup(<App><ApprovalManagementView role="super_admin" type={type} /></App>);
-    assert.ok(html.includes('salary-model-entries'));
-    assert.ok(!html.includes('选择审批类型'));
+    assert.ok(html.includes('审批流程'));
+    assert.ok(html.includes('aria-label="审批类型"'));
+    assert.ok(html.includes('workflow-canvas') || html.includes('workflow-canvas-placeholder'));
     assert.ok(!html.includes('submodule-header'));
-    assert.match(html, /<button[^>]*disabled[^>]*>清空<\/button>/);
-    assert.match(html, /<button[^>]*disabled[^>]*>保存<\/button>/);
-    assert.match(html, /<button(?=[^>]*aria-label="添加节点")[^>]*>/);
+    assert.match(html, /aria-label="清空画布"/);
+    assert.match(html, /aria-label="保存"/);
+    assert.match(html, /aria-label="添加节点"/);
     assert.equal(html.includes('AI 审批规则'), false);
   }
   const denied = renderToStaticMarkup(<App><ApprovalManagementView role="hr_admin" type="leave" /></App>);

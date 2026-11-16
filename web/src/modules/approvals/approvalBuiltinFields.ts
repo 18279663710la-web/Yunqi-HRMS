@@ -46,9 +46,10 @@ const BUILTIN_FIELDS: Record<CustomApprovalType, CustomApprovalField[]> = {
 };
 
 /** 未初始化的设计稿补上原固定字段。报销附件和加班起止时间始终按固定规格保留。 */
-export function composeApprovalFormFields(type: CustomApprovalType, saved: CustomApprovalField[], initialized: boolean): CustomApprovalField[] {
+export function composeApprovalFormFields(type: string, saved: CustomApprovalField[], initialized: boolean): CustomApprovalField[] {
+  if (!(type in BUILTIN_FIELDS)) return saved.map(field => ({ ...field, ...(field.options ? { options: [...field.options] } : {}) }));
   const keys = new Set(saved.map(field => field.key));
-  const seeded = initialized ? [] : BUILTIN_FIELDS[type].filter(field => !keys.has(field.key));
+  const seeded = initialized ? [] : BUILTIN_FIELDS[type as CustomApprovalType].filter(field => !keys.has(field.key));
   const next = [...seeded, ...saved.map(field => ({ ...field, ...(field.options ? { options: [...field.options] } : {}) }))];
   if (type === 'overtime') {
     for (const spec of OVERTIME_LOCKED) {

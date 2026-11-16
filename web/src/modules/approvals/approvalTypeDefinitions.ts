@@ -8,6 +8,21 @@ interface ApprovalTypeDefinition {
   choices: Array<{ value: string; label: string; options: string[] }>;
 }
 
+export const APPROVAL_TYPES: CustomApprovalType[] = ['leave', 'expense', 'overtime', 'travel', 'purchase'];
+
+export function isCustomApprovalType(type: string): boolean {
+  return /^c[a-z0-9]{8}$/.test(type);
+}
+
+export function approvalTypeFromSearch(type: string | null): string {
+  if (type && (APPROVAL_TYPES.includes(type as CustomApprovalType) || isCustomApprovalType(type))) return type;
+  return 'leave';
+}
+
+export function definitionFor(type: string): ApprovalTypeDefinition {
+  return APPROVAL_TYPE_DEFINITIONS[type as CustomApprovalType] ?? { name: '自定义', fixedFields: [], choices: [] };
+}
+
 export const APPROVAL_TYPE_DEFINITIONS: Record<CustomApprovalType, ApprovalTypeDefinition> = {
   expense: { name: '报销', fixedFields: ['发票附件', '补充材料'], numericCondition: { value: 'amount', label: '报销金额（元）' }, choices: [{ value: 'expenseType', label: '报销类型', options: ['差旅费', '招待费', '办公用品', '交通费', '其他'] }] },
   leave: { name: '请假', fixedFields: [], numericCondition: { value: 'days', label: '请假时长（天）' }, choices: [{ value: 'leaveType', label: '请假类型', options: ['事假', '病假', '年假', '调休', '婚假', '产假'] }] },
@@ -16,6 +31,6 @@ export const APPROVAL_TYPE_DEFINITIONS: Record<CustomApprovalType, ApprovalTypeD
   purchase: { name: '采购', fixedFields: [], numericCondition: { value: 'amount', label: '预估金额（元）' }, choices: [] },
 };
 
-export function isNodeAvailable(type: CustomApprovalType | undefined, kind: CustomApprovalNodeKind): boolean {
+export function isNodeAvailable(type: string | undefined, kind: CustomApprovalNodeKind): boolean {
   return kind !== 'form' && (!['verify', 'ai'].includes(kind) || type === 'expense');
 }

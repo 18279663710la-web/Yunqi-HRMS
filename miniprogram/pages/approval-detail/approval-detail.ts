@@ -51,6 +51,7 @@ interface DetailCustom {
   retryAi(): Promise<void>;
   onPreviewInvoice(e: TapEvent): void;
   onPreviewAttachment(e: TapEvent): void;
+  onPreviewFieldAttachment(e: TapEvent): void;
   copyId(): void;
 }
 
@@ -97,6 +98,7 @@ Page<DetailData, DetailCustom>({
       const raw = await approvalsApi.getApprovalDetail(this.data.id);
       raw.invoices = (raw.invoices || []).map((item) => ({ ...item, fileID: item.fileID ? resolveFileUrl(item.fileID) : '' }));
       raw.attachments = (raw.attachments || []).map((item) => ({ ...item, fileID: resolveFileUrl(item.fileID) }));
+      raw.fieldAttachments = (raw.fieldAttachments || []).map((group) => ({ ...group, files: group.files.map((file) => ({ ...file, fileID: resolveFileUrl(file.fileID) })) }));
       const visibleTimeline = raw.timeline.filter((node) => node.role !== '系统查验' && node.role !== 'AI 审批');
       const timeline: TimelineViewNode[] = visibleTimeline.map((n, i) => ({
         ...n,
@@ -226,6 +228,13 @@ Page<DetailData, DetailCustom>({
     const list = this.data.detail?.attachments || [];
     const index = Number(e.currentTarget.dataset.index) || 0;
     if (list[index]) wx.previewImage({ current: list[index].fileID, urls: list.map((item) => item.fileID) });
+  },
+
+  onPreviewFieldAttachment(e: TapEvent) {
+    const groupIndex = Number(e.currentTarget.dataset.groupIndex) || 0;
+    const index = Number(e.currentTarget.dataset.index) || 0;
+    const files = this.data.detail?.fieldAttachments?.[groupIndex]?.files || [];
+    if (files[index]) wx.previewImage({ current: files[index].fileID, urls: files.map((item) => item.fileID) });
   },
 
   onPreviewInvoice(e: TapEvent) {

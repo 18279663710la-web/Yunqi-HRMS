@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Empty, Input, Modal, Select, Space, Spin, Switch } from 'antd';
-import { getCustomWorkflowApproverCandidates, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type CustomApprovalType, type ExpenseApproverEmployee } from './api';
+import { getCustomWorkflowApproverCandidates, type CustomApprovalCondition, type CustomApprovalField, type CustomApprovalNodeConfig, type ExpenseApproverEmployee } from './api';
 import type { ApprovalEdge, ApprovalNode } from './customApprovalWorkflowGraph';
-import { APPROVAL_TYPE_DEFINITIONS } from './approvalTypeDefinitions';
+import { definitionFor } from './approvalTypeDefinitions';
 
 export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fields, hasPendingApiKey, onCancel, onSave }: {
-  approvalType: CustomApprovalType;
+  approvalType: string;
   node: ApprovalNode; nodes: ApprovalNode[]; edges: ApprovalEdge[]; fields: CustomApprovalField[];
   hasPendingApiKey?: boolean;
   onCancel: () => void; onSave: (config: CustomApprovalNodeConfig | undefined, routes?: Record<string, CustomApprovalCondition[]>, apiKey?: string) => void;
@@ -27,7 +27,7 @@ export function CustomApprovalNodeEditor({ approvalType, node, nodes, edges, fie
   const [verifyInvoice, setVerifyInvoice] = useState(node.data.config?.verifyInvoice !== false);
   const outgoing = edges.filter(edge => edge.source === node.id);
   const [routes, setRoutes] = useState<Record<string, CustomApprovalCondition[]>>(() => Object.fromEntries(outgoing.map(edge => [edge.id, edge.data?.conditions?.map(item => ({ ...item })) ?? []])));
-  const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
+  const definition = definitionFor(approvalType);
   const numericField = definition.numericCondition?.value;
   const known = new Set([...(numericField ? [numericField] : []), ...definition.choices.map(choice => choice.value)]);
   const fieldOptions = [

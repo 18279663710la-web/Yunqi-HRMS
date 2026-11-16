@@ -8,7 +8,7 @@ import { readFixedWorkflowTestFields, validateWorkflowTestCase, normalizeFixedWo
 import { employeeApprovalFields } from './approvalFormFields';
 import { runWorkflowTests } from './customWorkflowSimulation';
 
-export async function runSavedWorkflowTests(type: ApprovalApproverType, adminId: number) {
+export async function runSavedWorkflowTests(type: string, adminId: number) {
   const [workflow, document, fixedFields, candidates] = await Promise.all([
     readCustomWorkflow(type), readWorkflowTestCases(type), readFixedWorkflowTestFields(type), getCustomWorkflowApproverCandidates(),
   ]);

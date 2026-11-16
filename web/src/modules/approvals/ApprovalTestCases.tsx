@@ -4,7 +4,7 @@ import { createWorkflowTestCase, reconcileWorkflowCases, withDerivedTestValues }
 import { saveWorkflowTestCases, type CustomApprovalType, type WorkflowTestCasesDocument, type WorkflowTestField } from './api';
 
 export function ApprovalTestCases({ approvalType, fields, document, onCancel, onSaved }: {
-  approvalType: CustomApprovalType;
+  approvalType: string;
   fields: WorkflowTestField[];
   document: WorkflowTestCasesDocument;
   onCancel: () => void;

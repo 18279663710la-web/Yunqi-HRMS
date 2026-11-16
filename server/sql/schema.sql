@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS `approval_types` (
   `color` VARCHAR(20) NOT NULL,
   `description` VARCHAR(100) NOT NULL,
   `fields_json` JSON NOT NULL,
-  `sort_order` INT NOT NULL DEFAULT 0
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `is_custom` TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `hr_settings` (
@@ -530,6 +531,7 @@ CREATE TABLE IF NOT EXISTS `expense_attachments` (
   `approval_id` VARCHAR(30) NOT NULL,
   `file_id` VARCHAR(200) NOT NULL,
   `name` VARCHAR(100) NOT NULL,
+  `field_key` VARCHAR(40) NULL,
   KEY `idx_expense_attachment_approval` (`approval_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -563,6 +565,7 @@ CREATE TABLE IF NOT EXISTS `approvals` (
   KEY `idx_approvals_applicant` (`applicant_id`),
   KEY `idx_approvals_applicant_sort` (`applicant_id`, `urgent`, `created_at`, `id`),
   KEY `idx_approvals_type_status_applicant` (`type`, `status`, `applicant_id`),
+  KEY `idx_approvals_type_created` (`type`, `created_at`),
   KEY `idx_approvals_sort` (`urgent`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

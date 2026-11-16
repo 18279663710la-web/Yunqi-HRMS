@@ -4,19 +4,21 @@ import { createWorkspaceTabs, openWorkspaceTab, closeWorkspaceTab, workspaceTabF
 
 const loc = (pathname: string, search = '') => ({ pathname, search, hash: '', state: null, key: 'test' });
 
-test('五类审批各自打开独立页签，旧入口仍指向请假审批', () => {
+test('五类审批共用审批流程页签，旧入口也进入该页签', () => {
   let tabs = createWorkspaceTabs(loc('/dashboard'));
-  const types = [['leave', '请假审批'], ['expense', '报销审批'], ['overtime', '加班审批'], ['travel', '出差审批'], ['purchase', '采购审批']];
-  for (const [type] of types) tabs = openWorkspaceTab(tabs, loc(`/approvals/${type}`));
-  assert.deepEqual(tabs.slice(1).map(tab => [tab.key, tab.label]), types.map(([type, label]) => [`/approvals/${type}`, label]));
-  assert.equal(workspaceTabForLocation(loc('/approvals')).key, '/approvals/leave');
+  for (const type of ['leave', 'expense', 'overtime', 'travel', 'purchase']) tabs = openWorkspaceTab(tabs, loc(`/approvals/${type}`));
+  tabs = openWorkspaceTab(tabs, loc('/approvals/workflow', '?type=expense'));
+  assert.deepEqual(tabs.slice(1).map(tab => [tab.key, tab.label]), [['/approvals/workflow', '审批流程']]);
+  assert.equal(tabs[1].location.search, '?type=expense');
+  assert.equal(workspaceTabForLocation(loc('/approvals')).key, '/approvals/workflow');
 });
 
 test('首页固定，直接访问子模块时一并打开对应页签', () => {
   const tabs = createWorkspaceTabs(loc('/models-formulas/salary'));
   assert.deepEqual(tabs.map(tab => [tab.key, tab.label]), [['/dashboard', '首页'], ['/models-formulas/salary', '薪资构成模型']]);
   assert.equal(workspaceTabForLocation(loc('/hr/payroll')).key, '/hr/payroll-batches');
-  assert.equal(workspaceTabForLocation(loc('/approvals/expense')).label, '报销审批');
+  assert.equal(workspaceTabForLocation(loc('/approvals/expense')).label, '审批流程');
+  assert.equal(workspaceTabForLocation(loc('/approvals/summary')).label, '审批汇总');
 });
 
 test('旧离职申请表地址回到出勤率绩效规则', () => {
@@ -25,12 +27,12 @@ test('旧离职申请表地址回到出勤率绩效规则', () => {
   assert.equal(tab.label, '出勤率绩效规则');
 });
 
-test('旧流程页面地址复用请假审批页签', () => {
+test('旧流程页面地址复用审批流程页签', () => {
   const oldTab = workspaceTabForLocation(loc('/models-formulas/payroll-workflow'));
-  assert.equal(oldTab.key, '/approvals/leave');
-  assert.equal(oldTab.label, '请假审批');
+  assert.equal(oldTab.key, '/approvals/workflow');
+  assert.equal(oldTab.label, '审批流程');
   const tabs = openWorkspaceTab(createWorkspaceTabs(loc('/models-formulas/payroll-workflow')), loc('/approvals/custom-workflow'));
-  assert.equal(tabs.filter(tab => tab.key === '/approvals/leave').length, 1);
+  assert.equal(tabs.filter(tab => tab.key === '/approvals/workflow').length, 1);
 });
 
 test('重复打开复用已有页签并更新地址参数', () => {

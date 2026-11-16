@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type DragEvent } from 'react';
 import { CheckCircleOutlined, DeleteOutlined, FileProtectOutlined, FileTextOutlined, ForkOutlined, PlayCircleOutlined, RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { Background, BackgroundVariant, Controls, Handle, Position, ReactFlow, useReactFlow, type NodeProps, type NodeTypes, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
-import type { CustomApprovalField, CustomApprovalNodeKind, CustomApprovalType } from './api';
+import type { CustomApprovalField, CustomApprovalNodeKind } from './api';
 import { verifyNodeSummary, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
-import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
+import { definitionFor, isNodeAvailable } from './approvalTypeDefinitions';
 
 export const APPROVAL_NODE_PRESETS = [
   { kind: 'start', title: '发起人', icon: PlayCircleOutlined },
@@ -45,7 +45,7 @@ interface Props {
   readOnly: boolean;
   onConfigure: (id: string) => void;
   fields: CustomApprovalField[];
-  approvalType?: CustomApprovalType;
+  approvalType?: string;
 }
 
 export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdgesChange, onConnect, onNodesDelete, onAdd, addRequest, readOnly, onConfigure, fields, approvalType }: Props) {
@@ -75,7 +75,7 @@ export function CustomApprovalCanvas({ nodes, edges, tool, onNodesChange, onEdge
   }, [nodes, edges]);
   const displayEdges = useMemo(() => edges.map(edge => {
     const label = edge.data?.conditions?.map(condition => {
-      const definition = approvalType ? APPROVAL_TYPE_DEFINITIONS[approvalType] : undefined;
+      const definition = approvalType ? definitionFor(approvalType) : undefined;
       const name = condition.field === definition?.numericCondition?.value ? definition.numericCondition.label : definition?.choices.find(choice => choice.value === condition.field)?.label ?? fields.find(field => field.key === condition.field)?.label ?? condition.field;
       return `${name} ${condition.operator === 'gte' ? '≥' : condition.operator === 'lt' ? '<' : '='} ${condition.value}`;
     }).join(' 且 ');

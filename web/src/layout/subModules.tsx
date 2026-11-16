@@ -64,11 +64,9 @@ export const SUB_MODULES: SubModule[] = [
     icon: <ApprovalsIcon label="审批管理" />,
     sidebarId: 'approvals-sidebar',
     items: [
-      { key: '/approvals/leave', label: '请假审批' },
-      { key: '/approvals/expense', label: '报销审批' },
-      { key: '/approvals/overtime', label: '加班审批' },
-      { key: '/approvals/travel', label: '出差审批' },
-      { key: '/approvals/purchase', label: '采购审批' },
+      { key: '/approvals/workflow', label: '审批流程' },
+      { key: '/approvals/custom', label: '自定义审批' },
+      { key: '/approvals/summary', label: '审批汇总' },
     ],
   },
 ];

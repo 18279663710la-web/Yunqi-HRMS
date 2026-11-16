@@ -97,8 +97,17 @@ async function runMigrations(conn: Connection): Promise<void> {
   if (!(await hasIndex('approvals', 'idx_approvals_type_status_applicant'))) {
     await conn.query('ALTER TABLE `approvals` ADD INDEX `idx_approvals_type_status_applicant` (`type`, `status`, `applicant_id`)');
   }
+  if (!(await hasIndex('approvals', 'idx_approvals_type_created'))) {
+    await conn.query('ALTER TABLE `approvals` ADD INDEX `idx_approvals_type_created` (`type`, `created_at`)');
+  }
   if (!(await hasIndex('approval_timeline', 'idx_timeline_approver_approval'))) {
     await conn.query('ALTER TABLE `approval_timeline` ADD INDEX `idx_timeline_approver_approval` (`approver_id`, `state`, `approval_id`)');
+  }
+  if (!(await hasColumn('expense_attachments', 'field_key'))) {
+    await conn.query('ALTER TABLE `expense_attachments` ADD COLUMN `field_key` VARCHAR(40) NULL AFTER `name`');
+  }
+  if (!(await hasColumn('approval_types', 'is_custom'))) {
+    await conn.query('ALTER TABLE `approval_types` ADD COLUMN `is_custom` TINYINT(1) NOT NULL DEFAULT 0 AFTER `sort_order`');
   }
 
   const [batchMonthIndexes] = await conn.query<mysql.RowDataPacket[]>(

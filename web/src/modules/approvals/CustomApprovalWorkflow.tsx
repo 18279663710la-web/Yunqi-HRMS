@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
-import { ClearOutlined, CloudUploadOutlined, DragOutlined, ExperimentOutlined, FileSearchOutlined, FormOutlined, PlusOutlined, SaveOutlined, SelectOutlined } from '@ant-design/icons';
-import { Alert, App, Button, Tooltip } from 'antd';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ClearOutlined, CloudUploadOutlined, DeleteOutlined, DragOutlined, ExperimentOutlined, FileSearchOutlined, FormOutlined, PlusOutlined, SaveOutlined, SelectOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Select, Tooltip, Typography } from 'antd';
 import { ReactFlowProvider, applyEdgeChanges, applyNodeChanges, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
 import { APPROVAL_NODE_PRESETS, CustomApprovalCanvas } from './CustomApprovalCanvas';
 import { ExpenseFormDesigner } from './ExpenseFormDesigner';
 import { CustomApprovalNodeEditor } from './CustomApprovalNodeEditor';
 import { ApprovalTestCases } from './ApprovalTestCases';
 import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serializeApprovalWorkflow, type ApprovalEdge, type ApprovalNode } from './customApprovalWorkflowGraph';
-import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, getWorkflowTestFields, getWorkflowTestCases, testSavedWorkflow, publishWorkflow, getWorkflowPublication, type WorkflowTestCasesDocument, type WorkflowTestField, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
+import { deleteCustomApprovalType, getApprovalTypeOptions, getCustomApprovalWorkflow, saveCustomApprovalWorkflow, getWorkflowTestFields, getWorkflowTestCases, testSavedWorkflow, publishWorkflow, getWorkflowPublication, type WorkflowTestCasesDocument, type WorkflowTestField, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
 import { FallbackApproverSelect } from './FallbackApproverSelect';
-import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
-import { SubModuleHeader } from '../../components/SubModuleHeader';
+import { useWorkspaceActive } from '../../layout/WorkspaceContext';
+import { APPROVAL_TYPE_DEFINITIONS, APPROVAL_TYPES, definitionFor, isCustomApprovalType, isNodeAvailable } from './approvalTypeDefinitions';
 
 interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; fieldsInitialized: boolean; saved: string; pendingApiKeys: Record<string, string> }
 function fromDocument(document: WorkflowDocument): Draft {
@@ -21,19 +21,40 @@ function fromDocument(document: WorkflowDocument): Draft {
   return { version: document.version, nodes, edges, formFields, fieldsInitialized, saved: JSON.stringify(serializeApprovalWorkflow(document.version, nodes, edges, formFields, fieldsInitialized)), pendingApiKeys: {} };
 }
 
-export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomApprovalType }) {
+function emptyDraft(): Draft {
+  const nodes: ApprovalNode[] = [];
+  const edges: ApprovalEdge[] = [];
+  const formFields: CustomApprovalField[] = [];
+  return { version: 0, nodes, edges, formFields, fieldsInitialized: false, saved: JSON.stringify(serializeApprovalWorkflow(0, nodes, edges, formFields, false)), pendingApiKeys: {} };
+}
+
+export function CustomApprovalWorkflow({ approvalType, onTypeChange, title = '审批流程', headerExtra, onBeforeSave, extraDirty, onDeleted, composer, onResolveType, onPublished }: {
+  approvalType: string;
+  onTypeChange?: (type: string) => void;
+  title?: string;
+  headerExtra?: ReactNode;
+  onBeforeSave?: () => Promise<void>;
+  extraDirty?: boolean;
+  onDeleted?: () => void;
+  composer?: boolean;
+  onResolveType?: () => Promise<string>;
+  onPublished?: () => void;
+}) {
   const { message, modal } = App.useApp();
+  const workspaceActive = useWorkspaceActive();
   const [mounted, setMounted] = useState(false);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
-  const [drafts, setDrafts] = useState<Partial<Record<CustomApprovalType, Draft>>>({});
+  const [drafts, setDrafts] = useState<Partial<Record<string, Draft>>>({});
+  const [typeOptions, setTypeOptions] = useState<Array<{ value: string; label: string }>>(() => APPROVAL_TYPES.map(key => ({ value: key, label: `${APPROVAL_TYPE_DEFINITIONS[key].name}审批` })));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [published, setPublished] = useState<boolean | null>(null);
   const [publicationState, setPublicationState] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [publicationRetry, setPublicationRetry] = useState(0);
-  const [testEditor, setTestEditor] = useState<{ fields: WorkflowTestField[]; document: WorkflowTestCasesDocument } | null>(null);
+  const [testEditor, setTestEditor] = useState<{ type: string; fields: WorkflowTestField[]; document: WorkflowTestCasesDocument } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -43,10 +64,36 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
   const nextAdd = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
+  const serverType = useRef(composer ? '' : approvalType);
   const draft = drafts[approvalType];
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
+    if (headerExtra) return;
+    let active = true;
+    getApprovalTypeOptions().then(rows => {
+      if (!active) return;
+      const builtin = APPROVAL_TYPES.map(key => ({ value: key, label: `${APPROVAL_TYPE_DEFINITIONS[key].name}审批` }));
+      const custom = rows.filter(row => row.custom && row.published).map(row => ({ value: row.key, label: row.name }));
+      setTypeOptions([...builtin, ...custom]);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [headerExtra, workspaceActive]);
+  useEffect(() => {
+    setFormOpen(false);
+    setConfigNodeId(null);
+    setTestEditor(null);
+    setPanelOpen(false);
+    setAddRequest(null);
+  }, [approvalType]);
+  useEffect(() => {
+    if (!composer) return;
+    setPublished(false);
+    setPublicationState('ready');
+    setDrafts(current => current[approvalType] ? current : { ...current, [approvalType]: emptyDraft() });
+  }, [composer, approvalType]);
+  useEffect(() => {
+    if (composer) return;
     let active = true;
     setPublished(null);
     setPublicationState('loading');
@@ -54,8 +101,9 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
       .then((result) => { if (active) { setPublished(result !== null); setPublicationState('ready'); } })
       .catch(() => { if (active) setPublicationState('failed'); });
     return () => { active = false; };
-  }, [approvalType, publicationRetry]);
+  }, [composer, approvalType, publicationRetry]);
   useEffect(() => {
+    if (composer) return;
     if (drafts[approvalType]) { setLoading(false); setLoadError(''); return; }
     let active = true;
     setLoading(true); setLoadError('');
@@ -64,7 +112,7 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
     }).catch((error: Error) => { if (active) setLoadError(error.message || '加载流程失败'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [approvalType, retry]);
+  }, [composer, approvalType, retry]);
   useEffect(() => {
     if (!panelOpen) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -84,7 +132,15 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
       return previous ? { ...current, [approvalType]: update(previous) } : current;
     });
   };
-  const dirty = !!draft && (JSON.stringify(serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields, draft.fieldsInitialized)) !== draft.saved || Object.keys(draft.pendingApiKeys).length > 0);
+  const resolveServerType = async () => {
+    if (!composer) return approvalType;
+    const key = await onResolveType?.();
+    if (!key) throw new Error('请填写审批名称');
+    serverType.current = key;
+    return key;
+  };
+  const graphDirty = !!draft && (JSON.stringify(serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields, draft.fieldsInitialized)) !== draft.saved || Object.keys(draft.pendingApiKeys).length > 0);
+  const dirty = graphDirty || !!extraDirty;
   const configNode = draft?.nodes.find(node => node.id === configNodeId);
   const addNode = (kind: CustomApprovalNodeKind, position: { x: number; y: number }) => {
     if (!isNodeAvailable(approvalType, kind)) return;
@@ -122,7 +178,7 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
   };
   const saveFields = (fields: CustomApprovalField[]): boolean => {
     for (const edge of draft?.edges ?? []) for (const condition of edge.data?.conditions ?? []) {
-      const definition = APPROVAL_TYPE_DEFINITIONS[approvalType];
+      const definition = definitionFor(approvalType);
       if (condition.field === definition?.numericCondition?.value) continue;
       const field = fields.find(item => item.key === condition.field);
       const preset = definition?.choices.find(choice => choice.value === condition.field);
@@ -136,9 +192,10 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
     if (!draft || testing) return;
     setTesting(true);
     try {
-      const [fixed, document] = await Promise.all([getWorkflowTestFields(approvalType), getWorkflowTestCases(approvalType)]);
+      const type = await resolveServerType();
+      const [fixed, document] = await Promise.all([getWorkflowTestFields(type), getWorkflowTestCases(type)]);
       const customKeys = new Set(draft.formFields.map(field => field.key));
-      setTestEditor({ fields: [...draft.formFields.filter((field): field is WorkflowTestField => field.type !== 'attachment'), ...fixed.fields.filter(field => !customKeys.has(field.key))], document });
+      setTestEditor({ type, fields: [...draft.formFields.filter((field): field is WorkflowTestField => field.type !== 'attachment'), ...fixed.fields.filter(field => !customKeys.has(field.key))], document });
     } catch (error) { message.error((error as Error).message || '加载测试用例失败'); }
     finally { setTesting(false); }
   };
@@ -146,7 +203,7 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
     if (!draft || testing) return;
     setTesting(true);
     try {
-      const report = await testSavedWorkflow(approvalType);
+      const report = await testSavedWorkflow(serverType.current || approvalType);
       const graph = serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields, draft.fieldsInitialized);
       const titles: Record<string, string> = { start: '发起人', form: '申请表单', verify: '系统查验（模拟）', ai: 'AI 审批', approver: '审批人', branch: '条件分支', end: '结束' };
       const nodes = new Map(graph.nodes.map(node => [node.id, titles[node.kind]]));
@@ -160,7 +217,7 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
   };
   const runTests = () => {
     if (!draft || testing || saving || publishing) return;
-    if (dirty) {
+    if (dirty || (composer && !serverType.current)) {
       modal.confirm({ title: '保存流程后测试？', okText: '保存并测试', cancelText: '取消', onOk: async () => { if ((await save()) !== null) await runSavedTests(); } });
       return;
     }
@@ -169,13 +226,15 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
   const clear = () => modal.confirm({ title: '清空画布？', content: '清空后保存，才会更新设计稿。', okText: '清空', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => updateDraft(current => ({ ...current, nodes: [], edges: [], pendingApiKeys: {} })) });
   const save = async (): Promise<number | null> => {
     if (!draft || saving || publishing) return null;
-    if (!dirty) return draft.version;
-    const type = approvalType;
+    if (!dirty && !(composer && !serverType.current)) return draft.version;
     setSaving(true);
+    try { await onBeforeSave?.(); } catch (error) { setSaving(false); message.error((error as Error).message || '保存失败，请重试'); return null; }
     try {
+      const type = await resolveServerType();
+      if (!graphDirty) { message.success('流程设计稿已保存'); return draft.version; }
       const credentials = Object.entries(draft.pendingApiKeys).map(([nodeId, apiKey]) => ({ nodeId, apiKey }));
       const saved = await saveCustomApprovalWorkflow(type, serializeApprovalWorkflow(draft.version, draft.nodes, draft.edges, draft.formFields, draft.fieldsInitialized), credentials);
-      setDrafts(current => ({ ...current, [type]: fromDocument(saved) }));
+      setDrafts(current => ({ ...current, [approvalType]: fromDocument(saved) }));
       message.success('流程设计稿已保存');
       return saved.version;
     } catch (error) { message.error((error as Error).message || '保存失败，请重试'); return null; }
@@ -186,29 +245,74 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
     if (publishing) return;
     setPublishing(true);
     try {
-      const cases = await getWorkflowTestCases(approvalType);
-      await publishWorkflow(approvalType, version, cases.version);
-      setPublished(true);
+      const type = serverType.current || await resolveServerType();
+      const cases = await getWorkflowTestCases(type);
+      await publishWorkflow(type, version, cases.version);
       message.success('审批流程已发布');
+      if (composer) onPublished?.();
+      else setPublished(true);
     } catch (error) { message.error((error as Error).message || '发布失败'); }
     finally { setPublishing(false); }
   };
+  const removeApproval = () => {
+    if (!draft || loading || saving || testing || publishing || removing) return;
+    modal.confirm({
+      title: '删除该审批？',
+      okText: '确定删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        if (!isCustomApprovalType(approvalType)) {
+          message.error('内置审批不能删除');
+          return;
+        }
+        setRemoving(true);
+        try {
+          await deleteCustomApprovalType(approvalType);
+          setDrafts(current => {
+            const next = { ...current };
+            delete next[approvalType];
+            return next;
+          });
+          const remaining = typeOptions.filter(item => item.value !== approvalType);
+          setTypeOptions(remaining);
+          message.success('审批已删除');
+          onTypeChange?.(remaining.find(item => (APPROVAL_TYPES as readonly string[]).includes(item.value))?.value ?? 'leave');
+          onDeleted?.();
+        } catch (error) {
+          message.error((error as Error).message || '删除失败');
+        } finally {
+          setRemoving(false);
+        }
+      },
+    });
+  };
   const publish = () => {
-    if (!draft || loading || saving || testing || publishing) return;
-    if (dirty) {
+    if (!draft || loading || saving || testing || publishing || removing) return;
+    if (dirty || (composer && !serverType.current)) {
       modal.confirm({ title: '流程尚未保存，是否保存后发布？', okText: '保存并发布', cancelText: '取消', onOk: async () => { const version = await save(); if (version !== null) await publishSaved(version); } });
       return;
     }
     void publishSaved(draft.version);
   };
 
-  return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
-    <SubModuleHeader title={`${APPROVAL_TYPE_DEFINITIONS[approvalType].name}审批`} />
+  return <section className="payroll-workflow-page custom-approval-workflow" aria-label={title}>
+    <div className="employee-records-header">
+      <Typography.Title level={4} style={{ margin: 0 }}>{title}</Typography.Title>
+      {headerExtra ?? <Select
+        className="module-title-picker"
+        aria-label="审批类型"
+        value={approvalType}
+        options={typeOptions}
+        onChange={onTypeChange}
+        disabled={saving || testing || publishing}
+      />}
+    </div>
     <div className="filter-bar" role="toolbar" aria-label="流程操作">
       <Tooltip title="表单设计" arrow={false} overlayClassName="app-tooltip">
         <Button className="filter-circle" type="text" aria-label="表单设计" icon={<FormOutlined />} disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)} />
       </Tooltip>
-      {published === false && <FallbackApproverSelect approvalType={approvalType} />}
+      {published === false && !composer && !isCustomApprovalType(approvalType) && <FallbackApproverSelect approvalType={approvalType} />}
       <Tooltip title="清空画布" arrow={false} overlayClassName="app-tooltip">
         <Button className="filter-circle" type="text" aria-label="清空画布" icon={<ClearOutlined />} disabled={!draft || loading || saving || testing || publishing || (!draft.nodes.length && !draft.edges.length)} onClick={clear} />
       </Tooltip>
@@ -216,13 +320,16 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
         <Button className="filter-circle" type="text" aria-label="保存" icon={<SaveOutlined />} disabled={!draft || loading || saving || testing || publishing || !dirty} onClick={() => void save()} />
       </Tooltip>
       <div className="payroll-actions-right">
+        {!composer && <Tooltip title="删除" arrow={false} overlayClassName="app-tooltip">
+          <Button className="filter-circle filter-danger-circle" type="text" aria-label="删除审批" icon={<DeleteOutlined />} disabled={!draft || loading || saving || testing || publishing || removing || !isCustomApprovalType(approvalType)} onClick={removeApproval} />
+        </Tooltip>}
         <Tooltip title="发布" arrow={false} overlayClassName="app-tooltip">
-          <Button className="filter-circle filter-primary-circle" type="text" aria-label="发布" icon={<CloudUploadOutlined />} disabled={!draft || loading || saving || testing || publishing} onClick={publish} />
+          <Button className="filter-circle filter-primary-circle" type="text" aria-label="发布" icon={<CloudUploadOutlined />} disabled={!draft || loading || saving || testing || publishing || removing} onClick={publish} />
         </Tooltip>
       </div>
     </div>
     {loadError && <Alert type="error" message="流程加载失败" action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
-    {publicationState === 'failed' && <Alert type="warning" message="发布状态加载失败，指定审批人入口暂不可用" action={<Button size="small" onClick={() => setPublicationRetry(value => value + 1)}>重试</Button>} />}
+    {publicationState === 'failed' && !composer && !isCustomApprovalType(approvalType) && <Alert type="warning" message="发布状态加载失败，指定审批人入口暂不可用" action={<Button size="small" onClick={() => setPublicationRetry(value => value + 1)}>重试</Button>} />}
     <div className="payroll-workflow-editor">
       <div className="workflow-stage">
         <div className="workflow-rail" role="toolbar" aria-label="画布工具">
@@ -253,6 +360,6 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
       }));
       setConfigNodeId(null);
     }} />}
-    {testEditor && <ApprovalTestCases approvalType={approvalType} fields={testEditor.fields} document={testEditor.document} onCancel={() => setTestEditor(null)} onSaved={() => setTestEditor(null)} />}
+    {testEditor && <ApprovalTestCases approvalType={testEditor.type} fields={testEditor.fields} document={testEditor.document} onCancel={() => setTestEditor(null)} onSaved={() => setTestEditor(null)} />}
   </section>;
 }

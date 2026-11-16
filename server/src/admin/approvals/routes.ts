@@ -7,6 +7,8 @@ import { runSavedWorkflowTests } from '../../domains/approvals/customWorkflowTes
 import { publishCustomWorkflow, readPublishedWorkflow } from '../../domains/approvals/customWorkflowPublication';
 import { readFixedWorkflowTestFields } from '../../domains/approvals/customWorkflowTestFields';
 import { readWorkflowTestCases, saveWorkflowTestCases, workflowTestCasesSchema } from '../../domains/approvals/customWorkflowTestCases';
+import { createCustomApprovalType, deleteCustomApprovalType, listApprovalTypeOptions, renameCustomApprovalType } from '../../domains/approvals/customApprovalCatalog';
+import { getApprovalSummary, getApprovalSummaryFields, getApprovalSummaryOptions } from '../../domains/approvals/approvalSummaryService';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
 import { requireSuperAdmin } from '../admin-accounts/authMiddleware';
 import { parse } from '../../shared/middleware/validate';
@@ -15,9 +17,59 @@ import { success } from '../../shared/utils/response';
 import { adminOf } from '../adminContext';
 
 const router = Router();
+const nameSchema = z.object({ name: z.string().trim().min(1).max(20) });
 
-router.get('/approval-workflows/:type/approver-candidates', requireSuperAdmin, asyncHandler(async (req, res) => {
-  parseApproverType(req.params.type);
+router.get('/approval-types', requireSuperAdmin, asyncHandler(async (_req, res) => {
+  success(res, await listApprovalTypeOptions());
+}));
+
+const summaryQuerySchema = z.object({
+  type: z.string().trim().min(1).max(20),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  organization: z.string().trim().max(20).optional(),
+  position: z.string().trim().max(100).optional(),
+  employee: z.string().trim().max(10).optional(),
+  groups: z.string().trim().max(60).optional(),
+  fields: z.string().trim().max(500).optional(),
+});
+
+router.get('/approval-summary-options', requireSuperAdmin, asyncHandler(async (_req, res) => {
+  success(res, await getApprovalSummaryOptions());
+}));
+
+const summaryFieldsSchema = z.object({ type: z.string().trim().min(1).max(20) });
+
+router.get('/approval-summary-fields', requireSuperAdmin, asyncHandler(async (req, res) => {
+  success(res, { fields: await getApprovalSummaryFields(parse(summaryFieldsSchema, req.query).type) });
+}));
+
+router.get('/approval-summary', requireSuperAdmin, asyncHandler(async (req, res) => {
+  success(res, await getApprovalSummary(parse(summaryQuerySchema, req.query)));
+}));
+
+router.post('/approval-types', requireSuperAdmin, asyncHandler(async (req, res) => {
+  const body = parse(nameSchema, req.body);
+  const created = await createCustomApprovalType(body.name, adminOf(req).id);
+  await recordAdminLog(adminOf(req), '新建自定义审批', 'approval_types', created.key, { name: created.name });
+  success(res, created);
+}));
+
+router.put('/approval-types/:key', requireSuperAdmin, asyncHandler(async (req, res) => {
+  const body = parse(nameSchema, req.body);
+  const renamed = await renameCustomApprovalType(req.params.key, body.name);
+  await recordAdminLog(adminOf(req), '修改自定义审批名称', 'approval_types', renamed.key, { name: renamed.name });
+  success(res, renamed);
+}));
+
+router.delete('/approval-types/:key', requireSuperAdmin, asyncHandler(async (req, res) => {
+  const key = parseApproverType(req.params.key);
+  await deleteCustomApprovalType(key);
+  await recordAdminLog(adminOf(req), '删除自定义审批', 'approval_types', key, {});
+  success(res, { key });
+}));
+
+router.get('/approval-workflows/:type/approver-candidates', requireSuperAdmin, asyncHandler(async (_req, res) => {
   success(res, await getCustomWorkflowApproverCandidates());
 }));
 

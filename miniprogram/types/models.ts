@@ -218,6 +218,7 @@ export interface ApprovalDetail extends ApprovalDecorated {
   aiRetryAvailable?: boolean;
   workflowAiStatus?: 'queued' | 'processing' | 'failed' | null;
   attachments?: Array<{ name: string; fileID: string }>;
+  fieldAttachments?: Array<{ key: string; label: string; files: Array<{ name: string; fileID: string }> }>;
   aiAdvice?: {
     status: 'queued' | 'processing' | 'completed' | 'failed' | 'no_rules' | 'unconfigured';
     advice: ExpenseAiAdvice | null;
@@ -468,6 +469,7 @@ export interface CreateApprovalPayload {
   form: ApprovalFormItem[];
   invoices: Invoice[];
   attachments?: Array<{ name: string; fileID: string }>;
+  fieldAttachments?: Array<{ fieldKey: string; name: string; fileID: string }>;
   urgent?: boolean;
   workflowPublicationVersion?: number;
   workflowValues?: Record<string, string>;

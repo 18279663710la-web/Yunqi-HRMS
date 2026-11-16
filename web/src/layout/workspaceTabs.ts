@@ -5,9 +5,11 @@ export interface WorkspaceTab { key: string; label: string; location: Location }
 const HOME_KEY = '/dashboard';
 const aliases: Record<string, string> = {
   '/': HOME_KEY, '/hr': '/hr/onboarding', '/hr/payroll': '/hr/payroll-batches',
-  '/models-formulas': '/models-formulas/attendance', '/approvals': '/approvals/leave',
+  '/models-formulas': '/models-formulas/attendance', '/approvals': '/approvals/workflow',
   '/attendance': '/attendance/groups',
-  '/models-formulas/payroll-workflow': '/approvals/leave', '/approvals/custom-workflow': '/approvals/leave',
+  '/models-formulas/payroll-workflow': '/approvals/workflow', '/approvals/custom-workflow': '/approvals/workflow',
+  '/approvals/leave': '/approvals/workflow', '/approvals/expense': '/approvals/workflow',
+  '/approvals/overtime': '/approvals/workflow', '/approvals/travel': '/approvals/workflow', '/approvals/purchase': '/approvals/workflow',
   '/models-formulas/offboarding-template': '/models-formulas/attendance',
 };
 const homeLocation: Location = { pathname: HOME_KEY, search: '', hash: '', state: null, key: 'workspace-home' };

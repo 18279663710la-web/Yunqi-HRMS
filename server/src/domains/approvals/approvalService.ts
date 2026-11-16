@@ -21,12 +21,12 @@ import { signExpenseFile } from './expenseFileAccess';
 import { calculateLeaveDays } from '../../shared/utils/leaveDuration';
 import { checkDuplicate, verifyInvoice } from '../invoices/invoiceService';
 import { ensureInvoicesVerified } from '../invoices/tencentInvoiceVerifier';
-import { getApprovalApprover, parseApproverType, getActiveApproverCandidates } from './expenseApproverService';
+import { getApprovalApprover, isCustomApprovalType, parseApproverType, getActiveApproverCandidates } from './expenseApproverService';
 import { readPublishedWorkflow } from './customWorkflowPublication';
 import { expenseVerificationSelection, planWorkflowExecution } from './customWorkflowExecutionPlan';
 import { overtimeConflictMessage, overtimeInterval } from './overtimeOverlap';
 import { ownWorkflowValue, validateWorkflowTestCase, type WorkflowTestField } from './customWorkflowTestFields';
-import { employeeApprovalFields } from './approvalFormFields';
+import { employeeApprovalFields, partitionExpenseAttachments } from './approvalFormFields';
 import { advanceWorkflowTimeline } from './workflowAdvance';
 import { getWorkflowAiState } from './workflowAiWorker';
 import { enqueueExpenseAi, getExpenseAiAdvice } from './expenseAiService';
@@ -102,6 +102,7 @@ export interface CreateApprovalPayload {
   form?: ApprovalFormItem[];
   invoices?: Array<Partial<Invoice> & Record<string, unknown>>;
   attachments?: Array<{ name: string; fileID: string }>;
+  fieldAttachments?: Array<{ fieldKey: string; name: string; fileID: string }>;
   urgent?: boolean;
   workflowPublicationVersion?: number;
   workflowValues?: Record<string, string>;
@@ -347,7 +348,27 @@ export async function getApprovalDetail(id: string, user: CurrentUser, options?:
   const [approval] = await hydrateApprovals(rows);
   if (!approval || !canReadApproval(user, approval)) return null;
   const decorated = decorateApproval(approval, user);
-  const attachments = approval.type === 'expense' ? await queryRows<{ name: string; fileID: string }>('SELECT name, file_id AS fileID FROM expense_attachments WHERE approval_id = ? ORDER BY id', [approval.id]) : [];
+  const attachmentRows = approval.type === 'expense'
+    ? await queryRows<{ name: string; fileID: string; fieldKey: string | null }>('SELECT name, file_id AS fileID, field_key AS fieldKey FROM expense_attachments WHERE approval_id = ? ORDER BY id', [approval.id])
+    : [];
+  const supplementRows = attachmentRows.filter((item) => !item.fieldKey || item.fieldKey === 'supplementFiles');
+  const customRows = attachmentRows.filter((item) => item.fieldKey && item.fieldKey !== 'supplementFiles');
+  const workflowRow = customRows.length
+    ? await queryOne<{ workflow_json: string | { formFields?: Array<{ key: string; label: string }> } }>('SELECT workflow_json FROM approval_workflow_instances WHERE approval_id = ?', [approval.id])
+    : null;
+  const workflowGraph = workflowRow ? parseJson(workflowRow.workflow_json, {} as { formFields?: Array<{ key: string; label: string }> }) : {};
+  const formFieldLabels = new Map((workflowGraph.formFields ?? []).map((field) => [field.key, field.label]));
+  const fieldOrder = (workflowGraph.formFields ?? []).map((field) => field.key);
+  const grouped = new Map<string, Array<{ name: string; fileID: string }>>();
+  for (const item of customRows) {
+    const key = item.fieldKey as string;
+    const files = grouped.get(key) ?? [];
+    files.push({ name: item.name, fileID: item.fileID ? signExpenseFile(item.fileID) : item.fileID });
+    grouped.set(key, files);
+  }
+  const orderedKeys = [...fieldOrder.filter((key) => grouped.has(key)), ...[...grouped.keys()].filter((key) => !fieldOrder.includes(key))];
+  const fieldAttachments = orderedKeys.map((key) => ({ key, label: formFieldLabels.get(key) || key, files: grouped.get(key) ?? [] }));
+  const attachments = supplementRows.map((item) => ({ name: item.name, fileID: item.fileID ? signExpenseFile(item.fileID) : item.fileID }));
   const isApprover = approval.timeline.some((node) => node.approverId === user.id);
   const workflowAi = approval.workflowInstance ? await getWorkflowAiState(approval.id, approval.applicantId === user.id || isApprover, isApprover) : null;
   const aiAdvice = workflowAi?.aiAdvice ?? (approval.type === 'expense' && isApprover ? await getExpenseAiAdvice(approval.id, user.id) : null);
@@ -364,7 +385,8 @@ export async function getApprovalDetail(id: string, user: CurrentUser, options?:
     node,
     timeline,
     invoices: decorated.invoices.map((invoice) => invoice.fileID ? { ...invoice, fileID: signExpenseFile(invoice.fileID) } : invoice),
-    attachments: attachments.map((item) => ({ ...item, fileID: item.fileID ? signExpenseFile(item.fileID) : item.fileID })),
+    attachments,
+    ...(fieldAttachments.length ? { fieldAttachments } : {}),
     aiAdvice,
     ...(workflowAi ? { aiRetryAvailable: workflowAi.aiRetryAvailable, workflowAiStatus: workflowAi.workflowAiStatus } : {}),
     ...(finalComment ? { finalComment } : {}),
@@ -493,7 +515,7 @@ export function approvalAssigneesFromSteps(
   return approvers;
 }
 
-/** 按当前表单预览将要出现的审批人。未发布类型返回原指定审批人，不创建单据。 */
+/** 按当前表单预览将要出现的审批人。未发布的内置类型返回原指定审批人；自定义审批必须已发布。不创建单据。 */
 export async function previewApprovalAssignees(payload: {
   type?: string;
   workflowValues?: Record<string, string>;
@@ -501,7 +523,10 @@ export async function previewApprovalAssignees(payload: {
 }): Promise<{ approvers: Array<{ id: string; name: string; role: string }>; expenseChecks: { checkDuplicate: boolean; verifyInvoice: boolean } }> {
   const approvalType = parseApproverType(String(payload.type || '').trim());
   const publication = await readPublishedWorkflow(approvalType);
-  if (!publication) return { approvers: [await getApprovalApprover(approvalType)], expenseChecks: { checkDuplicate: true, verifyInvoice: true } };
+  if (!publication) {
+    if (isCustomApprovalType(approvalType)) throw badRequest('审批流程未发布');
+    return { approvers: [await getApprovalApprover(approvalType)], expenseChecks: { checkDuplicate: true, verifyInvoice: true } };
+  }
   const values = { ...(payload.workflowValues || {}) };
   if (approvalType === 'leave') {
     const days = calculateLeaveDays(values.startDate || '', values.startClock || '', values.endDate || '', values.endClock || '');
@@ -594,7 +619,12 @@ export async function createApproval(
   const invoices = Array.isArray(payload.invoices)
     ? payload.invoices.map((inv, i) => normalizeInvoiceInput(inv, i))
     : [];
-  const attachments = typeKey === 'expense' && Array.isArray(payload.attachments) ? payload.attachments : [];
+  const rawAttachments = typeKey === 'expense' && Array.isArray(payload.attachments) ? payload.attachments : [];
+  const rawFieldAttachments = typeKey === 'expense' && Array.isArray(payload.fieldAttachments) ? payload.fieldAttachments : [];
+  const partitionedAttachments = typeKey === 'expense'
+    ? partitionExpenseAttachments(entryFields, [...rawAttachments, ...rawFieldAttachments])
+    : { supplement: [], fields: [] };
+  const attachments = partitionedAttachments.supplement;
   if (publication && typeKey === 'expense' && invoices.length) formWithInvoices.push({ label: '发票附件', value: `${invoices.length} 张，价税合计 ¥${invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0).toFixed(2)}` });
   if (typeKey === 'expense' && invoices.length === 0) throw badRequest('请至少添加一张发票');
   if (invoices.some((invoice) => invoice.isMock)) throw badRequest('模拟识别结果不能用于报销，请使用真实发票信息');
@@ -611,6 +641,7 @@ export async function createApproval(
   const candidates = plan ? await getActiveApproverCandidates(plan.steps.flatMap((step) => step.kind === 'approver' ? [step.approverId] : [])) : [];
   const candidateMap = new Map(candidates.map(candidate => [candidate.id, candidate]));
   if (plan?.steps.some(step => step.kind === 'approver' && !candidateMap.has(step.approverId))) throw badRequest('审批人账号不可用，请联系管理员');
+  if (!plan && isCustomApprovalType(approvalType)) throw badRequest('审批流程未发布');
   const configuredApprover = plan ? null : await getApprovalApprover(approvalType);
   const verification: Array<{ status: string; message: string; invoice: unknown; checkedAt: string }> = [];
   if (typeKey === 'expense' && checks.verifyInvoice) await ensureInvoicesVerified(invoices, async (invoice) => {
@@ -707,14 +738,22 @@ export async function createApproval(
     }
     if (typeKey === 'expense') {
       const loadOwned = (sql: string, params: unknown[]) => conn.query<RowDataPacket[]>(sql, params).then(([rows]) => rows as Array<{ file_id: string }>);
-      const ownedAttachments = await ownedUploadIds(user.id, attachments.map((attachment) => attachment.fileID), loadOwned);
-      for (const attachment of attachments) {
+      const storedAttachments = [
+        ...attachments.map((attachment) => ({ ...attachment, fieldKey: null as string | null })),
+        ...partitionedAttachments.fields.flatMap((group) => group.files.map((file) => ({ ...file, fieldKey: group.key }))),
+      ];
+      const ownedAttachments = await ownedUploadIds(user.id, storedAttachments.map((attachment) => attachment.fileID), loadOwned);
+      for (const attachment of storedAttachments) {
         if (!ownedAttachments.has(attachment.fileID)) throw badRequest('附件无效，请重新上传');
-        await conn.query('INSERT INTO expense_attachments (approval_id, file_id, name) VALUES (?, ?, ?)', [approvalId, attachment.fileID, attachment.name]);
+        await conn.query('INSERT INTO expense_attachments (approval_id, file_id, name, field_key) VALUES (?, ?, ?, ?)', [approvalId, attachment.fileID, attachment.name, attachment.fieldKey]);
       }
       const ownedInvoices = await ownedUploadIds(user.id, invoices.map((invoice) => invoice.fileID || ''), loadOwned);
       const aiInvoices = invoices.map((invoice) => ({ ...invoice, fileID: invoice.fileID && ownedInvoices.has(invoice.fileID) ? invoice.fileID : '' }));
-      const aiInput = { title, form: formWithInvoices, invoices: aiInvoices, verification, attachments };
+      const aiAttachments = [
+        ...attachments,
+        ...partitionedAttachments.fields.flatMap((group) => group.files.map((file) => ({ name: `${group.label}·${file.name}`, fileID: file.fileID }))),
+      ];
+      const aiInput = { title, form: formWithInvoices, invoices: aiInvoices, verification, attachments: aiAttachments };
       const hasWorkflowAi = !!plan?.steps.some(step => step.kind === 'ai');
       if (plan && hasWorkflowAi) {
         for (const [index, step] of plan.steps.entries()) if (step.kind === 'ai') {

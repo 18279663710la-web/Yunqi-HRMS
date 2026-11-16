@@ -6,8 +6,8 @@ React 管理后台工程，提供管理员界面、页面路由、业务 API 与
 
 ## 主要内容
 
-- 子目录：[src/](src/README.md)、[tests/](tests/README.md)。
-- 主要文件：`package.json`、`tsconfig.json`、`vite.config.ts`。
+- 子目录：[src/](src/README.md)、[tests/](tests/README.md)、[public/](public/README.md)。
+- 主要文件：`package.json`、`tsconfig.json`、`vite.config.ts`、`index.html`。
 
 ## 维护约束
 

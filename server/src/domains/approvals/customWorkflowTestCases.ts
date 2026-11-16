@@ -8,7 +8,7 @@ const caseSchema = z.object({ id: z.string().min(1).max(100), name: z.string().t
 export const workflowTestCasesSchema = z.object({ version: z.number().int().min(0), cases: z.array(caseSchema).max(50) }).strict();
 export type WorkflowTestCasesDocument = z.infer<typeof workflowTestCasesSchema>;
 
-export async function readWorkflowTestCases(type: ApprovalApproverType): Promise<WorkflowTestCasesDocument> {
+export async function readWorkflowTestCases(type: string): Promise<WorkflowTestCasesDocument> {
   const row = await queryOne<{ version: number; cases_json: string | unknown[] }>('SELECT version, cases_json FROM custom_approval_test_cases WHERE approval_type = ?', [type]);
   if (!row) return { version: 0, cases: [] };
   const cases = typeof row.cases_json === 'string' ? JSON.parse(row.cases_json) : row.cases_json;
@@ -17,7 +17,7 @@ export async function readWorkflowTestCases(type: ApprovalApproverType): Promise
   return result.data;
 }
 
-export async function saveWorkflowTestCases(type: ApprovalApproverType, document: WorkflowTestCasesDocument, adminId: number): Promise<WorkflowTestCasesDocument> {
+export async function saveWorkflowTestCases(type: string, document: WorkflowTestCasesDocument, adminId: number): Promise<WorkflowTestCasesDocument> {
   if (new Set(document.cases.map(item => item.id)).size !== document.cases.length) throw badRequest('测试用例编号重复');
   return transaction(async conn => {
     await conn.execute('INSERT IGNORE INTO custom_approval_test_cases (approval_type, version, cases_json, updated_by, updated_at) VALUES (?, 0, ?, ?, NOW())', [type, JSON.stringify([]), adminId]);
