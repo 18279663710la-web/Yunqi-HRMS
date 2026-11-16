@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   App as AntApp,
   Avatar,
+  Badge,
   Button,
   Col,
   DatePicker,
   Form,
   Input,
   Modal,
+  Popover,
   Row,
   Select,
   Space,
@@ -15,10 +17,12 @@ import {
   Table,
   Tabs,
   TimePicker,
+  Tooltip,
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined } from '@ant-design/icons';
+import { DownloadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
+import { FunnelIcon } from '../../layout/adminIcons';
 import dayjs, { type Dayjs } from 'dayjs';
 
 import { fetchAttendance, saveAttendancePunch } from './api';
@@ -330,67 +334,102 @@ export function AttendanceRecordsPage() {
 
   return (
     <section className="attendance-records-page" aria-label="考勤明细">
-      <SubModuleHeader title="考勤明细" />
-      <div className="attendance-records-entries">
-        <button className="attendance-records-entry" type="button" disabled={!data || (tab === 'summary' ? !data.employeeSummary.length : !data.list.length)} onClick={exportCsv}>{tab === 'summary' ? '导出月度汇总' : '导出明细'}</button>
-        <button className="attendance-records-entry" type="button" disabled={loading} onClick={() => void load()}>刷新</button>
+      <div className="employee-records-header">
+        <Typography.Title level={4} style={{ margin: 0 }}>考勤明细</Typography.Title>
+        <div className="filter-count">
+          {tab === 'daily' ? `统计日期：${data?.startDate || '—'}` : `统计范围：${data?.startDate || '—'} 至 ${data?.endDate || '—'}`}
+        </div>
+      </div>
+      <div className="filter-bar" role="toolbar" aria-label="考勤明细操作">
+        <Popover
+          arrow={false}
+          trigger="click"
+          placement="bottomLeft"
+          overlayClassName="filter-popover-overlay"
+          content={<div className="filter-popover">
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">{tab === 'daily' ? '日期' : '月份'}</span>
+              {tab === 'daily' ? (
+                <DatePicker
+                  aria-label="选择考勤日期"
+                  allowClear={false}
+                  value={day}
+                  disabledDate={(value) => value.isAfter(dayjs(), 'day')}
+                  onChange={(value) => { if (value) setDay(value.startOf('day')); }}
+                  style={{ flex: 1 }}
+                />
+              ) : (
+                <DatePicker
+                  aria-label="选择考勤月份"
+                  picker="month"
+                  allowClear={false}
+                  value={month}
+                  onChange={(value) => { if (value) setMonth(value.startOf('month')); }}
+                  style={{ flex: 1 }}
+                />
+              )}
+            </div>
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">职务</span>
+              <Select<JobCategoryName>
+                id="attendance-job-category"
+                aria-label="筛选职务"
+                style={{ flex: 1 }}
+                value={jobCategory}
+                allowClear
+                placeholder="全部职务"
+                options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
+                onChange={setJobCategory}
+              />
+            </div>
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">员工</span>
+              <Select
+                id="attendance-employee"
+                aria-label="筛选员工"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="全部员工"
+                style={{ flex: 1 }}
+                value={employeeId}
+                options={employeeOptions.map((e) => ({
+                  value: e.id,
+                  label: `${e.name} · ${e.position}`,
+                }))}
+                onChange={(value) => setEmployeeId(value)}
+              />
+            </div>
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">状态</span>
+              <Select
+                id="attendance-status"
+                aria-label="筛选状态"
+                style={{ flex: 1 }}
+                value={status}
+                options={STATUS_OPTIONS}
+                onChange={(value) => setStatus(value)}
+              />
+            </div>
+          </div>}
+        >
+          <Button
+            className="filter-circle filter-funnel"
+            type="text"
+            aria-label="筛选"
+            icon={<Badge dot={Boolean(jobCategory) || Boolean(employeeId) || status !== 'all'} color="#3D6EF7"><FunnelIcon /></Badge>}
+          />
+        </Popover>
+        <Tooltip title="刷新" arrow={false} overlayClassName="app-tooltip">
+          <Button className="filter-circle" type="text" aria-label="刷新" icon={<ReloadOutlined />} disabled={loading} onClick={() => void load()} />
+        </Tooltip>
+        <div className="payroll-actions-right">
+          <Tooltip title={tab === 'summary' ? '导出月度汇总' : '导出明细'} arrow={false} overlayClassName="app-tooltip">
+            <Button className="filter-circle" type="text" aria-label={tab === 'summary' ? '导出月度汇总' : '导出明细'} icon={<DownloadOutlined />} disabled={!data || (tab === 'summary' ? !data.employeeSummary.length : !data.list.length)} onClick={exportCsv} />
+          </Tooltip>
+        </div>
       </div>
       <div className="attendance-records-content">
-          <div className="filter-bar">
-          {tab === 'daily' ? (
-            <DatePicker
-              aria-label="选择考勤日期"
-              allowClear={false}
-              value={day}
-              disabledDate={(value) => value.isAfter(dayjs(), 'day')}
-              onChange={(value) => { if (value) setDay(value.startOf('day')); }}
-              style={{ width: 150 }}
-            />
-          ) : (
-            <DatePicker
-              aria-label="选择考勤月份"
-              picker="month"
-              allowClear={false}
-              value={month}
-              onChange={(value) => { if (value) setMonth(value.startOf('month')); }}
-              style={{ width: 140 }}
-            />
-          )}
-          <Select<JobCategoryName>
-            id="attendance-job-category"
-            aria-label="筛选职务"
-            style={{ width: 150 }}
-            value={jobCategory}
-            allowClear
-            placeholder="全部职务"
-            options={jobTitles.map(title => ({ value: title.name, label: title.name }))}
-            onChange={setJobCategory}
-          />
-          <Select
-            id="attendance-employee"
-            allowClear
-            showSearch
-            optionFilterProp="label"
-            placeholder="全部员工"
-            style={{ width: 230 }}
-            value={employeeId}
-            options={employeeOptions.map((e) => ({
-              value: e.id,
-              label: `${e.name} · ${e.position}`,
-            }))}
-            onChange={(value) => setEmployeeId(value)}
-          />
-          <Select
-            id="attendance-status"
-            style={{ width: 150 }}
-            value={status}
-            options={STATUS_OPTIONS}
-            onChange={(value) => setStatus(value)}
-          />
-          <div className="filter-count">
-            {tab === 'daily' ? `统计日期：${data?.startDate || '—'}` : `统计范围：${data?.startDate || '—'} 至 ${data?.endDate || '—'}`}
-          </div>
-        </div>
 
         <Row gutter={[12, 12]} className="mini-stat-row">
           <Col xs={12} sm={8} lg={4}>

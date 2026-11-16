@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { App, Avatar, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Upload } from 'antd';
+import { App, Avatar, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Upload } from 'antd';
+import { LogoutOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import dayjs, { type Dayjs } from 'dayjs';
 import { fetchEmployeeOptions } from '../../employees/api';
@@ -152,9 +153,13 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
 
   return <div className="onboarding-page departure-page">
     <SubModuleHeader title="离职管理" />
-    <div className="salary-model-entries" role="toolbar" aria-label="离职管理操作">
-      <button type="button" className="salary-model-entry" onClick={() => void openResign()}>离职</button>
-      <button type="button" className="salary-model-entry" onClick={() => void load()}>刷新</button>
+    <div className="filter-bar" role="toolbar" aria-label="离职管理操作">
+      <Tooltip title="离职" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="离职" icon={<LogoutOutlined />} onClick={() => void openResign()} />
+      </Tooltip>
+      <Tooltip title="刷新" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="刷新" icon={<ReloadOutlined />} onClick={() => void load()} />
+      </Tooltip>
     </div>
     <Table
       rowKey="id"

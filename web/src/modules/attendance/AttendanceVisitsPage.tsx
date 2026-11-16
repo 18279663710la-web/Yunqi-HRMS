@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import {
   App as AntApp,
   Avatar,
+  Badge,
   Button,
   DatePicker,
   Image,
   Input,
   Modal,
+  Popover,
   Select,
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -22,6 +25,8 @@ import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type { AdminVisitRecord, AdminVisitResponse, EmployeeOption } from '../../types';
 import { downloadCsv, initialOf } from '../../utils/helpers';
 import { SubModuleHeader } from '../../components/SubModuleHeader';
+import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { FunnelIcon } from '../../layout/adminIcons';
 
 const { Text } = Typography;
 
@@ -192,52 +197,81 @@ export function AttendanceVisitsPage() {
 
   return (
     <section className="attendance-records-page" aria-label="拜访记录">
-      <SubModuleHeader title="拜访记录" />
-      <div className="attendance-records-entries">
-        <button className="attendance-records-entry" type="button" disabled={!data?.list.length} onClick={() => void exportCsv()}>导出记录</button>
-        <button className="attendance-records-entry" type="button" disabled={loading} onClick={() => void load()}>刷新</button>
+      <div className="employee-records-header">
+        <Typography.Title level={4} style={{ margin: 0 }}>拜访记录</Typography.Title>
+        <div className="filter-count">统计范围：{data?.startDate || '—'} 至 {data?.endDate || '—'}</div>
+      </div>
+      <div className="filter-bar" role="toolbar" aria-label="拜访记录操作">
+        <Popover
+          arrow={false}
+          trigger="click"
+          placement="bottomLeft"
+          overlayClassName="filter-popover-overlay"
+          content={<div className="filter-popover">
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">月份</span>
+              <DatePicker
+                aria-label="选择拜访月份"
+                picker="month"
+                allowClear={false}
+                value={month}
+                disabledDate={(value) => value.isAfter(dayjs(), 'month')}
+                onChange={changeMonth}
+                style={{ flex: 1 }}
+              />
+            </div>
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">员工</span>
+              <Select
+                id="visit-employee"
+                aria-label="筛选员工"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="全部员工"
+                style={{ flex: 1 }}
+                value={employeeId}
+                options={employeeOptions.map((employee) => ({
+                  value: employee.id,
+                  label: `${employee.name} · ${employee.position}`,
+                }))}
+                onChange={changeEmployee}
+              />
+            </div>
+            <div className="filter-popover-row">
+              <span className="filter-popover-label">关键字</span>
+              <Input.Search
+                aria-label="搜索客户、目的或地址"
+                allowClear
+                placeholder="客户 / 目的 / 地址"
+                style={{ flex: 1 }}
+                value={keywordInput}
+                onChange={(event) => {
+                  setKeywordInput(event.target.value);
+                  if (!event.target.value) searchKeyword('');
+                }}
+                onSearch={searchKeyword}
+              />
+            </div>
+          </div>}
+        >
+          <Button
+            className="filter-circle filter-funnel"
+            type="text"
+            aria-label="筛选"
+            icon={<Badge dot={Boolean(employeeId) || Boolean(keywordInput)} color="#3D6EF7"><FunnelIcon /></Badge>}
+          />
+        </Popover>
+        <Tooltip title="刷新" arrow={false} overlayClassName="app-tooltip">
+          <Button className="filter-circle" type="text" aria-label="刷新" icon={<ReloadOutlined />} disabled={loading} onClick={() => void load()} />
+        </Tooltip>
+        <div className="payroll-actions-right">
+          <Tooltip title="导出记录" arrow={false} overlayClassName="app-tooltip">
+            <Button className="filter-circle" type="text" aria-label="导出记录" icon={<DownloadOutlined />} disabled={!data?.list.length} onClick={() => void exportCsv()} />
+          </Tooltip>
+        </div>
       </div>
       <div className="attendance-records-content">
-        <div className="filter-bar">
-          <DatePicker
-            aria-label="选择拜访月份"
-            picker="month"
-            allowClear={false}
-            value={month}
-            disabledDate={(value) => value.isAfter(dayjs(), 'month')}
-            onChange={changeMonth}
-            style={{ width: 140 }}
-          />
-          <Select
-            id="visit-employee"
-            allowClear
-            showSearch
-            optionFilterProp="label"
-            placeholder="全部员工"
-            style={{ width: 230 }}
-            value={employeeId}
-            options={employeeOptions.map((employee) => ({
-              value: employee.id,
-              label: `${employee.name} · ${employee.position}`,
-            }))}
-            onChange={changeEmployee}
-          />
-          <Input.Search
-            aria-label="搜索客户、目的或地址"
-            allowClear
-            placeholder="客户 / 目的 / 地址"
-            style={{ width: 260 }}
-            value={keywordInput}
-            onChange={(event) => {
-              setKeywordInput(event.target.value);
-              if (!event.target.value) searchKeyword('');
-            }}
-            onSearch={searchKeyword}
-          />
-          <div className="filter-count">
-            统计范围：{data?.startDate || '—'} 至 {data?.endDate || '—'}
-          </div>
-        </div>
 
         <Table
           rowKey="id"

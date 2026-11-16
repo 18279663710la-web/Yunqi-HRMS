@@ -111,7 +111,7 @@ export function HrLayout() {
     refreshEmployees: async () => setEmployees(await getHrEmployees()),
   };
   const fullWidthPayrollPage = ['/hr/payroll-batches', '/hr/payroll-disbursement'].includes(location.pathname) || /^\/hr\/payroll-records\/\d+\/\d{4}-\d{2}$/.test(location.pathname);
-  const noOuterCardPage = ['/hr/onboarding', '/hr/employees', '/hr/offboarding'].includes(location.pathname);
+  const noOuterCardPage = ['/hr/onboarding', '/hr/employees', '/hr/offboarding', '/hr/payroll-records'].includes(location.pathname);
   return <div className={fullWidthPayrollPage ? 'payroll-batches-page' : noOuterCardPage ? undefined : 'page-stack'}>
     {!fullWidthPayrollPage && !noOuterCardPage && location.pathname !== '/hr/payroll-records' && <PageTitle title={subModuleLabel(location.pathname) ?? '人事管理'} />}
     {fullWidthPayrollPage || noOuterCardPage ? <Outlet context={context} /> : <Card className="panel-card" bordered={false}><Outlet context={context} /></Card>}

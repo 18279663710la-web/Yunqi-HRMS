@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Checkbox, DatePicker, Dropdown, Form, Input, Modal, Popconfirm, Select, Spin, Table } from 'antd';
+import { Alert, App, Button, Checkbox, DatePicker, Dropdown, Form, Input, Modal, Popconfirm, Select, Spin, Table, Tooltip, Typography } from 'antd';
+import { DownloadOutlined, PlusOutlined, SendOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import { useWorkspaceActive } from '../../../layout/WorkspaceContext';
@@ -101,17 +102,41 @@ export function HrPayrollDisbursement() {
   };
 
   return <section className="payroll-batches-workspace" aria-label="工资发放">
-    <SubModuleHeader title="工资发放" />
-    <div className="salary-model-entries payroll-disbursement-toolbar">
-      <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} disabled={busy} onChange={value => { setPendingRestore(undefined); clearDisbursementPosition(disbursementStorage()); setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }} />
-      <button type="button" className="salary-model-entry" disabled={!selectedMonth || busy} onClick={() => setBatchOpen(true)}>选择批次</button>
-      <button type="button" className="salary-model-entry" disabled={!selectedBatch || !detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued} onClick={() => { form.setFieldsValue({ name: '', category: 'info', required: true, displaySetting: 'none' }); setFieldOpen(true); }}>添加补充项</button>
-      <Popconfirm title="确认发放该工资批次并发送工资条？发放后不能修改。" onConfirm={() => void issue()} okText="确认" cancelText="取消" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>
-        <button type="button" className="salary-model-entry payroll-issue-action" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>{issuing ? `发放 ${issueProgress}/${detail?.items.length ?? 0}` : '发放'}</button>
-      </Popconfirm>
-      <Dropdown trigger={['click']} disabled={!detail || detailLoading || !!detailError || busy || !detail.items.length} menu={{ items: [{ key: 'pdf', label: 'PDF' }, { key: 'xlsx', label: 'XLSX' }], onClick: ({ key }) => void exportBatch(key as 'pdf' | 'xlsx') }}>
-        <button type="button" className="salary-model-entry" disabled={!detail || detailLoading || !!detailError || busy || !detail.items.length}>输出</button>
-      </Dropdown>
+    <div className="employee-records-header">
+      <Typography.Title level={4} style={{ margin: 0 }}>工资发放</Typography.Title>
+      <DatePicker
+        className="module-title-picker"
+        picker="month"
+        aria-label="工资发放月份"
+        placeholder="选择月份"
+        value={month}
+        disabled={busy}
+        onChange={value => { setPendingRestore(undefined); clearDisbursementPosition(disbursementStorage()); setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }}
+      />
+    </div>
+    <div className="filter-bar" role="toolbar" aria-label="工资发放操作">
+      <Tooltip title="选择批次" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="选择批次" icon={<UnorderedListOutlined />} disabled={!selectedMonth || busy} onClick={() => setBatchOpen(true)} />
+      </Tooltip>
+      <Tooltip title="添加补充项" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="添加补充项" icon={<PlusOutlined />} disabled={!selectedBatch || !detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued} onClick={() => { form.setFieldsValue({ name: '', category: 'info', required: true, displaySetting: 'none' }); setFieldOpen(true); }} />
+      </Tooltip>
+      <div className="payroll-actions-right">
+        <Popconfirm title="确认发放该工资批次并发送工资条？发放后不能修改。" onConfirm={() => void issue()} okText="确认" cancelText="取消" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length}>
+          <Tooltip title={issuing ? `发放 ${issueProgress}/${detail?.items.length ?? 0}` : '发放'} arrow={false} overlayClassName="app-tooltip">
+            <span>
+              <Button type="text" aria-label="发放" icon={<SendOutlined />} loading={issuing} className="filter-circle payroll-issue-button" disabled={!detail || detailLoading || !!detailError || busy || !!detail.disbursement.issued || !detail.items.length} />
+            </span>
+          </Tooltip>
+        </Popconfirm>
+        <Dropdown trigger={['click']} disabled={!detail || detailLoading || !!detailError || busy || !detail.items.length} menu={{ items: [{ key: 'pdf', label: 'PDF' }, { key: 'xlsx', label: 'XLSX' }], onClick: ({ key }) => void exportBatch(key as 'pdf' | 'xlsx') }}>
+          <Tooltip title="输出" arrow={false} overlayClassName="app-tooltip">
+            <span>
+              <Button className="filter-circle" type="text" aria-label="输出" icon={<DownloadOutlined />} disabled={!detail || detailLoading || !!detailError || busy || !detail.items.length} />
+            </span>
+          </Tooltip>
+        </Dropdown>
+      </div>
     </div>
     {selectedBatch && (detailError ? <Alert type="error" message={detailError} action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} /> : detail && detail.batchId === selectedBatch.id ? <PayrollDisbursementBatch batch={selectedBatch} items={detail.items} model={detail.model} disbursement={detail.disbursement} refreshing={detailLoading || issuing || exporting || fieldSaving} onChange={disbursement => setDetail(current => current && current.batchId === selectedBatch.id ? { ...current, items: disbursement.snapshot?.items ?? current.items, model: disbursement.snapshot?.model ?? current.model, disbursement } : current)} onEditingChange={setEditingBusy} /> : <Spin />)}
     <Modal className="onboarding-template-editor salary-model-editor" title="添加补充项" open={fieldOpen} onCancel={() => { if (!fieldSaving) setFieldOpen(false); }} onOk={() => form.submit()} okText="保存" cancelText="取消" confirmLoading={fieldSaving} width={700}>

@@ -1,25 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Checkbox,
-  Col,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Popconfirm,
-  Row,
-  Select,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  TimePicker,
-  Typography,
-} from 'antd';
+import { Alert, App, Button, Card, Checkbox, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Spin, Table, Tag, TimePicker, Typography, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 
@@ -43,6 +23,7 @@ import { fetchCompanyCalendarRules } from '../models-formulas/company-calendar/a
 import { fetchDepartments } from '../organization/api';
 import { createAttendanceMap, type MapPoint, type MapSdk } from './attendanceMap';
 import { SubModuleHeader } from '../../components/SubModuleHeader';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 
 interface GroupFormValues {
   name?: string;
@@ -365,9 +346,13 @@ export function AttendanceGroupsPage() {
 
   return <section className="attendance-groups-page" aria-label="考勤组">
     <SubModuleHeader title="考勤组" />
-    <div className="attendance-groups-entries">
-      <button className="attendance-groups-entry" type="button" disabled={loading || failed || saving} onClick={showCreate}>新建考勤组</button>
-      <button className="attendance-groups-entry" type="button" disabled={!selected || saving} onClick={() => selected && showEdit(selected)}>编辑</button>
+    <div className="filter-bar" role="toolbar" aria-label="考勤组操作">
+      <Tooltip title="新建考勤组" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="新建考勤组" icon={<PlusOutlined />} disabled={loading || failed || saving} onClick={showCreate} />
+      </Tooltip>
+      <Tooltip title="编辑" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="编辑考勤组" icon={<EditOutlined />} disabled={!selected || saving} onClick={() => selected && showEdit(selected)} />
+      </Tooltip>
       <Popconfirm
         title={`删除考勤组“${selected?.name ?? ''}”？`}
         description="组内员工将改用第一个考勤组。"
@@ -377,10 +362,30 @@ export function AttendanceGroupsPage() {
         onConfirm={() => void remove()}
         disabled={!selected || saving}
       >
-        <button className="attendance-groups-entry attendance-groups-entry-danger" type="button" disabled={!selected || saving}>删除</button>
+        <Tooltip title="删除" arrow={false} overlayClassName="app-tooltip">
+          <span>
+            <Button className="filter-circle" type="text" aria-label="删除考勤组" icon={<DeleteOutlined />} disabled={!selected || saving} />
+          </span>
+        </Tooltip>
       </Popconfirm>
     </div>
-    <div className="attendance-groups-content">
+    <div
+      className="attendance-groups-content"
+      onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}
+      onClickCapture={(event) => {
+        const target = event.target as HTMLElement;
+        // 再次点击已选中的圆点：捕获阶段拦截，避免被表格自身的选中逻辑覆盖
+        const cell = target.closest('.ant-table-selection-column');
+        if (!cell) return;
+        const row = cell.closest('tr[data-row-key]');
+        if (!row) return;
+        if (selected?.id === Number(row.getAttribute('data-row-key'))) {
+          event.preventDefault();
+          event.stopPropagation();
+          setSelectedId(null);
+        }
+      }}
+    >
       <Spin spinning={loading}>
         {loadError
           ? <Alert type="error" showIcon message={loadError} action={<Button size="small" onClick={() => void load(true)}>重试</Button>} />
@@ -393,9 +398,20 @@ export function AttendanceGroupsPage() {
               scroll={{ x: 860 }}
               rowSelection={{
                 type: 'radio',
-                selectedRowKeys: selected ? [selected.id] : [],
-                onChange: (keys) => setSelectedId(Number(keys[0])),
+                selectedRowKeys: selected ? [String(selected.id)] : [],
+                onChange: (keys) => setSelectedId(keys.length ? Number(keys[0]) : null),
               }}
+              onRow={(record) => ({
+                onClick: (event) => {
+                  const target = event.target as HTMLElement;
+                  if (target.closest('.ant-table-selection-column')) {
+                    // 再次点击已选中的圆点：取消选中
+                    if (selected?.id === record.id) setSelectedId(null);
+                    return;
+                  }
+                  setSelectedId(current => (current === record.id ? null : record.id));
+                },
+              })}
               locale={{ emptyText: '暂无考勤组' }}
             />}
       </Spin>
@@ -411,7 +427,7 @@ export function AttendanceGroupsPage() {
       cancelText="取消"
       width={760}
       destroyOnClose
-      styles={{ body: { maxHeight: '68vh', overflowY: 'auto' } }}
+      styles={{ body: { maxHeight: '82vh', overflowY: 'auto' } }}
     >
       <Form form={form} layout="vertical" onFinish={save}>
         <Form.Item name="name" label="考勤组名称" rules={[{ required: true, whitespace: true, max: 50, message: '请填写考勤组名称' }]}>

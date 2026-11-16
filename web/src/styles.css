@@ -917,6 +917,17 @@ code {
   height: 32px;
 }
 
+/* 发放按钮可用时为白底黑图标，禁用时保持灰色圆钮 */
+.payroll-issue-button.ant-btn:not(:disabled) {
+  background: #dcdcdc !important;
+  color: #1a1a1a !important;
+}
+
+.payroll-issue-button.ant-btn:not(:disabled):hover {
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+}
+
 /* 工资批次：明细区包一层圆角功能区容器 */
 .payroll-batches-content {
   padding: 12px;
@@ -1305,18 +1316,59 @@ code {
 .company-calendar-content { flex: 1; min-width: 0; margin: 0 -26px; padding: 20px 26px 24px; background: #1f1f1f; }
 .company-calendar-content .ant-table-thead > tr > th { background: transparent; color: #ffffff; font-size: 14px; font-weight: 500; border-color: #3a3a3a; }
 .company-calendar-content .ant-table-tbody > tr > td { font-size: 14px; border-color: #333333; }
-.attendance-groups-page, .attendance-records-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 67px); margin-bottom: -36px; background: #1f1f1f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.attendance-groups-page, .attendance-records-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 67px); margin-bottom: -36px; background: #141414; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .attendance-groups-entries, .attendance-records-entries { display: flex; align-items: center; gap: 32px; min-height: 48px; margin: 0 -26px 0; padding: 0 26px; overflow-x: auto; background: #1f1f1f; border-bottom: 1px solid #3a3a3a; }
 .attendance-groups-entry, .attendance-records-entry { flex: 0 0 auto; padding: 4px 0; border: 0; background: none; color: #f0f0f0; font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; }
 .attendance-groups-entry:hover:not(:disabled), .attendance-records-entry:hover:not(:disabled) { color: #ffffff; text-decoration: underline; }
 .attendance-groups-entry:focus-visible, .attendance-records-entry:focus-visible { outline: 2px solid #f0f0f0; outline-offset: 3px; border-radius: 2px; }
 .attendance-groups-entry:disabled, .attendance-records-entry:disabled { opacity: .45; cursor: not-allowed; }
 .attendance-groups-entry-danger:not(:disabled) { color: #c97474; }
-.attendance-groups-content { flex: 1; min-width: 0; margin: 0 -26px; padding: 20px 26px 24px; background: #1f1f1f; }
+.attendance-groups-content {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px 16px;
+  background: #1f1f1f;
+  border: 1px solid #333333;
+  border-radius: 12px;
+}
 .attendance-groups-content .ant-table-thead > tr > th { background: transparent; color: #ffffff; font-size: 14px; font-weight: 500; border-color: #3a3a3a; }
 .attendance-groups-content .ant-table-tbody > tr > td { font-size: 14px; border-color: #333333; }
-.attendance-records-content { flex: 1; min-width: 0; margin: 0 -26px; padding: 20px 26px 24px; background: #1f1f1f; }
+.attendance-groups-content .ant-radio-checked .ant-radio-inner {
+  background-color: #3D6EF7;
+  border-color: #3D6EF7;
+}
+
+.attendance-groups-content .ant-radio-checked .ant-radio-inner::after {
+  background-color: #ffffff;
+}
+
+.attendance-groups-content .ant-radio-wrapper:hover .ant-radio-inner {
+  border-color: #3D6EF7;
+}
+
+.attendance-groups-content .ant-radio-input:focus-visible + .ant-radio-inner {
+  border-color: #3D6EF7;
+  box-shadow: 0 0 0 3px rgba(61, 110, 247, 0.2);
+}
+.attendance-records-content { flex: 1; min-width: 0; margin: 0 -26px; padding: 20px 26px 24px; background: transparent; }
 .attendance-records-content .panel-card { box-shadow: none; }
+
+.attendance-groups-content .ant-table,
+.attendance-records-content .ant-table,
+.attendance-groups-content .ant-table-container,
+.attendance-records-content .ant-table-container,
+.attendance-groups-content .ant-table-tbody > tr > td,
+.attendance-records-content .ant-table-tbody > tr > td,
+.attendance-records-content .ant-tabs-nav,
+.attendance-records-content .ant-tabs-content-holder {
+  background: transparent;
+}
+
+.attendance-records-content .mini-stat {
+  background: transparent;
+  border-color: #2e2e2e;
+}
 .salary-model-scroll { flex: 1; min-width: 0; min-height: 140px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: #8c8c8c #333333; }
 .salary-model-scroll:focus-visible { outline: 2px solid #f0f0f0; outline-offset: -2px; }
 .salary-model-field-list { width: max-content; border-spacing: 0; text-align: center; }
