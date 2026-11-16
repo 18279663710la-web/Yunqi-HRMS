@@ -21,6 +21,7 @@ import { fetchEmployeeOptions } from '../employees/api';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type { AdminVisitRecord, AdminVisitResponse, EmployeeOption } from '../../types';
 import { downloadCsv, initialOf } from '../../utils/helpers';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 const { Text } = Typography;
 
@@ -191,6 +192,7 @@ export function AttendanceVisitsPage() {
 
   return (
     <section className="attendance-records-page" aria-label="拜访记录">
+      <SubModuleHeader title="拜访记录" />
       <div className="attendance-records-entries">
         <button className="attendance-records-entry" type="button" disabled={!data?.list.length} onClick={() => void exportCsv()}>导出记录</button>
         <button className="attendance-records-entry" type="button" disabled={loading} onClick={() => void load()}>刷新</button>

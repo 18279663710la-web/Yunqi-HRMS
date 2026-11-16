@@ -42,6 +42,7 @@ import { fetchEmployeeOptions } from '../employees/api';
 import { fetchCompanyCalendarRules } from '../models-formulas/company-calendar/api';
 import { fetchDepartments } from '../organization/api';
 import { createAttendanceMap, type MapPoint, type MapSdk } from './attendanceMap';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 interface GroupFormValues {
   name?: string;
@@ -363,6 +364,7 @@ export function AttendanceGroupsPage() {
   ];
 
   return <section className="attendance-groups-page" aria-label="考勤组">
+    <SubModuleHeader title="考勤组" />
     <div className="attendance-groups-entries">
       <button className="attendance-groups-entry" type="button" disabled={loading || failed || saving} onClick={showCreate}>新建考勤组</button>
       <button className="attendance-groups-entry" type="button" disabled={!selected || saving} onClick={() => selected && showEdit(selected)}>编辑</button>

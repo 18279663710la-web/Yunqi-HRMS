@@ -10,6 +10,7 @@ import { canConnectApprovalNodes, createApprovalEdge, createApprovalNode, serial
 import { getCustomApprovalWorkflow, saveCustomApprovalWorkflow, getWorkflowTestFields, getWorkflowTestCases, testSavedWorkflow, publishWorkflow, getWorkflowPublication, type WorkflowTestCasesDocument, type WorkflowTestField, type CustomApprovalField, type CustomApprovalNodeKind, type CustomApprovalType, type CustomApprovalWorkflow as WorkflowDocument } from './api';
 import { FallbackApproverSelect } from './FallbackApproverSelect';
 import { APPROVAL_TYPE_DEFINITIONS, isNodeAvailable } from './approvalTypeDefinitions';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 interface Draft { version: number; nodes: ApprovalNode[]; edges: ApprovalEdge[]; formFields: CustomApprovalField[]; fieldsInitialized: boolean; saved: string; pendingApiKeys: Record<string, string> }
 function fromDocument(document: WorkflowDocument): Draft {
@@ -202,6 +203,7 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
   };
 
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
+    <SubModuleHeader title={`${APPROVAL_TYPE_DEFINITIONS[approvalType].name}审批`} />
     <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
       <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)}>表单设计</button>
       {published === false && <FallbackApproverSelect approvalType={approvalType} />}

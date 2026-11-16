@@ -22,6 +22,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 
 import type { CompanyCalendarMode, CompanyCalendarRule, CompanyCalendarRuleInput } from '../../../types';
 import { expandDateRanges, mergeDatesToRanges, type DateRangeValue } from './calendarDates';
+import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import {
   createCompanyCalendarRule,
   deleteCompanyCalendarRule,
@@ -223,6 +224,7 @@ export function CompanyCalendar() {
   />, [rules, selectedId]);
 
   return <section className="company-calendar-page" aria-label="公司日历">
+    <SubModuleHeader title="公司日历" />
     <div className="company-calendar-entries">
       <button className="company-calendar-entry" type="button" disabled={loading || failed || saving} onClick={openCreate}>新建规则</button>
       <button className="company-calendar-entry" type="button" disabled={!selected || saving} onClick={() => selected && openEdit(selected)}>编辑</button>

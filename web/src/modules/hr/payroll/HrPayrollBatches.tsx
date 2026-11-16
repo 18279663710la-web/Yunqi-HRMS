@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { App, Button, DatePicker, Descriptions, Dropdown, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { App, Button, DatePicker, Descriptions, Dropdown, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Table, Tooltip, Typography } from 'antd';
+import { CheckCircleOutlined, DeleteOutlined, DownloadOutlined, HistoryOutlined, PlusOutlined } from '@ant-design/icons';
 import { type Dayjs } from 'dayjs';
 import { addAutoPayrollItems, addPayrollBatchItem, createPayrollBatch, deletePayrollBatch, getPayrollBatches, getPayrollBatchItems, getPayrollEmployeeAvailability, getSalaryComponentModel, previewAutoPayrollItems, removePayrollBatchItem, reviewPayrollBatch, updatePayrollExtended, updatePayrollFixed, type AutoPayrollPreview, type HrEmployee, type PayrollBatch, type PayrollBatchItem, type PayrollModelSnapshot, type SalaryComponentModel } from '../api';
 import { ApiError } from '../../../api/client';
@@ -243,15 +244,56 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
     </Space> },
   ];
   return <section className="payroll-batches-workspace" aria-label="工资批次">
-    <div className="salary-model-entries payroll-batches-toolbar">
-      <DatePicker picker="month" aria-label="新建工资月份" placeholder="选择月份" variant="borderless" value={month} onChange={setMonth} disabled={editingBusy} />
-      <button type="button" className="salary-model-entry" onClick={() => void create()} disabled={loading || editingBusy}>创建批次</button>
-      <button type="button" className="salary-model-entry" onClick={() => setHistoryOpen(true)} disabled={loading || editingBusy}>历史工资批次</button>
-      <Popconfirm title="确认复核该批次？复核后不能修改。" onConfirm={() => void review()} okText="确认" cancelText="取消" disabled={loading || editingBusy || current?.status !== 'draft' || !items.length}><button type="button" className="salary-model-entry" disabled={loading || editingBusy || current?.status !== 'draft' || !items.length}>复核并锁定</button></Popconfirm>
-      <Popconfirm title="删除该草稿及其全部工资明细？" onConfirm={() => void removeDraft()} okText="删除" cancelText="取消" disabled={loading || editingBusy || current?.status !== 'draft'}><button type="button" className="salary-model-entry salary-model-entry-danger" disabled={loading || editingBusy || current?.status !== 'draft'}>删除草稿</button></Popconfirm>
-      <Dropdown trigger={['click']} disabled={loading || editingBusy || !current || !items.length || !model} menu={{ items: [{ key: 'pdf', label: 'PDF' }, { key: 'xlsx', label: 'XLSX' }], onClick: ({ key }) => void exportBatch(key as 'pdf' | 'xlsx') }}>
-        <button type="button" className="salary-model-entry payroll-export-action" disabled={loading || editingBusy || !current || !items.length || !model}>输出</button>
-      </Dropdown>
+    <div className="employee-records-header">
+      <Typography.Title level={4} style={{ margin: 0 }}>工资批次</Typography.Title>
+      <DatePicker
+        className="module-title-picker"
+        picker="month"
+        aria-label="新建工资月份"
+        placeholder="选择月份"
+        value={month}
+        onChange={setMonth}
+        disabled={editingBusy}
+      />
+    </div>
+    <div className="filter-bar" role="toolbar" aria-label="工资批次操作">
+      <Tooltip title="创建批次" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="创建批次" icon={<PlusOutlined />} onClick={() => void create()} disabled={loading || editingBusy} />
+      </Tooltip>
+      <Tooltip title="历史工资批次" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="历史工资批次" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)} disabled={loading || editingBusy} />
+      </Tooltip>
+      <Popconfirm title="确认复核该批次？复核后不能修改。" onConfirm={() => void review()} okText="确认" cancelText="取消" disabled={loading || editingBusy || current?.status !== 'draft' || !items.length}>
+        <Tooltip title="复核并锁定" arrow={false} overlayClassName="app-tooltip">
+          <span>
+            <Button className="filter-circle" type="text" aria-label="复核并锁定" icon={<CheckCircleOutlined />} disabled={loading || editingBusy || current?.status !== 'draft' || !items.length} />
+          </span>
+        </Tooltip>
+      </Popconfirm>
+      <Popconfirm title="删除该草稿及其全部工资明细？" onConfirm={() => void removeDraft()} okText="删除" cancelText="取消" disabled={loading || editingBusy || current?.status !== 'draft'}>
+        <Tooltip title="删除草稿" arrow={false} overlayClassName="app-tooltip">
+          <span>
+            <Button className="filter-circle" type="text" aria-label="删除草稿" icon={<DeleteOutlined />} disabled={loading || editingBusy || current?.status !== 'draft'} />
+          </span>
+        </Tooltip>
+      </Popconfirm>
+      <div className="payroll-actions-right">
+        {current?.status === 'draft' && <Button
+          className="payroll-add-button"
+          type="primary"
+          icon={<PlusOutlined />}
+          disabled={editingBusy}
+          loading={availabilityLoading}
+          onClick={() => void openAdd()}
+        >添加工资明细</Button>}
+        <Dropdown trigger={['click']} disabled={loading || editingBusy || !current || !items.length || !model} menu={{ items: [{ key: 'pdf', label: 'PDF' }, { key: 'xlsx', label: 'XLSX' }], onClick: ({ key }) => void exportBatch(key as 'pdf' | 'xlsx') }}>
+          <Tooltip title="输出" arrow={false} overlayClassName="app-tooltip">
+            <span>
+              <Button className="filter-circle" type="text" aria-label="输出" icon={<DownloadOutlined />} disabled={loading || editingBusy || !current || !items.length || !model} />
+            </span>
+          </Tooltip>
+        </Dropdown>
+      </div>
     </div>
     {current && <div className="payroll-batches-content">
       <div className="payroll-batches-current"><Typography.Text strong>{current.month} · 批次 #{current.id} · {current.status === 'draft' ? '草稿' : '已复核'}</Typography.Text></div>
@@ -260,7 +302,6 @@ export function HrPayrollBatches({ employees }: { employees: HrEmployee[] }) {
         <div ref={bottomRef} className="payroll-batches-bottom">
           {items.length > 0 && <Pagination size="small" current={pageData.page} total={items.length} pageSize={10} showSizeChanger={false} onChange={setPage} disabled={editingBusy} />}
           <div className="payroll-batches-footer">
-            {current.status === 'draft' && <Button type="primary" size="small" disabled={editingBusy} loading={availabilityLoading} onClick={() => void openAdd()}>添加工资明细</Button>}
             {items.length > 0 && <Space wrap><Typography.Text strong>本批次合计：</Typography.Text><Typography.Text strong>应发 {money(items.reduce((sum, item) => sum + displayGross(item), 0))}{previewMark}</Typography.Text></Space>}
           </div>
         </div>

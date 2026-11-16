@@ -121,15 +121,8 @@ export function NoticesPage() {
   ];
 
   return <div>
-    <SubModuleHeader
-      title="公告管理"
-      extra={
-        <Space>
-          <Button icon={<PlusOutlined />} type="primary" onClick={() => { setEditing(undefined); setEditorOpen(true); }}>新建公告</Button>
-        </Space>
-      }
-    />
-    <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+    <SubModuleHeader title="公告管理" />
+    <div className="filter-bar">
       <Input.Search
         allowClear
         placeholder="搜索公告标题或内容"
@@ -144,6 +137,7 @@ export function NoticesPage() {
       />
       <Button icon={<ReloadOutlined />} onClick={reloadFirstPage}>刷新</Button>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>共 {total} 条公告</Typography.Text>
+      <Button className="filter-primary" icon={<PlusOutlined />} type="primary" onClick={() => { setEditing(undefined); setEditorOpen(true); }}>新建公告</Button>
     </div>
     <Table
       rowKey="id"

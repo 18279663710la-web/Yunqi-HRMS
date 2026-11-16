@@ -5,6 +5,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { fetchEmployeeOptions } from '../../employees/api';
 import type { EmployeeOption } from '../../../types';
 import { initialOf } from '../../../utils/helpers';
+import { SubModuleHeader } from '../../../components/SubModuleHeader';
 import {
   cancelDepartureRecord,
   reinstateDeparture,
@@ -150,6 +151,7 @@ export function HrOffboarding({ onEmployeeChanged }: { onEmployeeChanged: () => 
   };
 
   return <div className="onboarding-page departure-page">
+    <SubModuleHeader title="离职管理" />
     <div className="salary-model-entries" role="toolbar" aria-label="离职管理操作">
       <button type="button" className="salary-model-entry" onClick={() => void openResign()}>离职</button>
       <button type="button" className="salary-model-entry" onClick={() => void load()}>刷新</button>

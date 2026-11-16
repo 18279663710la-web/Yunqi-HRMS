@@ -6,6 +6,7 @@ import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
 import { createJobTitle, deleteJobTitle, fetchJobTitles, createOrganization, deleteOrganization, fetchOrganizations, renameOrganization, type JobTitle, type JobTitleEmployee, type Organization } from './api';
 import './organization.css';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 export function DepartmentsPage() {
   const { message } = App.useApp();
@@ -72,6 +73,7 @@ export function DepartmentsPage() {
     finally { setOrganizationDeleting(undefined); }
   };
   return <section className="organization-page" aria-label="组织架构">
+    <SubModuleHeader title="组织架构" />
     <div className="organization-toolbar">
       <Select aria-label="筛选职务" allowClear placeholder="全部职务" variant="borderless" value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} className="organization-filter" />
       <Select aria-label="筛选组织" allowClear placeholder="全部组织" variant="borderless" value={organizationFilter} onChange={setOrganizationFilter} options={[{ value: 'D00', label: '未分配' }, ...organizations.map(item => ({ value: item.id, label: item.name }))]} className="organization-filter" />

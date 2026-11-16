@@ -7,6 +7,7 @@ import { getOnboardingRecords, type OnboardingRecord } from '../api';
 import { UserAddOutlined } from '@ant-design/icons';
 import { ONBOARDING_FORM_URL, type Field } from './api';
 import { OnboardingAnswer } from './OnboardingSubmission';
+import { SubModuleHeader } from '../../../components/SubModuleHeader';
 
 type Candidate = { id: string; name: string; employeeNo: string; loginName: string };
 type AnswerValues = Record<string, unknown>;
@@ -85,6 +86,7 @@ export function OnboardingForms({ onArchived }: { onArchived?: () => void }) {
     finally { setApplicationHistoryLoading(false); }
   };
   return <div className="onboarding-page">
+    <SubModuleHeader title="入职管理" />
     <div className="filter-bar">
       <Button className="filter-primary" type="primary" icon={<UserAddOutlined />} onClick={() => { form.resetFields(); setRegister(true); }}>登记申请</Button>
     </div>

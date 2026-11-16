@@ -32,6 +32,7 @@ import type {
   EmployeeOption,
   JobCategoryName,
 } from '../../types';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 import {
   attendanceTag,
   downloadCsv,
@@ -329,6 +330,7 @@ export function AttendanceRecordsPage() {
 
   return (
     <section className="attendance-records-page" aria-label="考勤明细">
+      <SubModuleHeader title="考勤明细" />
       <div className="attendance-records-entries">
         <button className="attendance-records-entry" type="button" disabled={!data || (tab === 'summary' ? !data.employeeSummary.length : !data.list.length)} onClick={exportCsv}>{tab === 'summary' ? '导出月度汇总' : '导出明细'}</button>
         <button className="attendance-records-entry" type="button" disabled={loading} onClick={() => void load()}>刷新</button>

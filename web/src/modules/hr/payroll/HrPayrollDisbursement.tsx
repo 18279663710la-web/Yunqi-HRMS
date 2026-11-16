@@ -101,6 +101,7 @@ export function HrPayrollDisbursement() {
   };
 
   return <section className="payroll-batches-workspace" aria-label="工资发放">
+    <SubModuleHeader title="工资发放" />
     <div className="salary-model-entries payroll-disbursement-toolbar">
       <DatePicker picker="month" aria-label="工资发放月份" placeholder="选择月份" variant="borderless" value={month} disabled={busy} onChange={value => { setPendingRestore(undefined); clearDisbursementPosition(disbursementStorage()); setMonth(value); setSelectedBatch(undefined); setDetail(undefined); setDetailError(''); setBatchOpen(false); }} />
       <button type="button" className="salary-model-entry" disabled={!selectedMonth || busy} onClick={() => setBatchOpen(true)}>选择批次</button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App, Alert, Card, Empty, Form, Spin } from 'antd';
+import { App, Alert, Card, Empty, Form, Spin, Typography } from 'antd';
 import { Outlet, useLocation, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
@@ -17,9 +17,10 @@ import { HrTransitions } from './employee-records/HrTransitions';
 import { HrContractFiles } from './employee-records/HrContractFiles';
 import { getHrEmployees, getHrRecord, getSalaryComponentModel, saveHrRecord, type HrEmployee, type SalaryComponentModel } from './api';
 import { salaryRecordPayload } from './employee-records/salaryRecordPayload';
-import { EmployeeRecordsToolbar, type EmployeeTab } from './employee-records/EmployeeRecordsToolbar';
+import { EmployeeRecordsToolbar, EmployeeSearch, type EmployeeTab } from './employee-records/EmployeeRecordsToolbar';
 import { ContractFields, SalaryFields } from './employee-records/EmployeeRecordFields';
 import './employee-records/employeeRecords.css';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 function EmployeeRecords({ employees, archiveRevision, refreshEmployees }: { employees: HrEmployee[]; archiveRevision: number; refreshEmployees: () => Promise<void> }) {
   const { message } = App.useApp();
@@ -65,7 +66,11 @@ function EmployeeRecords({ employees, archiveRevision, refreshEmployees }: { emp
     finally { setSaving(false); }
   };
   return <div className="employee-records-page">
-    <EmployeeRecordsToolbar employees={employees} employeeId={employeeId} section={section} onEmployeeChange={setEmployeeId} onSectionChange={setSection} onSave={() => form.submit()} saving={saving} saveDisabled={loading || loadFailed || (section === 'salary' && (!salaryModel || salaryModelFailed))} />
+    <div className="employee-records-header">
+      <Typography.Title level={4} style={{ margin: 0 }}>员工档案</Typography.Title>
+      <EmployeeSearch employees={employees} employeeId={employeeId} onEmployeeChange={setEmployeeId} />
+    </div>
+    <EmployeeRecordsToolbar employeeId={employeeId} section={section} onSectionChange={setSection} onSave={() => form.submit()} saving={saving} saveDisabled={loading || loadFailed || (section === 'salary' && (!salaryModel || salaryModelFailed))} />
       {employeeId ? <>
         {section === 'profile' && <Spin spinning={loading}>{!loading && (loadFailed ? <Alert type="error" message="个人信息加载失败" /> : archived ? <OnboardingSubmission record={archived} /> : <Empty description="该员工暂无已封存的入职申请表" />)}</Spin>}
         {(section === 'contract' || section === 'salary') && <><Spin spinning={loading}><Form form={form} className="employee-record-fields-form" onFinish={save}>

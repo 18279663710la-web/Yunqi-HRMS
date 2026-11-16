@@ -1,33 +1,16 @@
-.employee-records-toolbar .employee-records-select {
-  flex: 0 0 240px;
-  width: 240px;
-}
-
-.employee-records-sections {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  flex: 0 0 auto;
-}
-
-.employee-records-section[aria-pressed='true'] {
-  color: #245bb8;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
-
-.employee-records-save {
-  margin-left: auto;
-}
-
 .employee-record-fields-form {
   margin-bottom: 24px;
 }
 
+/* 字段表格外包一层圆角功能区容器 */
 .employee-record-fields-scroll {
   max-width: 100%;
   overflow-x: auto;
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid #333333;
+  border-radius: 12px;
+  background: #1f1f1f;
 }
 
 .employee-record-fields-scroll:focus-visible {
@@ -52,20 +35,20 @@
 }
 
 .employee-record-fields-table td {
-  border-bottom: 1px solid #f0f0f0;
-  background: #fff;
+  border-bottom: 1px solid #333333;
+  background: transparent;
 }
 
 .employee-record-fields-table th {
   position: relative;
-  color: #526078;
-  background: #f7f8fa;
+  color: #a3a3a3;
+  background: #262626;
   font-size: 13px;
   font-weight: 600;
   line-height: 20px;
   text-align: left;
   overflow-wrap: anywhere;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #333333;
 }
 
 .employee-record-fields-table th:first-child {
@@ -82,7 +65,7 @@
   right: 0;
   width: 1px;
   height: 50%;
-  background: #f0f0f0;
+  background: #333333;
   content: '';
 }
 
@@ -92,5 +75,5 @@
 
 .employee-record-required {
   margin-right: 4px;
-  color: #ff4d4f;
+  color: #c97474;
 }

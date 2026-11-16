@@ -8,6 +8,7 @@ import { ApiError } from '../../../api/client';
 import { getSalaryComponentModel, saveSalaryComponentModel, type SalaryComponentModel, type SalaryModelField } from '../../hr/api';
 import { SALARY_IDENTITY_FIELDS, applySalaryFieldChange, isSalaryIdentityField, moveSalaryField, orderedSalaryFields } from './salaryModel';
 import { applyAttendanceInterface, clearSalaryInterface } from './salaryInterfaceConfig';
+import { SubModuleHeader } from '../../../components/SubModuleHeader';
 
 type FieldGroup = 'fixed' | 'extended';
 type Editor = { mode: 'create' | 'edit'; group: FieldGroup; name?: string; identity?: boolean };
@@ -135,6 +136,7 @@ export function SalaryModels() {
     if (!(event.target as HTMLElement).closest('.salary-model-field-list, .salary-model-entries, .salary-model-delete-confirm, .ant-modal-root')) setSelectedName(null);
   }}>
     <Spin spinning={loading}>
+      <SubModuleHeader title="薪资构成模型" />
       <div className="salary-model-entries">
         <button className="salary-model-entry" type="button" disabled={loading || failed || orderSaving || saving || fields.length >= 51} onClick={() => openEditor('fixed')}>创建固定字段</button>
         <button className="salary-model-entry" type="button" disabled={loading || failed || orderSaving || saving || fields.length >= 51} onClick={() => openEditor('extended')}>创建扩展字段</button>

@@ -29,6 +29,7 @@ import { fetchDashboard } from './api';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import type { DashboardData } from '../../types';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 const { Text } = Typography;
 
@@ -85,6 +86,7 @@ export function DashboardPage() {
 
   return (
     <div className="page-stack">
+      <SubModuleHeader title="仪表盘" />
       {loading && !data ? (
         <Card><Skeleton active /></Card>
       ) : (

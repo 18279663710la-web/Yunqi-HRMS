@@ -45,6 +45,7 @@ import { fetchJobTitles, fetchOrganizations, type JobTitle, type Organization } 
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { useAuth } from '../../auth/AuthContext';
 import { deleteU9Binding, fetchU9Binding, fetchU9Operators, saveU9Binding, type U9Operator } from './u9Api';
+import { SubModuleHeader } from '../../components/SubModuleHeader';
 
 const { Text } = Typography;
 
@@ -463,6 +464,7 @@ export function EmployeesPage() {
 
   return (
     <div className="employees-page">
+      <SubModuleHeader title="员工与账号" />
       <div className="filter-bar">
         <Input
           ref={searchInputRef}
