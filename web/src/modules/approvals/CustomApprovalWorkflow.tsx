@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { DragOutlined, ExperimentOutlined, FileSearchOutlined, PlusOutlined, SelectOutlined } from '@ant-design/icons';
-import { Alert, App, Button } from 'antd';
+import { ClearOutlined, CloudUploadOutlined, DragOutlined, ExperimentOutlined, FileSearchOutlined, FormOutlined, PlusOutlined, SaveOutlined, SelectOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Tooltip } from 'antd';
 import { ReactFlowProvider, applyEdgeChanges, applyNodeChanges, type OnConnect, type OnEdgesChange, type OnNodesChange } from '@xyflow/react';
 import { APPROVAL_NODE_PRESETS, CustomApprovalCanvas } from './CustomApprovalCanvas';
 import { ExpenseFormDesigner } from './ExpenseFormDesigner';
@@ -204,12 +204,22 @@ export function CustomApprovalWorkflow({ approvalType }: { approvalType: CustomA
 
   return <section className="payroll-workflow-page custom-approval-workflow" aria-label="自定义审批流程">
     <SubModuleHeader title={`${APPROVAL_TYPE_DEFINITIONS[approvalType].name}审批`} />
-    <div className="salary-model-entries" role="toolbar" aria-label="流程操作">
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)}>表单设计</button>
+    <div className="filter-bar" role="toolbar" aria-label="流程操作">
+      <Tooltip title="表单设计" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="表单设计" icon={<FormOutlined />} disabled={!draft || loading || saving || testing || publishing} onClick={() => setFormOpen(true)} />
+      </Tooltip>
       {published === false && <FallbackApproverSelect approvalType={approvalType} />}
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || (!draft.nodes.length && !draft.edges.length)} onClick={clear}>清空</button>
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing || !dirty} onClick={() => void save()}>保存</button>
-      <button className="salary-model-entry" type="button" disabled={!draft || loading || saving || testing || publishing} onClick={publish}>发布</button>
+      <Tooltip title="清空画布" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="清空画布" icon={<ClearOutlined />} disabled={!draft || loading || saving || testing || publishing || (!draft.nodes.length && !draft.edges.length)} onClick={clear} />
+      </Tooltip>
+      <Tooltip title="保存" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="保存" icon={<SaveOutlined />} disabled={!draft || loading || saving || testing || publishing || !dirty} onClick={() => void save()} />
+      </Tooltip>
+      <div className="payroll-actions-right">
+        <Tooltip title="发布" arrow={false} overlayClassName="app-tooltip">
+          <Button className="filter-circle filter-primary-circle" type="text" aria-label="发布" icon={<CloudUploadOutlined />} disabled={!draft || loading || saving || testing || publishing} onClick={publish} />
+        </Tooltip>
+      </div>
     </div>
     {loadError && <Alert type="error" message="流程加载失败" action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
     {publicationState === 'failed' && <Alert type="warning" message="发布状态加载失败，指定审批人入口暂不可用" action={<Button size="small" onClick={() => setPublicationRetry(value => value + 1)}>重试</Button>} />}

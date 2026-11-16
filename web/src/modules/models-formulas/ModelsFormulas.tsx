@@ -1,4 +1,4 @@
-import { Alert, Card } from 'antd';
+import { Alert } from 'antd';
 import { useAuth } from '../../auth/AuthContext';
 import type { AdminRole } from '../../types';
 import { OnboardingTemplateSettings } from './onboarding-template/OnboardingTemplateSettings';
@@ -19,12 +19,7 @@ export function ModelsFormulasView({ role, section }: { role: AdminRole | undefi
     salary: <SalaryModels />,
     'onboarding-template': <OnboardingTemplateSettings />,
   }[section];
-  if (section === 'attendance' || section === 'overtime' || section === 'salary' || section === 'company-calendar') return content;
-  return <div className="page-stack">
-    <Card className="panel-card" bordered={false}>
-      <div className="page-stack">{content}</div>
-    </Card>
-  </div>;
+  return content;
 }
 
 export function ModelsFormulasPage({ section }: { section: FormulaSection }) {

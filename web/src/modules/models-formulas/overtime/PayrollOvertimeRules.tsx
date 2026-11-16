@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Form, InputNumber, Select, Space, Spin } from 'antd';
+import { Alert, App, Button, Card, Form, InputNumber, Popover, Select, Spin, Tooltip } from 'antd';
 import { getOvertimePayrollConfig, saveOvertimePayrollConfig } from '../../hr/api';
 import { OvertimeRulesFields } from './OvertimeRulesFields';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
+import { SaveOutlined, SettingOutlined } from '@ant-design/icons';
 import { buildOvertimeConfig, defaultOvertimeRules, type OvertimeRuleDraft } from './overtimeConfig';
 
 export function PayrollOvertimeRules({ onSaved }: { onSaved: () => void }) {
@@ -56,13 +57,34 @@ export function PayrollOvertimeRules({ onSaved }: { onSaved: () => void }) {
     return next;
   });
   return <Spin spinning={loading}><Form layout="vertical">
-    <SubModuleHeader title="加班绩效规则" extra={<Button type="primary" loading={saving} disabled={loading || failed} onClick={() => void save()}>保存</Button>} />
+    <SubModuleHeader title="加班绩效规则" />
+    <div className="filter-bar" role="toolbar" aria-label="加班绩效规则操作">
+      <Popover
+        arrow={false}
+        trigger="click"
+        placement="bottomLeft"
+        overlayClassName="filter-popover-overlay"
+        content={<div className="filter-popover">
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">计算方式</span>
+            <Select aria-label="计算方式" style={{ flex: 1 }} disabled={loading || failed || saving} value={calculation} onChange={changeCalculation} options={[{ value: 'range', label: '按区间' }, { value: 'unit', label: '按单位' }]} />
+          </div>
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">统计单位</span>
+            <Select aria-label="统计单位" style={{ flex: 1 }} disabled value="hours" options={[{ value: 'hours', label: '小时' }]} />
+          </div>
+        </div>}
+      >
+        <Tooltip title="统计规则" arrow={false} overlayClassName="app-tooltip">
+          <Button className="filter-circle" type="text" aria-label="统计规则" icon={<SettingOutlined />} disabled={loading || failed || saving} />
+        </Tooltip>
+      </Popover>
+      <Tooltip title="保存" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle filter-primary-circle" type="text" aria-label="保存" icon={<SaveOutlined />} loading={saving} disabled={loading || failed} onClick={() => void save()} />
+      </Tooltip>
+    </div>
     {failed && <Alert type="error" showIcon message="加班规则加载失败" action={<Button size="small" onClick={() => setLoadAttempt(value => value + 1)}>重试</Button>} style={{ marginBottom: 16 }} />}
-    <Space wrap align="start" size={16}>
-      <Form.Item label="计算方式"><Select aria-label="计算方式" style={{ width: 180 }} disabled={loading || failed || saving} value={calculation} onChange={changeCalculation} options={[{ value: 'range', label: '按区间' }, { value: 'unit', label: '按单位' }]} /></Form.Item>
-      <Form.Item label="统计单位"><Select aria-label="统计单位" style={{ width: 180 }} disabled value="hours" options={[{ value: 'hours', label: '小时' }]} /></Form.Item>
-    </Space>
-    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#d9d9d9', background: '#fafafa' }}>
+    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#333333', background: '#1f1f1f' }}>
       <Form.Item label="每 1 小时金额（元）" required style={{ maxWidth: 360 }}><InputNumber aria-label="每 1 小时金额（元）" min={0} max={9999999999.99} precision={2} value={hourlyRate} onChange={setHourlyRate} style={{ width: '100%' }} /></Form.Item>
     </Card> : <OvertimeRulesFields
       rules={rules}

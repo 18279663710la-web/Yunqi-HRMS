@@ -1,28 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  App,
-  Button,
-  Checkbox,
-  DatePicker,
-  Empty,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Popconfirm,
-  Radio,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  Typography,
-} from 'antd';
+import { App, Button, Checkbox, DatePicker, Empty, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Spin, Table, Tag, Typography, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 
 import type { CompanyCalendarMode, CompanyCalendarRule, CompanyCalendarRuleInput } from '../../../types';
 import { expandDateRanges, mergeDatesToRanges, type DateRangeValue } from './calendarDates';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   createCompanyCalendarRule,
   deleteCompanyCalendarRule,
@@ -219,20 +203,55 @@ export function CompanyCalendar() {
     rowSelection={{
       type: 'radio',
       selectedRowKeys: selectedId ? [selectedId] : [],
-      onChange: (keys) => setSelectedId(Number(keys[0])),
+      onChange: (keys) => setSelectedId(keys.length ? Number(keys[0]) : null),
     }}
+    onRow={(record) => ({
+      onClick: (event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('.ant-table-selection-column')) {
+          // 再次点击已选中的圆点：取消选中
+          if (selectedId === record.id) setSelectedId(null);
+          return;
+        }
+        setSelectedId(current => (current === record.id ? null : record.id));
+      },
+    })}
   />, [rules, selectedId]);
 
   return <section className="company-calendar-page" aria-label="公司日历">
     <SubModuleHeader title="公司日历" />
-    <div className="company-calendar-entries">
-      <button className="company-calendar-entry" type="button" disabled={loading || failed || saving} onClick={openCreate}>新建规则</button>
-      <button className="company-calendar-entry" type="button" disabled={!selected || saving} onClick={() => selected && openEdit(selected)}>编辑</button>
+    <div className="filter-bar" role="toolbar" aria-label="公司日历操作">
+      <Tooltip title="新建规则" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="新建规则" icon={<PlusOutlined />} disabled={loading || failed || saving} onClick={openCreate} />
+      </Tooltip>
+      <Tooltip title="编辑" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="编辑规则" icon={<EditOutlined />} disabled={!selected || saving} onClick={() => selected && openEdit(selected)} />
+      </Tooltip>
       <Popconfirm title={`删除日历“${selected?.name ?? ''}”？`} description={selected?.usageCount ? '该日历正被考勤组使用，不能删除。' : undefined} okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => void remove()} disabled={!selected || saving || (selected?.usageCount ?? 0) > 0}>
-        <button className="company-calendar-entry company-calendar-entry-danger" type="button" disabled={!selected || saving || (selected?.usageCount ?? 0) > 0}>删除</button>
+        <Tooltip title="删除" arrow={false} overlayClassName="app-tooltip">
+          <span>
+            <Button className="filter-circle" type="text" aria-label="删除规则" icon={<DeleteOutlined />} disabled={!selected || saving || (selected?.usageCount ?? 0) > 0} />
+          </span>
+        </Tooltip>
       </Popconfirm>
     </div>
-    <div className="company-calendar-content">
+    <div
+      className="company-calendar-content"
+      onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}
+      onClickCapture={(event) => {
+        const target = event.target as HTMLElement;
+        // 再次点击已选中的圆点：捕获阶段拦截，避免被表格自身选中逻辑覆盖
+        const cell = target.closest('.ant-table-selection-column');
+        if (!cell) return;
+        const row = cell.closest('tr[data-row-key]');
+        if (!row) return;
+        if (selectedId === Number(row.getAttribute('data-row-key'))) {
+          event.preventDefault();
+          event.stopPropagation();
+          setSelectedId(null);
+        }
+      }}
+    >
       <Spin spinning={loading}>
         {rules.length ? table : <Empty description={failed ? '加载失败' : '暂无公司日历'} />}
       </Spin>

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Avatar, Button, Form, Input, List, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { App, Avatar, Badge, Button, Form, Input, List, Modal, Popconfirm, Popover, Select, Space, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, IdcardOutlined, PlusOutlined } from '@ant-design/icons';
+import { FunnelIcon } from '../../layout/adminIcons';
 import { useWorkspaceActive } from '../../layout/WorkspaceContext';
 import { accountStatusTag, initialOf } from '../../utils/helpers';
 import { createJobTitle, deleteJobTitle, fetchJobTitles, createOrganization, deleteOrganization, fetchOrganizations, renameOrganization, type JobTitle, type JobTitleEmployee, type Organization } from './api';
@@ -74,13 +75,38 @@ export function DepartmentsPage() {
   };
   return <section className="organization-page" aria-label="组织架构">
     <SubModuleHeader title="组织架构" />
-    <div className="organization-toolbar">
-      <Select aria-label="筛选职务" allowClear placeholder="全部职务" variant="borderless" value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} className="organization-filter" />
-      <Select aria-label="筛选组织" allowClear placeholder="全部组织" variant="borderless" value={organizationFilter} onChange={setOrganizationFilter} options={[{ value: 'D00', label: '未分配' }, ...organizations.map(item => ({ value: item.id, label: item.name }))]} className="organization-filter" />
-      <button type="button" className="organization-toolbar-action" onClick={() => setOpen(true)}>编辑职务</button>
-      <button type="button" className="organization-toolbar-action" onClick={() => setOrganizationOpen(true)}>编辑组织</button>
+    <div className="filter-bar" role="toolbar" aria-label="组织架构操作">
+      <Popover
+        arrow={false}
+        trigger="click"
+        placement="bottomLeft"
+        overlayClassName="filter-popover-overlay"
+        content={<div className="filter-popover">
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">职务</span>
+            <Select aria-label="筛选职务" allowClear placeholder="全部职务" style={{ flex: 1 }} value={filter} onChange={setFilter} options={titles.map(title => ({ value: title.id, label: title.name }))} />
+          </div>
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">组织</span>
+            <Select aria-label="筛选组织" allowClear placeholder="全部组织" style={{ flex: 1 }} value={organizationFilter} onChange={setOrganizationFilter} options={[{ value: 'D00', label: '未分配' }, ...organizations.map(item => ({ value: item.id, label: item.name }))]} />
+          </div>
+        </div>}
+      >
+        <Button
+          className="filter-circle filter-funnel"
+          type="text"
+          aria-label="筛选"
+          icon={<Badge dot={Boolean(filter) || Boolean(organizationFilter)} color="#3D6EF7"><FunnelIcon /></Badge>}
+        />
+      </Popover>
+      <Tooltip title="编辑职务" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="编辑职务" icon={<IdcardOutlined />} onClick={() => setOpen(true)} />
+      </Tooltip>
+      <Tooltip title="编辑组织" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="编辑组织" icon={<ApartmentOutlined />} onClick={() => setOrganizationOpen(true)} />
+      </Tooltip>
     </div>
-    <div className="organization-table">
+    <div className="module-list-card">
       <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ pageSize: 15, showSizeChanger: true, showTotal: total => `共 ${total} 人` }} scroll={{ x: 850 }} />
     </div>
     <Modal title="编辑职务" open={open} onCancel={() => { setOpen(false); form.resetFields(); }} footer={<Button onClick={() => { setOpen(false); form.resetFields(); }}>关闭</Button>} destroyOnHidden>

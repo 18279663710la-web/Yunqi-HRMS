@@ -917,6 +917,17 @@ code {
   height: 32px;
 }
 
+/* 圆形主操作按钮：可用时为白底黑图标 */
+.filter-primary-circle.ant-btn:not(:disabled) {
+  background: #dcdcdc !important;
+  color: #1a1a1a !important;
+}
+
+.filter-primary-circle.ant-btn:not(:disabled):hover {
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+}
+
 /* 发放按钮可用时为白底黑图标，禁用时保持灰色圆钮 */
 .payroll-issue-button.ant-btn:not(:disabled) {
   background: #dcdcdc !important;
@@ -1306,16 +1317,46 @@ code {
 .salary-model-entry:disabled { opacity: .45; cursor: not-allowed; }
 .salary-model-entry-danger:not(:disabled) { color: #c97474; }
 .approval-fallback-approver { width: 220px; flex: 0 0 auto; }
-.company-calendar-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 67px); margin-bottom: -36px; background: #1f1f1f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.company-calendar-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 67px); margin-bottom: -36px; background: #141414; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .company-calendar-entries { display: flex; align-items: center; gap: 32px; min-height: 48px; margin: 0 -26px 0; padding: 0 26px; overflow-x: auto; background: #1f1f1f; border-bottom: 1px solid #3a3a3a; }
 .company-calendar-entry { flex: 0 0 auto; padding: 4px 0; border: 0; background: none; color: #f0f0f0; font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; }
 .company-calendar-entry:hover:not(:disabled) { color: #ffffff; text-decoration: underline; }
 .company-calendar-entry:focus-visible { outline: 2px solid #f0f0f0; outline-offset: 3px; border-radius: 2px; }
 .company-calendar-entry:disabled { opacity: .45; cursor: not-allowed; }
 .company-calendar-entry-danger:not(:disabled) { color: #c97474; }
-.company-calendar-content { flex: 1; min-width: 0; margin: 0 -26px; padding: 20px 26px 24px; background: #1f1f1f; }
+.company-calendar-content {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px 16px;
+  background: #1f1f1f;
+  border: 1px solid #333333;
+  border-radius: 12px;
+}
 .company-calendar-content .ant-table-thead > tr > th { background: transparent; color: #ffffff; font-size: 14px; font-weight: 500; border-color: #3a3a3a; }
 .company-calendar-content .ant-table-tbody > tr > td { font-size: 14px; border-color: #333333; }
+.company-calendar-content .ant-table,
+.company-calendar-content .ant-table-container {
+  background: transparent;
+}
+
+.company-calendar-content .ant-table-tbody > tr > td {
+  background: transparent;
+}
+
+/* 通用列表卡片：灰底圆角，与公司日历规则列表一致 */
+.module-list-card {
+  padding: 8px 12px 16px;
+  background: #1f1f1f;
+  border: 1px solid #333333;
+  border-radius: 12px;
+}
+
+.module-list-card .ant-table,
+.module-list-card .ant-table-container,
+.module-list-card .ant-table-tbody > tr > td {
+  background: transparent;
+}
 .attendance-groups-page, .attendance-records-page { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 67px); margin-bottom: -36px; background: #141414; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .attendance-groups-entries, .attendance-records-entries { display: flex; align-items: center; gap: 32px; min-height: 48px; margin: 0 -26px 0; padding: 0 26px; overflow-x: auto; background: #1f1f1f; border-bottom: 1px solid #3a3a3a; }
 .attendance-groups-entry, .attendance-records-entry { flex: 0 0 auto; padding: 4px 0; border: 0; background: none; color: #f0f0f0; font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; }
@@ -1369,7 +1410,19 @@ code {
   background: transparent;
   border-color: #2e2e2e;
 }
-.salary-model-scroll { flex: 1; min-width: 0; min-height: 140px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: #8c8c8c #333333; }
+.salary-model-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 140px;
+  padding: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #333333;
+  border-radius: 12px;
+  background: #1f1f1f;
+  scrollbar-width: thin;
+  scrollbar-color: #8c8c8c #333333;
+}
 .salary-model-scroll:focus-visible { outline: 2px solid #f0f0f0; outline-offset: -2px; }
 .salary-model-field-list { width: max-content; border-spacing: 0; text-align: center; }
 .salary-model-field-list th { position: relative; box-sizing: border-box; width: 112px; min-width: 112px; padding: 0; border-top: 1px solid #3a3a3a; border-bottom: 1px solid #3a3a3a; border-left: 1px solid #3a3a3a; color: #ffffff; background: #262626; font-size: 14px; font-weight: 500; line-height: 18px; white-space: nowrap; cursor: grab; }
@@ -1531,9 +1584,9 @@ code {
   .salary-model-editor .onboarding-field-card > .ant-card-body { grid-template-columns: minmax(0, 1fr); }
   .salary-single-field-form { grid-template-columns: minmax(0, 1fr); }
 }
-.onboarding-field-heading { display: inline-flex; align-items: center; gap: 10px; color: #263854; }
+.onboarding-field-heading { display: inline-flex; align-items: center; gap: 10px; color: #e8e8e8; }
 .onboarding-field-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: #f0f0f0; background: #303030; border-radius: 7px; font-size: 12px; font-weight: 700; }
-.onboarding-subfields { padding: 14px; margin-top: 4px; background: #f3f6fc; border: 1px solid #3a3a3a; border-left: 3px solid #f0f0f0; border-radius: 8px; }
+.onboarding-subfields { padding: 14px; margin-top: 4px; background: #262626; border: 1px solid #3a3a3a; border-left: 3px solid #595959; border-radius: 8px; }
 .onboarding-subfields-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #e8e8e8; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .onboarding-subfields-marker { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #a3a3a3; }
 .onboarding-template-editor .onboarding-subfield-card { margin-bottom: 10px; background: #1f1f1f; border-color: #4d4d4d; border-radius: 8px; box-shadow: none; }

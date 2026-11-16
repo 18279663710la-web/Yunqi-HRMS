@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, App, Button, Card, Form, InputNumber, Select, Space, Spin } from 'antd';
+import { Alert, App, Button, Card, Form, InputNumber, Popover, Select, Spin, Tooltip } from 'antd';
 import { getAttendanceRuleConfig, saveAttendanceRuleConfig, type AttendancePayrollRule, type AttendanceRuleConfig } from '../../hr/api';
 import { AttendanceRulesFields } from './AttendanceRulesFields';
 import { AttendanceModeRulesFields } from './AttendanceModeRulesFields';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
+import { SaveOutlined, SettingOutlined } from '@ant-design/icons';
 import { normalizeAttendanceRules } from './attendanceRules';
 import { buildAttendanceConfig, defaultModeRules, type AttendanceRange, type AttendanceRuleMode } from './attendanceRuleModes';
 import { loadAttendanceRuleConfig } from './attendanceRuleLoader';
@@ -81,15 +82,39 @@ export function PayrollAttendanceRules({ onSaved }: { onSaved: () => void }) {
     finally { setSaving(false); }
   };
   return <Spin spinning={loading}><Form form={form} layout="vertical" onFinish={save} onValuesChange={() => { edited.current = true; }}>
-    <SubModuleHeader title="出勤率绩效规则" extra={<Button type="primary" htmlType="submit" loading={saving} disabled={loading || !!failure || resolving}>保存</Button>} />
+    <SubModuleHeader title="出勤率绩效规则" />
+    <div className="filter-bar" role="toolbar" aria-label="出勤率绩效规则操作">
+      <Popover
+        arrow={false}
+        trigger="click"
+        placement="bottomLeft"
+        overlayClassName="filter-popover-overlay"
+        content={<div className="filter-popover">
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">计算方式</span>
+            <Select aria-label="计算方式" style={{ flex: 1 }} disabled={loading || saving} value={calculation} onChange={(next: 'range' | 'unit') => changeMode(mode, next)} options={[{ value: 'range', label: '按区间' }, { value: 'unit', label: '按单位' }]} />
+          </div>
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">统计单位</span>
+            <Select aria-label="统计单位" style={{ flex: 1 }} disabled={loading || saving} value={mode.startsWith('rate_') ? 'rate' : 'days'} onChange={(unit: 'rate' | 'days') => changeMode(`${unit}_${mode.endsWith('absence') ? 'absence' : 'attendance'}`)} options={[{ value: 'rate', label: '按比例' }, { value: 'days', label: '按天数' }]} />
+          </div>
+          <div className="filter-popover-row">
+            <span className="filter-popover-label">统计方式</span>
+            <Select aria-label="统计方式" style={{ flex: 1 }} disabled={loading || saving} value={mode.endsWith('absence') ? 'absence' : 'attendance'} onChange={(basis: 'attendance' | 'absence') => changeMode(`${mode.startsWith('rate_') ? 'rate' : 'days'}_${basis}`)} options={[{ value: 'attendance', label: '按出勤' }, { value: 'absence', label: '按缺勤' }]} />
+          </div>
+        </div>}
+      >
+        <Tooltip title="统计规则" arrow={false} overlayClassName="app-tooltip">
+          <Button className="filter-circle" type="text" aria-label="统计规则" icon={<SettingOutlined />} disabled={loading || saving} />
+        </Tooltip>
+      </Popover>
+      <Tooltip title="保存" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle filter-primary-circle" type="text" aria-label="保存" icon={<SaveOutlined />} loading={saving} disabled={loading || !!failure || resolving} onClick={() => form.submit()} />
+      </Tooltip>
+    </div>
     {failure && <Alert type="error" showIcon message="出勤绩效规则加载失败" description={typeof failure === 'string' ? failure : '请重试'} action={<Button onClick={() => void load()} disabled={loading}>重试</Button>} style={{ marginBottom: 24 }} />}
     <div hidden={!!failure}>
-    <Space wrap align="start" size={16}>
-      <Form.Item label="计算方式"><Select aria-label="计算方式" style={{ width: 180 }} disabled={loading || saving} value={calculation} onChange={(next: 'range' | 'unit') => changeMode(mode, next)} options={[{ value: 'range', label: '按区间' }, { value: 'unit', label: '按单位' }]} /></Form.Item>
-      <Form.Item label="统计单位"><Select aria-label="统计单位" style={{ width: 180 }} disabled={loading || saving} value={mode.startsWith('rate_') ? 'rate' : 'days'} onChange={(unit: 'rate' | 'days') => changeMode(`${unit}_${mode.endsWith('absence') ? 'absence' : 'attendance'}`)} options={[{ value: 'rate', label: '按比例' }, { value: 'days', label: '按天数' }]} /></Form.Item>
-      <Form.Item label="统计方式"><Select aria-label="统计方式" style={{ width: 180 }} disabled={loading || saving} value={mode.endsWith('absence') ? 'absence' : 'attendance'} onChange={(basis: 'attendance' | 'absence') => changeMode(`${mode.startsWith('rate_') ? 'rate' : 'days'}_${basis}`)} options={[{ value: 'attendance', label: '按出勤' }, { value: 'absence', label: '按缺勤' }]} /></Form.Item>
-    </Space>
-    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#d9d9d9', background: '#fafafa' }}>
+    {calculation === 'unit' ? <Card size="small" style={{ margin: '0 0 24px', borderColor: '#333333', background: '#1f1f1f' }}>
       <Form.Item name="unitAdjustment" label={`每 ${mode.startsWith('rate_') ? '1 个百分点' : '1 天'}绩效调整（元）`} rules={[{ required: true, message: '请输入每单位绩效调整金额' }]} style={{ maxWidth: 360 }}>
         <InputNumber min={-9999999999.99} max={9999999999.99} precision={2} style={{ width: '100%' }} />
       </Form.Item>

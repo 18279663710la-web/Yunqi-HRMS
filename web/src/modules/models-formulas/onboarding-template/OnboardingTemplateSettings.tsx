@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { App, Button, Card, Checkbox, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Card, Checkbox, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { ApiError, request } from '../../../api/client';
 import { ONBOARDING_FORM_URL, type Field, type Template, type TemplateChange, type TemplateHistoryEntry } from '../../hr/onboarding/api';
 import { SubModuleHeader } from '../../../components/SubModuleHeader';
+import { HistoryOutlined, PlusOutlined } from '@ant-design/icons';
 
 const actionLabels = { create: '新建', update: '修改', delete: '删除' } as const;
 const actionColors = { create: '#80BB9E', update: '#8BA6C1', delete: '#C97474' } as const;
@@ -94,16 +95,37 @@ export function OnboardingTemplateSettings() {
   };
 
   return <div>
-    <SubModuleHeader title="入职申请表设置" extra={<Space><Button onClick={() => void loadTemplateHistory()}>修改历史</Button><Button type="primary" onClick={openCreate}>新建模板</Button></Space>} />
-    <Card>
-      <Space wrap align="start" size={[12, 12]}>{templates.map(t => <div className="onboarding-template" key={t.id}>
-        <button type="button" className={`onboarding-template-select${t.isDefault ? ' onboarding-template-select-active' : ''}`} aria-pressed={t.isDefault} aria-label={`选择模板${t.id}${t.isDefault ? '，现用模板' : ''}`} disabled={saving} onClick={() => void setDefault(t.id)}>
-          <span className="onboarding-template-title" title={t.name}>{t.name}</span>
-          <span className="onboarding-template-meta">{t.fields.length} 个字段 {t.isDefault && <Tag color="#F5F5F5">现用</Tag>}</span>
-        </button>
-        <Button className="onboarding-template-edit" type="link" size="small" aria-label={`编辑模板${t.id}`} disabled={saving} onClick={() => openEdit(t)}>编辑</Button>
-      </div>)}</Space>
-    </Card>
+    <SubModuleHeader title="入职申请表设置" />
+    <div className="filter-bar" role="toolbar" aria-label="入职申请表设置操作">
+      <Tooltip title="修改历史" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="修改历史" icon={<HistoryOutlined />} onClick={() => void loadTemplateHistory()} />
+      </Tooltip>
+      <Tooltip title="新建模板" arrow={false} overlayClassName="app-tooltip">
+        <Button className="filter-circle" type="text" aria-label="新建模板" icon={<PlusOutlined />} onClick={openCreate} />
+      </Tooltip>
+    </div>
+    <div className="module-list-card">
+      <Table<Template>
+        rowKey="id"
+        size="small"
+        columns={[
+          { title: '模板名称', dataIndex: 'name' },
+          { title: '字段数量', render: (_, t) => `${t.fields.length} 个字段` },
+          { title: '状态', render: (_, t) => (t.isDefault ? <Tag color="#F5F5F5">现用</Tag> : <Typography.Text type="secondary">—</Typography.Text>) },
+          {
+            title: '操作',
+            width: 180,
+            render: (_, t) => <Space size={4}>
+              <Button type="link" size="small" aria-label={`编辑模板${t.id}`} disabled={saving} onClick={() => openEdit(t)}>编辑</Button>
+              <Button type="link" size="small" aria-label={`设为现用${t.id}`} disabled={saving || t.isDefault} onClick={() => void setDefault(t.id)}>设为现用</Button>
+            </Space>,
+          },
+        ]}
+        dataSource={templates}
+        pagination={{ pageSize: 10, showSizeChanger: false }}
+        locale={{ emptyText: '暂无模板' }}
+      />
+    </div>
     <Modal className="onboarding-template-editor" title={editingId === null ? '新建入职申请表模板' : `编辑模板：${editingTemplate?.name ?? ''}`} open={edit} onCancel={() => setEdit(false)} width={800} destroyOnHidden styles={{ body: { maxHeight: '68vh', overflowY: 'auto' } }}
       footer={<div className="onboarding-modal-footer">
         {editingId === null ? <span /> : <Space><Tooltip title={deleteHint}><span><Button danger disabled={deleteDisabled} onClick={deleteTemplate}>删除模板</Button></span></Tooltip><Button onClick={() => void exportTemplate()}>导出模板</Button></Space>}

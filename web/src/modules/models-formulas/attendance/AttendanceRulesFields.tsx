@@ -7,7 +7,7 @@ export function AttendanceRulesFields() {
   const rules = Array.isArray(watchedRules) ? watchedRules : [];
   return <Card
     size="small"
-    style={{ margin: '0 0 24px', borderColor: '#d9d9d9', background: '#fafafa' }}
+    style={{ margin: '0 0 24px', borderColor: '#333333', background: '#1f1f1f' }}
   >
     <div id="attendance-rules-body">
     <Form.List name="attendanceRules" rules={[{ validator: async (_, values: AttendanceRule[] | undefined) => { const error = validateAttendanceRules(buildAttendanceRules(values)); if (error) throw new Error(error); } }]}>
