@@ -25,7 +25,7 @@ export function OnboardingSubmission({ record }: { record: ArchivedOnboarding })
     })}
     <Space direction="vertical">
       <div><b>照片：</b>{record.photo ? <img src={record.photo} alt="员工照片" style={{ maxWidth: 150, maxHeight: 150, verticalAlign: 'top' }} /> : '未填写'}</div>
-      <div><b>签名：</b>{record.signature ? <img src={record.signature} alt="员工手写签名" style={{ maxWidth: 280, maxHeight: 150, verticalAlign: 'top', border: '1px solid #eee' }} /> : '未填写'}</div>
+      <div><b>签名：</b>{record.signature ? <img src={record.signature} alt="员工手写签名" style={{ maxWidth: 280, maxHeight: 150, verticalAlign: 'top', background: '#fff', padding: 6, borderRadius: 6, border: '1px solid #d9d9d9' }} /> : '未填写'}</div>
     </Space>
     {record.declaration && <div style={{ marginTop: 16 }}><b>声明：</b><p>{record.declaration}</p><p>{record.declarationAccepted ? '员工已勾选确认' : '员工未勾选确认'}</p></div>}
   </div>;

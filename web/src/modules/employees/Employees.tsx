@@ -18,6 +18,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import type { InputRef, MenuProps } from 'antd';
@@ -379,7 +380,7 @@ export function EmployeesPage() {
       width: 220,
       render: (_, record) => (
         <Space>
-          <Avatar style={{ background: '#3D6EF7', color: '#fff', fontWeight: 600 }}>
+          <Avatar size={40} style={{ background: '#3D6EF7', color: '#fff', fontWeight: 600 }}>
             {initialOf(record.name)}
           </Avatar>
           <div>
@@ -400,15 +401,13 @@ export function EmployeesPage() {
       dataIndex: 'position',
       width: 150,
       render: (_, record) => {
-        const color =
-          record.jobCategory === '研发员' ? '#8BA6C1' : record.jobCategory === '业务员' ? '#C9A75C' : 'default';
-        return <Tag color={color} bordered={false}>{record.jobCategory}</Tag>;
+        return <span className="job-text">{record.jobCategory}</span>;
       },
     },
     {
       title: '联系方式',
       dataIndex: 'phone',
-      width: 190,
+      width: 250,
       render: (_, record) => (
         <div>
           <div>{record.phone}</div>
@@ -490,14 +489,15 @@ export function EmployeesPage() {
           }}
         />
         {!searchOpen ? (
-          <Button
-            className="filter-circle"
-            type="text"
-            aria-label="搜索员工"
-            title="搜索"
-            icon={<Badge dot={Boolean(keyword)} color="#3D6EF7"><SearchOutlined /></Badge>}
-            onClick={() => setSearchOpen(true)}
-          />
+          <Tooltip title="搜索" arrow={false} overlayClassName="app-tooltip">
+            <Button
+              className="filter-circle"
+              type="text"
+              aria-label="搜索员工"
+              icon={<Badge dot={Boolean(keyword)} color="#3D6EF7"><SearchOutlined /></Badge>}
+              onClick={() => setSearchOpen(true)}
+            />
+          </Tooltip>
         ) : null}
         <Popover
           arrow={false}
@@ -540,30 +540,33 @@ export function EmployeesPage() {
             </div>
           </div>}
         >
-          <Button
-            className="filter-circle filter-funnel"
-            type="text"
-            aria-label="筛选"
-            title="筛选"
-            icon={<Badge dot={Boolean(jobFilter) || accountStatus !== 'all'} color="#3D6EF7"><FunnelIcon /></Badge>}
-          />
+          <Tooltip title="筛选" arrow={false} overlayClassName="app-tooltip">
+            <Button
+              className="filter-circle filter-funnel"
+              type="text"
+              aria-label="筛选"
+              icon={<Badge dot={Boolean(jobFilter) || accountStatus !== 'all'} color="#3D6EF7"><FunnelIcon /></Badge>}
+            />
+          </Tooltip>
         </Popover>
-        <Button
-          className="filter-circle"
-          type="text"
-          aria-label="刷新列表"
-          title="刷新"
-          icon={<ReloadOutlined />}
-          onClick={() => { void load(); }}
-        />
-        <Button
-          className="filter-circle"
-          type="text"
-          aria-label="新增员工账号"
-          title="新增员工账号"
-          icon={<UserAddOutlined />}
-          onClick={openCreate}
-        />
+        <Tooltip title="刷新" arrow={false} overlayClassName="app-tooltip">
+          <Button
+            className="filter-circle"
+            type="text"
+            aria-label="刷新列表"
+            icon={<ReloadOutlined />}
+            onClick={() => { void load(); }}
+          />
+        </Tooltip>
+        <Tooltip title="新增员工账号" arrow={false} overlayClassName="app-tooltip">
+          <Button
+            className="filter-circle"
+            type="text"
+            aria-label="新增员工账号"
+            icon={<UserAddOutlined />}
+            onClick={openCreate}
+          />
+        </Tooltip>
       </div>
 
       <Table
@@ -586,6 +589,7 @@ export function EmployeesPage() {
       />
 
       <Modal
+        className="employee-form-modal"
         title={editing ? `编辑员工 · ${editing.name}` : '新增员工账号'}
         open={editOpen}
         onCancel={() => setEditOpen(false)}

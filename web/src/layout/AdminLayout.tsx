@@ -39,8 +39,18 @@ import { WorkspaceActiveContext } from './WorkspaceContext';
 import { closeWorkspaceTab, createWorkspaceTabs, openWorkspaceTab, workspaceTabForLocation, type WorkspaceTab } from './workspaceTabs';
 
 const { Header, Sider, Content } = Layout;
-// 页签拖动仅允许沿滑轨左右移动。
-const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
+// 页签拖动仅允许沿滑轨左右移动，且不得拖出滑轨可视范围。
+const restrictToRail: Modifier = ({ containerNodeRect, draggingNodeRect, transform }) => {
+  const next = { ...transform, y: 0 };
+  if (containerNodeRect && draggingNodeRect) {
+    const left = Math.min(
+      Math.max(draggingNodeRect.left + transform.x, containerNodeRect.left),
+      containerNodeRect.right - draggingNodeRect.width
+    );
+    next.x = left - draggingNodeRect.left;
+  }
+  return next;
+};
 
 const STATIC_TAB_ICONS: Record<string, ReactNode> = {
   '/dashboard': <DashboardIcon />,
@@ -322,7 +332,7 @@ export function AdminLayout() {
         <Header className="admin-header">
           <nav className="workspace-tabs" aria-label="已打开的页面">
             <div ref={tabsListRef} className="workspace-tabs-list" role="tablist" aria-label="页面标签">
-              <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToHorizontalAxis]} accessibility={{ screenReaderInstructions: { draggable: '使用左右方向键调整顺序，也可拖动页签改变位置。' } }} onDragEnd={onTabDragEnd}>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToRail]} accessibility={{ screenReaderInstructions: { draggable: '使用左右方向键调整顺序，也可拖动页签改变位置。' } }} onDragEnd={onTabDragEnd}>
                 <SortableContext items={visibleTabs.map(tab => tab.key)} strategy={horizontalListSortingStrategy}>
                   {visibleTabs.map((tab, index) => <SortableWorkspaceTab key={tab.key} tab={tab} active={activeTabKey === tab.key} index={index} onActivate={item => visitTab(item.location)} onClose={closeTab} onTabKeyDown={onTabKeyDown} registerRef={(key, element) => { tabRefs.current[key] = element; }} />)}
                 </SortableContext>
