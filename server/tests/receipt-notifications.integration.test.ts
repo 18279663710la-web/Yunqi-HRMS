@@ -23,7 +23,7 @@ test('回款通知按业务员留单、去重并隔离', async () => {
     const pool = await import('../src/shared/db/pool');
     closePool = pool.closePool;
     await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await conn.query(`INSERT INTO \`${database}\`.u9_employee_bindings (employee_id,operator_id,updated_at) VALUES ('U012','101',NOW()),('U013','102',NOW())`);
 
     const receipt = (transactorId: string, id: string, docNo: string) => ({

@@ -13,7 +13,7 @@ test('平级组织支持迁移、维护、员工归属与使用中保护', async
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await pool.execute("INSERT INTO departments (id, parent_id, name) VALUES ('D02', 'D00', '旧模拟部门')");
     await pool.execute("UPDATE employees SET dept_id = 'D02' WHERE id = 'U001'");
     await pool.execute("INSERT INTO hr_employee_transitions (employee_id, change_type, effective_date, before_json, after_json, status, created_by, created_at) VALUES ('U001', 'transfer', '2025-01-01', JSON_OBJECT('deptId', 'D02'), JSON_OBJECT('deptId', 'D00'), 'submitted', 1, NOW())");

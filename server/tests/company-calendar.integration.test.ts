@@ -22,8 +22,8 @@ test('公司日历支持多条规则、校验、使用保护和权限', async ()
     const poolModule = await import('../src/shared/db/pool');
     closePool = poolModule.closePool;
     await poolModule.ensureSchema();
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const { ensureDefaultAdmin } = await import('../src/admin/admin-accounts/adminAuthService');
     await ensureDefaultAdmin();
     await connection.query(`INSERT INTO \`${database}\`.admins (username, password_hash, name, role, status, created_at) VALUES ('hr_test', 'x', 'HR', 'hr_admin', 1, NOW())`);

@@ -18,7 +18,7 @@ test('员工编号在事务内分配，工号唯一，改名重算拼音', async
     const pool = await import('../src/shared/db/pool');
     closePool = pool.closePool;
     await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/employees/adminEmployeeService')).backfillEmployeeJobCategories();
     await (await import('../src/domains/employees/jobTitleService')).backfillJobTitles();
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();

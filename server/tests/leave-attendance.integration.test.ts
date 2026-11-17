@@ -23,8 +23,8 @@ test('请假审批通过后按起止日期标记请假状态，休息日与出�
     const poolModule = await import('../src/shared/db/pool');
     closePool = poolModule.closePool;
     await poolModule.ensureSchema();
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const { ensureDefaultAdmin } = await import('../src/admin/admin-accounts/adminAuthService');
     await ensureDefaultAdmin();
     const { issueTokens } = await import('../src/miniprogram/auth/authService');

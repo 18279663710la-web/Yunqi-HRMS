@@ -32,8 +32,8 @@ test('报销在提交和查验前按发票身份查重，并发提交只允许�
     const pool = await import('../src/shared/db/pool');
     closePool = pool.closePool;
     await pool.ensureSchema();
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const { backfillEmployeeJobCategories } = await import('../src/admin/employees/adminEmployeeService');
     await backfillEmployeeJobCategories();
     await connection.query(`INSERT INTO \`${database}\`.approval_approvers (type, employee_id, updated_by, updated_at) VALUES ('expense', 'U005', 1, NOW())`);

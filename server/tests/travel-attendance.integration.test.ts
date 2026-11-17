@@ -23,8 +23,8 @@ test('出差审批通过后按起止日期标记出差状态并计入出勤', as
     const poolModule = await import('../src/shared/db/pool');
     closePool = poolModule.closePool;
     await poolModule.ensureSchema();
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const { ensureDefaultAdmin } = await import('../src/admin/admin-accounts/adminAuthService');
     await ensureDefaultAdmin();
     const { issueTokens } = await import('../src/miniprogram/auth/authService');

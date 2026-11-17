@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import { createApp } from './app';
 import { config } from './config';
 import { ensureDatabase, ensureSchema } from './shared/db/pool';
-import { seedDatabase } from './shared/db/seed';
-import { seedAttendanceIfEmpty } from './shared/db/attendanceSeed';
+import { initializeBaseData } from './shared/db/seed';
 import { migrateVisitQuickAction } from './shared/db/quickActionMigration';
 import { ensureDefaultAdmin } from './admin/admin-accounts/adminAuthService';
 import { backfillEmployeeJobCategories } from './admin/employees/adminEmployeeService';
@@ -24,10 +23,8 @@ async function bootstrap(): Promise<void> {
   if (config.autoMigrate) {
     await ensureDatabase();
     await ensureSchema();
-    const seeded = await seedDatabase(false);
-    if (seeded) logSystem('db', 'info', '首次启动：已写入演示数据');
-    const attendanceSeeded = await seedAttendanceIfEmpty();
-    if (attendanceSeeded) logSystem('db', 'info', '已生成演示考勤记录');
+    await initializeBaseData(false);
+    logSystem('db', 'info', '基础数据已初始化（五种固定审批类型、组织与默认日历）');
     const adminSeeded = await ensureDefaultAdmin();
     if (adminSeeded) logSystem('server', 'info', '已创建默认管理员');
     const backfilled = await backfillEmployeeJobCategories();

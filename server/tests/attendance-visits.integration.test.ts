@@ -32,8 +32,8 @@ test('拜访记录按员工隔离，照片必填且管理端可按员工和关�
     const poolModule = await import('../src/shared/db/pool');
     closePool = poolModule.closePool;
     await poolModule.ensureSchema();
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const { ensureDefaultAdmin } = await import('../src/admin/admin-accounts/adminAuthService');
     await ensureDefaultAdmin();
     const { issueTokens } = await import('../src/miniprogram/auth/authService');

@@ -14,7 +14,7 @@ test('仅绑定的业务员能访问对应 U9 数据，管理员绑定不可重�
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     await conn.query(`INSERT INTO \`${database}\`.admins (username,password_hash,name,role,status,created_at) VALUES ('u9_hr','x','HR','hr_admin',1,NOW())`);
     const { config } = await import('../src/config'); const { issueTokens } = await import('../src/miniprogram/auth/authService');

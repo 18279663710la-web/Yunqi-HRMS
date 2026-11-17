@@ -37,7 +37,7 @@ test('审批流程设计稿独立按类型保存，验证权限、节点和版�
     assert.equal(migrated[0].fields_hash, '', '旧测试记录不能绕过字段版本校验');
     await conn.query(`DELETE FROM \`${database}\`.custom_approval_test_runs WHERE approval_type='leave'`);
 
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     await conn.query(`INSERT INTO \`${database}\`.admins (username,password_hash,name,role,status,created_at) VALUES ('hr_test','x','HR','hr_admin',1,NOW())`);
     const { config } = await import('../src/config');

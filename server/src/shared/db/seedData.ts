@@ -1,8 +1,8 @@
 /**
- * seedData.ts — 数据库种子数据（由原 mock/data.js 迁移而来）
+ * seedData.ts — 固定审批类型定义与集成测试夹具（由原 mock/data.js 迁移而来）
  *
- * 仅由 server/src/db/seed.ts 使用：首次建库时写入 MySQL；
- * 之后所有增删改都落在数据库里，不再依赖前端本地 Storage。
+ * 生产初始化只导入 approvalTypes（五种固定审批类型）；
+ * 公司配置、员工、公告等仅由 seedDemoData 在集成测试中写入。
  */
 
 /** 公司信息 */

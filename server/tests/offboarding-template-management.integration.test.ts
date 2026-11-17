@@ -21,7 +21,7 @@ test('离职申请表设置已移除，模板表删除且旧交接清单表保�
     assert.deepEqual((tables as { name: string }[]).map(row => row.name).sort(), ['hr_offboarding']);
     const [settings] = await conn.query(`SELECT setting_key FROM \`${database}\`.hr_settings WHERE setting_key = 'self_offboarding_default'`);
     assert.equal((settings as unknown[]).length, 0);
-    await (await import('../src/shared/db/seed')).seedDatabase(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
+    await (await import('../src/shared/db/seed')).seedDemoData(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     const { config } = await import('../src/config');
     const server = (await import('../src/app')).createApp().listen(0, '127.0.0.1'); await new Promise<void>(resolve => server.once('listening', resolve));
     closeServer = () => new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));

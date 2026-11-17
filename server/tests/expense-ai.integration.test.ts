@@ -58,7 +58,7 @@ test('真实校验通过的报销单异步生成建议，并只向指定审批�
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool;
     await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/employees/adminEmployeeService')).backfillEmployeeJobCategories();
     await conn.query(`INSERT INTO \`${database}\`.approval_approvers (type, employee_id, updated_by, updated_at) VALUES ('expense','U005',1,NOW())`);
     await conn.query(`INSERT INTO \`${database}\`.approval_rules (type, content, updated_by, updated_at) VALUES ('expense','差旅费须提供行程单',1,NOW())`);

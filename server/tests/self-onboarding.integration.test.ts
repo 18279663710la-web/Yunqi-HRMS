@@ -13,7 +13,7 @@ test('管理员登记后仅对应员工填写模板快照并可查看结果', as
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
+    await (await import('../src/shared/db/seed')).seedDemoData(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     await conn.query(`INSERT INTO \`${database}\`.employee_accounts (employee_id, login_name, password_hash, status, created_at, updated_at) VALUES ('U001','testone','x','active',NOW(),NOW()), ('U005','testtwo','x','active',NOW(),NOW()) ON DUPLICATE KEY UPDATE status = 'active'`);
     const { config } = await import('../src/config'); const { issueTokens } = await import('../src/miniprogram/auth/authService');
     const server = (await import('../src/app')).createApp().listen(0, '127.0.0.1'); await new Promise<void>(resolve => server.once('listening', resolve));

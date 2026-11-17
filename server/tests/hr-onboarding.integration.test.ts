@@ -17,7 +17,7 @@ test('历史入职申请只读，旧写入接口已移除', async () => {
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool;
     await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     await conn.query(`INSERT INTO \`${database}\`.admins (username, password_hash, name, role, status, created_at) VALUES ('hr_test', 'x', 'HR', 'hr_admin', 1, NOW())`);
     const { config } = await import('../src/config');

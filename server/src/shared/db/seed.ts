@@ -69,6 +69,16 @@ const notices = noticesSeed as unknown as SeedNotice[];
 const DATA_VERSION = '1';
 const READ_EMPLOYEE_ID = 'U001';
 
+/** 生产初始化只写结构性和固定配置，不写演示员工、公告、考勤等业务数据。 */
+const baseCompany = {
+  name: '云启办公',
+  shortName: '云启办公',
+  logoText: '云启',
+  address: '',
+  workTime: '',
+  flexible: '',
+};
+
 async function clearAll(conn: PoolConnection): Promise<void> {
   const tables = [
     'approval_workflow_ai_jobs',
@@ -108,6 +118,31 @@ async function clearAll(conn: PoolConnection): Promise<void> {
   for (const table of tables) {
     await conn.query(`DELETE FROM \`${table}\``);
   }
+}
+
+async function insertBaseData(conn: PoolConnection): Promise<void> {
+  await conn.query(
+    'INSERT IGNORE INTO companies (id, name, short_name, logo_text, address, work_time, flexible) VALUES (1, ?, ?, ?, ?, ?, ?)',
+    [baseCompany.name, baseCompany.shortName, baseCompany.logoText, baseCompany.address, baseCompany.workTime, baseCompany.flexible]
+  );
+
+  await conn.query("INSERT IGNORE INTO departments (id, parent_id, name, leader_id, sort_order) VALUES ('D00', NULL, '未分配', NULL, 0)");
+
+  await conn.query(
+    `INSERT IGNORE INTO company_calendar_rules
+      (name, mode, weekly_rest_days, cycle_weeks, cycle_rest_days, anchor_date, rest_dates, work_dates, created_at, updated_at)
+     VALUES ('默认公司日历', 'none', '[]', NULL, '[]', NULL, '[]', '[]', NOW(), NOW())`
+  );
+
+  for (let i = 0; i < approvalTypes.length; i += 1) {
+    const t = approvalTypes[i];
+    await conn.query(
+      'INSERT IGNORE INTO approval_types (`key`, `name`, color, description, fields_json, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+      [t.key, t.name, t.color, t.desc, JSON.stringify(t.fields), i + 1]
+    );
+  }
+
+  await touchMeta(conn);
 }
 
 async function insertAll(conn: PoolConnection): Promise<void> {
@@ -251,8 +286,17 @@ export async function resetDemoContent(): Promise<void> {
   await seedTodayCheckIns(seedEmployeeIds);
 }
 
-/** 首次启动播种：companies 已有数据时跳过；force=true 时清空后重播（会清空员工与账号） */
-export async function seedDatabase(force = false): Promise<boolean> {
+/** 数据库初始化：只写五种固定审批类型、未分配组织、空公司配置和默认日历；管理员由 ensureDefaultAdmin 单独写入。 */
+export async function initializeBaseData(force = false): Promise<boolean> {
+  await transaction(async (conn) => {
+    if (force) await clearAll(conn);
+    await insertBaseData(conn);
+  });
+  return true;
+}
+
+/** 仅测试夹具使用：写入演示员工、账号、公告、快捷入口和审批类型；生产启动不调用。 */
+export async function seedDemoData(force = false): Promise<boolean> {
   const row = await queryOne<{ total: number }>('SELECT COUNT(*) AS total FROM companies');
   if (!force && row && Number(row.total) > 0) return false;
 

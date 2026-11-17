@@ -23,7 +23,7 @@ test('工资出勤按在职窗口和考勤状态取数', async () => {
     const pool = await import('../src/shared/db/pool');
     closePool = pool.closePool;
     await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase();
+    await (await import('../src/shared/db/seed')).seedDemoData();
     const q = (sql: string, params?: unknown[]) => conn.query(sql, params);
     const employee = [{ id: 'U001', name: '陈亦然' }];
     const read = async (month: string, attendanceRule = false) => {

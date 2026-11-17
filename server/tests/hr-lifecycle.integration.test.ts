@@ -15,7 +15,7 @@ test('人事事件、合同历史与工资复核', async () => {
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool;
-    await pool.ensureSchema(); await (await import('../src/shared/db/seed')).seedDatabase();
+    await pool.ensureSchema(); await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     await conn.query(`INSERT INTO \`${database}\`.admins (username, password_hash, name, role, status, created_at) VALUES ('hr_test', 'x', 'HR', 'hr_admin', 1, NOW())`);
     const { config } = await import('../src/config');

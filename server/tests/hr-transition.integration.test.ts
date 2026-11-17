@@ -13,7 +13,7 @@ test('人事异动生效、撤销及并发保护', async () => {
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool;
-    await pool.ensureSchema(); await (await import('../src/shared/db/seed')).seedDatabase();
+    await pool.ensureSchema(); await (await import('../src/shared/db/seed')).seedDemoData();
     await (await import('../src/admin/employees/adminEmployeeService')).backfillEmployeeJobCategories();
     const titles = await import('../src/domains/employees/jobTitleService'); await titles.backfillJobTitles(); await titles.createJobTitle('测试岗位');
     await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();

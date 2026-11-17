@@ -32,8 +32,8 @@ test('考勤设置和打卡接口在独立数据库中验证时段、休息日�
     const old = (oldRows as Array<{ start_time: string; end_time: string; in_end_time: string | null; out_end_time: string | null }>)[0];
     assert.deepEqual(old, { start_time: '08:00', end_time: '17:00', in_end_time: null, out_end_time: null });
     await connection.query(`DELETE FROM \`${database}\`.attendance_settings WHERE id=1`);
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const { ensureDefaultAdmin } = await import('../src/admin/admin-accounts/adminAuthService');
     await ensureDefaultAdmin();
     const { issueTokens } = await import('../src/miniprogram/auth/authService');

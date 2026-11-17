@@ -1,6 +1,7 @@
+/** 仅测试夹具使用：为演示员工生成考勤与今日打卡，生产初始化不调用。 */
 import type { PoolConnection } from 'mysql2/promise';
 
-import { queryOne, queryRows, transaction } from './pool';
+import { transaction } from './pool';
 import { dateKey, isWorkday, pad, parseDateKey, seededRand } from '../utils/datetime';
 
 interface SeedPunch {
@@ -123,15 +124,4 @@ export async function seedTodayCheckIns(employeeIds: string[], excludeIds: strin
       );
     }
   });
-}
-
-/** 首次启动 / 数据库没有任何打卡记录时播种 */
-export async function seedAttendanceIfEmpty(): Promise<boolean> {
-  const row = await queryOne<{ total: number }>('SELECT COUNT(*) AS total FROM attendance_punches');
-  if (Number(row?.total || 0) > 0) return false;
-  const employees = await queryRows<{ id: string }>('SELECT id FROM employees');
-  const ids = employees.map((e) => e.id);
-  await seedAttendanceForEmployees(ids);
-  await seedTodayCheckIns(ids);
-  return true;
 }

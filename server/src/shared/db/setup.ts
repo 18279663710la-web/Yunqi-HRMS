@@ -1,7 +1,6 @@
 import { config } from '../../config';
 import { closePool, ensureDatabase, ensureSchema } from './pool';
-import { seedDatabase } from './seed';
-import { seedAttendanceIfEmpty } from './attendanceSeed';
+import { initializeBaseData } from './seed';
 import { ensureDefaultAdmin } from '../../admin/admin-accounts/adminAuthService';
 import { backfillEmployeeJobCategories } from '../../admin/employees/adminEmployeeService';
 import { backfillJobTitles } from '../../domains/employees/jobTitleService';
@@ -12,10 +11,8 @@ async function main(): Promise<void> {
   console.log(`[db] 准备数据库 ${config.mysql.user}@${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`);
   await ensureDatabase();
   await ensureSchema();
-  const seeded = await seedDatabase(reset);
-  console.log(seeded ? '[db] 演示数据已写入' : '[db] 数据库已有数据，跳过播种（如需重置请用 npm run db:reset）');
-  const attendanceSeeded = await seedAttendanceIfEmpty();
-  if (attendanceSeeded) console.log('[db] 演示考勤已生成');
+  await initializeBaseData(reset);
+  console.log('[db] 基础数据已初始化（五种固定审批类型、未分配组织、默认公司日历）');
   const adminSeeded = await ensureDefaultAdmin();
   if (adminSeeded) console.log('[admin] 已创建默认管理员');
   const backfilled = await backfillEmployeeJobCategories();

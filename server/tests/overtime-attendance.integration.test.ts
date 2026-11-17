@@ -12,7 +12,7 @@ test('加班打卡须经本人审批、从申请开始时间开放并独立于�
   try {
     await conn.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true; process.env.MYSQL_DATABASE = database;
     const pool = await import('../src/shared/db/pool'); closePool = pool.closePool; await pool.ensureSchema();
-    await (await import('../src/shared/db/seed')).seedDatabase(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
+    await (await import('../src/shared/db/seed')).seedDemoData(); await (await import('../src/admin/admin-accounts/adminAuthService')).ensureDefaultAdmin();
     const { issueTokens } = await import('../src/miniprogram/auth/authService'); const { config } = await import('../src/config');
     const adminRow = await pool.queryOne<{ id: number }>("SELECT id FROM admins WHERE role = 'super_admin' LIMIT 1"); assert.ok(adminRow);
     const admin = jwt.sign({ typ: 'admin' }, config.jwt.secret, { subject: String(adminRow.id) }); const employee = issueTokens('U001').accessToken; const other = issueTokens('U005').accessToken;

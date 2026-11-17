@@ -21,8 +21,8 @@ test('请假使用后台指定审批人，只有被指定的审批人可以处�
     const poolModule = await import('../src/shared/db/pool');
     closePool = poolModule.closePool;
     await poolModule.ensureSchema();
-    const { seedDatabase } = await import('../src/shared/db/seed');
-    await seedDatabase();
+    const { seedDemoData } = await import('../src/shared/db/seed');
+    await seedDemoData();
     const [seededApprovals] = await connection.query(`SELECT COUNT(*) AS total FROM \`${database}\`.approvals`);
     assert.equal((seededApprovals as Array<{ total: number }>)[0].total, 0);
     const { backfillEmployeeJobCategories } = await import('../src/admin/employees/adminEmployeeService');
