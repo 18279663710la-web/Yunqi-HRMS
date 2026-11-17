@@ -24,7 +24,7 @@ async function bootstrap(): Promise<void> {
     await ensureDatabase();
     await ensureSchema();
     await initializeBaseData(false);
-    logSystem('db', 'info', '基础数据已初始化（五种固定审批类型、组织与默认日历）');
+    logSystem('db', 'info', '基础数据已初始化（五种固定审批类型、工作台快捷入口、组织与默认日历）');
     const adminSeeded = await ensureDefaultAdmin();
     if (adminSeeded) logSystem('server', 'info', '已创建默认管理员');
     const backfilled = await backfillEmployeeJobCategories();

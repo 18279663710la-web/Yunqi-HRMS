@@ -122,7 +122,7 @@ npm run db:setup
 
 - 创建数据库 `yunqi_office`（utf8mb4）
 - 执行 `server/sql/schema.sql`，并对已有数据库做幂等增量迁移
-- 写入基础数据：五种固定审批类型、未分配组织、空公司配置和默认公司日历。
+- 写入基础数据：五种固定审批类型、八类工作台快捷入口、未分配组织、空公司配置和默认公司日历。
 - 写入超级管理员账号（`ADMIN_USERNAME` / `ADMIN_PASSWORD`）。
 - 不写入员工、员工账号、公告、考勤、审批单等业务数据。
 
@@ -478,7 +478,7 @@ npm run build:web      # web/dist
 ## 十三、生产环境检查清单
 
 1. **修改默认密码**：管理员 `admin` 的初始密码；更换 `JWT_SECRET`。
-2. **不要使用开发库上线**：空库初始化只写五种固定审批类型、未分配组织、默认日历和超级管理员，不写员工、账号、公告和考勤。
+2. **不要使用开发库上线**：空库初始化只写五种固定审批类型、八类工作台快捷入口、未分配组织、默认日历和超级管理员，不写员工、账号、公告和考勤。
 3. **HTTPS + 域名**：小程序 request/uploadFile/downloadFile 合法域名；Web 后台启用 HTTPS。
 4. **数据库最小权限**：为应用创建独立 MySQL 账号，仅授权 `yunqi_office`。
 5. **管理员安全**：Web 后台当前使用 localStorage + Bearer Token；生产可改为 HttpOnly Cookie + CSRF 防护、IP 白名单、MFA。
@@ -511,7 +511,7 @@ A：开发环境执行 `npm run db:reset` 会重建默认管理员；或直接�
 A：可以。小程序登录页使用 `POST /api/auth/password-login`，账号需由管理员在 Web 管理后台创建并启用。
 
 **Q：怎么清空并重建基础数据？**
-A：开发环境执行 `npm run db:reset` 会完整清空数据库，重建五种固定审批类型、未分配组织、默认日历和超级管理员。请仅用于开发环境。
+A：开发环境执行 `npm run db:reset` 会完整清空数据库，重建五种固定审批类型、八类工作台快捷入口、未分配组织、默认日历和超级管理员。请仅用于开发环境。
 
 **Q：上传的发票图片在哪？**
 A：文件在 `server/uploads/`。报销原图通过短期签名地址 `/api/approval-files/<文件名>` 读取，未签名的 `/uploads/<文件名>` 不能访问。`npm run db:reset` 不会删除图片，可手动清理。

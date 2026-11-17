@@ -142,6 +142,14 @@ async function insertBaseData(conn: PoolConnection): Promise<void> {
     );
   }
 
+  for (let i = 0; i < quickActions.length; i += 1) {
+    const q = quickActions[i];
+    await conn.query(
+      'INSERT IGNORE INTO quick_actions (`key`, name, icon, color, url, is_tab, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [q.key, q.name, q.icon, q.color, q.url, q.tab ? 1 : 0, i + 1]
+    );
+  }
+
   await touchMeta(conn);
 }
 
@@ -286,7 +294,7 @@ export async function resetDemoContent(): Promise<void> {
   await seedTodayCheckIns(seedEmployeeIds);
 }
 
-/** 数据库初始化：只写五种固定审批类型、未分配组织、空公司配置和默认日历；管理员由 ensureDefaultAdmin 单独写入。 */
+/** 数据库初始化：只写五种固定审批类型、八类工作台快捷入口、未分配组织、空公司配置和默认日历；管理员由 ensureDefaultAdmin 单独写入。 */
 export async function initializeBaseData(force = false): Promise<boolean> {
   await transaction(async (conn) => {
     if (force) await clearAll(conn);

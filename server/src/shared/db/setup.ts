@@ -12,7 +12,7 @@ async function main(): Promise<void> {
   await ensureDatabase();
   await ensureSchema();
   await initializeBaseData(reset);
-  console.log('[db] 基础数据已初始化（五种固定审批类型、未分配组织、默认公司日历）');
+  console.log('[db] 基础数据已初始化（五种固定审批类型、八类工作台快捷入口、未分配组织、默认公司日历）');
   const adminSeeded = await ensureDefaultAdmin();
   if (adminSeeded) console.log('[admin] 已创建默认管理员');
   const backfilled = await backfillEmployeeJobCategories();
