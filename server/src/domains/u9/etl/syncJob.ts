@@ -16,6 +16,7 @@ import {
   getLastSuccessAt,
   getSyncWatermark,
 } from './writer';
+import { logSystem } from '../../../shared/logging/logger';
 
 let running = false;
 
@@ -40,11 +41,11 @@ export type MirrorSyncMode = 'bootstrap' | 'incremental' | 'nightly';
  */
 export async function runMirrorSync(mode: MirrorSyncMode): Promise<void> {
   if (running) {
-    console.log('[u9-mirror] 已有同步在运行，跳过');
+    logSystem('u9', 'info', '已有同步在运行，跳过');
     return;
   }
   if (mode === 'incremental' && config.u9Mirror.skipHours.includes(currentHourLocal())) {
-    console.log('[u9-mirror] 当前小时在跳过窗口，跳过增量');
+    logSystem('u9', 'info', '当前小时在跳过窗口，跳过增量');
     return;
   }
 
@@ -63,24 +64,24 @@ export async function runMirrorSync(mode: MirrorSyncMode): Promise<void> {
       noticeSince = range.start.slice(0, 7) + '-01';
     } else {
       const range = await fullSyncRange(today);
-      console.log(`[u9-mirror] ${mode} 全量范围`, range);
+      logSystem('u9', 'info', `${mode} 全量范围`, { detail: JSON.stringify(range) });
       stats = await extractDateRangeChunked(range.start, range.endExclusive);
       noticeSince = range.start.slice(0, 7) + '-01';
       // 汇总 from 从全量起点所在年的 1 月起，避免选「2024-01」时因单据起点在年中而空表
       const summaryFrom = `${range.start.slice(0, 4)}-01`;
       const summaryTo = today.slice(0, 7);
-      console.log(`[u9-mirror] ${mode} 汇总矩阵`, { summaryFrom, summaryTo, docFrom: range.start.slice(0, 7) });
+      logSystem('u9', 'info', `${mode} 汇总矩阵`, { detail: JSON.stringify({ summaryFrom, summaryTo, docFrom: range.start.slice(0, 7) }) });
       summaryRows = await precomputeSummariesForBoundOperators(summaryFrom, summaryTo);
     }
     const notices = await syncReceiptNotificationsFromMirror({ since: noticeSince });
     await advanceWatermark(today, mode);
     invalidateU9QueryCache();
     await finishSyncRun(runId, true, undefined, { ...stats, summaryRows, notices, mode });
-    console.log('[u9-mirror] 同步成功', mode, { ...stats, summaryRows, notices });
+    logSystem('u9', 'info', `同步成功 ${mode}`, { detail: JSON.stringify({ ...stats, summaryRows, notices }) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await finishSyncRun(runId, false, message.slice(0, 500));
-    console.error('[u9-mirror] 同步失败，水位未前移', message);
+    logSystem('u9', 'error', `同步失败，水位未前移：${message}`);
     throw error;
   } finally {
     running = false;
@@ -92,10 +93,10 @@ export async function runBootstrapIfNeeded(): Promise<boolean> {
   await ensureSyncState();
   const last = await getLastSuccessAt();
   if (last) {
-    console.log('[u9-mirror] 已有成功同步，跳过启动全量', last);
+    logSystem('u9', 'info', '已有成功同步，跳过启动全量', { detail: String(last) });
     return false;
   }
-  console.log('[u9-mirror] 无成功同步记录，开始部署全量');
+  logSystem('u9', 'info', '无成功同步记录，开始部署全量');
   await runMirrorSync('bootstrap');
   return true;
 }

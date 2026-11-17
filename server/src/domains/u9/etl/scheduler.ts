@@ -1,5 +1,6 @@
 import { config } from '../../../config';
 import { runBootstrapIfNeeded, runMirrorSync } from './syncJob';
+import { logSystem } from '../../../shared/logging/logger';
 
 let incrementalTimer: NodeJS.Timeout | undefined;
 let nightlyTimer: NodeJS.Timeout | undefined;
@@ -15,7 +16,7 @@ function msUntilNextHour(hour: number): number {
 
 export function startU9MirrorScheduler(): void {
   if (!config.u9Mirror.etlEnabled) {
-    console.log('[u9-mirror] ETL 未启用（U9_ETL_ENABLED!=true）');
+    logSystem('u9', 'info', 'ETL 未启用（U9_ETL_ENABLED!=true）');
     return;
   }
 
@@ -47,15 +48,12 @@ export function startU9MirrorScheduler(): void {
         await runBootstrapIfNeeded();
       }
     } catch (error) {
-      console.error(
-        '[u9-mirror] 启动全量失败，仍启动增量调度',
-        error instanceof Error ? error.message : error
-      );
+      logSystem('u9', 'error', '启动全量失败，仍启动增量调度', {
+        detail: error instanceof Error ? error.message : String(error),
+      });
     }
     startIncrementalLoop();
     armNightly();
-    console.log(
-      `[u9-mirror] 调度已启动 incrementalMs=${config.u9Mirror.incrementalMs} nightlyHour=${config.u9Mirror.nightlyHour} bootstrapOnStart=${config.u9Mirror.bootstrapOnStart}`
-    );
+    logSystem('u9', 'info', `调度已启动 incrementalMs=${config.u9Mirror.incrementalMs} nightlyHour=${config.u9Mirror.nightlyHour} bootstrapOnStart=${config.u9Mirror.bootstrapOnStart}`);
   })();
 }

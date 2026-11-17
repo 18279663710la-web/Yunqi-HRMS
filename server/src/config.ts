@@ -49,6 +49,16 @@ export const config = {
   },
   autoMigrate: str(process.env.AUTO_MIGRATE, 'true') !== 'false',
   uploadDir: path.resolve(serverRoot, str(process.env.UPLOAD_DIR, 'uploads')),
+  logging: {
+    /** 是否写运行日志文件；关闭后仅保留控制台输出。 */
+    enabled: str(process.env.LOG_ENABLED, 'true') !== 'false',
+    /** 日志根目录，默认 server/logs；按 admin/miniprogram/system/ops 分子目录。 */
+    dir: path.resolve(serverRoot, str(process.env.LOG_DIR, 'logs')),
+    /** 日志保留天数，按文件名日期清理。 */
+    retentionDays: int(process.env.LOG_RETENTION_DAYS, 30),
+    /** 是否同时输出到控制台（便于开发时直接查看）。 */
+    console: str(process.env.LOG_TO_CONSOLE, 'true') !== 'false',
+  },
   ocrDriver: str(process.env.OCR_DRIVER, 'mock'),
   verifyDriver: str(process.env.VERIFY_DRIVER, 'tencent'),
   expenseAi: {

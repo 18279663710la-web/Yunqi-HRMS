@@ -3,6 +3,7 @@ import { execute, queryOne, queryRows } from '../../shared/db/pool';
 import { mirrorU9 } from './mirrorGateway';
 import { sqlServerU9 } from './sqlServerGateway';
 import type { U9Gateway } from './types';
+import { logSystem } from '../../shared/logging/logger';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -74,7 +75,7 @@ export async function syncReceiptNotifications(
     }
   }
   await execute('UPDATE u9_receipt_sync SET last_poll_at=NOW(), updated_at=NOW() WHERE id=1');
-  if (inserted) console.log(`[u9-receipt] 新增 ${inserted} 条回款通知`);
+  if (inserted) logSystem('u9', 'info', `回款通知新增 ${inserted} 条`);
   return inserted;
 }
 
@@ -109,7 +110,7 @@ export function startReceiptNotificationWorker(): void {
     : Math.max(5000, config.u9ReceiptNotify.pollMs);
   const run = (): void => {
     void processReceiptNotificationQueue().catch(error =>
-      console.error('[u9-receipt] 回款通知同步失败', error instanceof Error ? error.message : error)
+      logSystem('u9', 'error', `回款通知同步失败：${error instanceof Error ? error.message : String(error)}`)
     );
   };
   run();

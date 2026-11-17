@@ -6,6 +6,7 @@ import {
 } from './assemble';
 import * as raw from './u9RawQueries';
 import { upsertArBundle, upsertOperators, upsertRecBundle } from './writer';
+import { logSystem } from '../../../shared/logging/logger';
 
 function nextDay(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -220,10 +221,10 @@ export async function extractDateRangeChunked(
     const part = await extractBusinessDateWindow(cursor, chunkEnd);
     totals = addStats(totals, part);
     chunks += 1;
-    console.log(`[u9-mirror] 全量切片 ${cursor} ~ ${chunkEnd}`, part);
+    logSystem('u9', 'info', `全量切片 ${cursor} ~ ${chunkEnd}`, { detail: JSON.stringify(part) });
     cursor = chunkEnd;
   }
-  console.log(`[u9-mirror] 全量切片完成 chunks=${chunks}`, totals);
+  logSystem('u9', 'info', `全量切片完成 chunks=${chunks}`, { detail: JSON.stringify(totals) });
   return totals;
 }
 

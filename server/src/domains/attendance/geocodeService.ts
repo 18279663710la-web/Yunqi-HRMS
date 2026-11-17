@@ -1,4 +1,5 @@
 import { config } from '../../config';
+import { logModule } from '../../shared/logging/logger';
 
 export interface GeocodeResult {
   name: string;
@@ -58,17 +59,17 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
     url.searchParams.set('output', 'json');
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
-      console.warn('[visit] 逆地址解析请求失败', response.status);
+      logModule('miniprogram', 'attendance', 'warn', `拜访逆地址解析请求失败：HTTP ${response.status}`);
       return FALLBACK;
     }
     const data = await response.json() as TencentGeocodeResponse;
     const parsed = parseTencentGeocode(data);
     if (!parsed.resolved && data.status !== 0) {
-      console.warn('[visit] 逆地址解析未返回结果', data.status, data.message || '');
+      logModule('miniprogram', 'attendance', 'warn', `拜访逆地址解析未返回结果：${data.status} ${data.message || ''}`);
     }
     return parsed;
   } catch (error) {
-    console.warn('[visit] 逆地址解析异常', (error as Error).message);
+    logModule('miniprogram', 'attendance', 'warn', `拜访逆地址解析异常：${(error as Error).message}`);
     return FALLBACK;
   } finally {
     clearTimeout(timer);

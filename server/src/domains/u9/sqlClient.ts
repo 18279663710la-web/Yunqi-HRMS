@@ -1,4 +1,5 @@
 import { HttpError } from '../../shared/utils/errors';
+import { logSystem } from '../../shared/logging/logger';
 
 /** ODBC 连接仅在 U9 功能被访问时建立。 */
 export function u9ConnectionString(): string {
@@ -15,7 +16,7 @@ export async function u9Sql<T>(statement: string, params: string[] = []): Promis
       );
     });
   } catch (error) {
-    console.error('[U9] 数据库查询失败', error instanceof Error ? error.message : '未知错误');
+    logSystem('u9', 'error', `数据库查询失败：${error instanceof Error ? error.message : '未知错误'}`);
     throw new HttpError(503, 503, 'U9 数据库暂不可用，请联系管理员');
   }
 }

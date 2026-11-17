@@ -9,6 +9,7 @@ import { generateExpenseAdvice, type AiInput } from './expenseAiService';
 import { decryptWorkflowCredential } from './workflowCredentials';
 import { advanceWorkflowTimeline } from './workflowAdvance';
 import type { CustomWorkflow } from './customWorkflowService';
+import { logModule } from '../../shared/logging/logger';
 
 interface JobRow {
   approval_id: string; step_no: number; node_id: string; status: string; attempts: number;
@@ -82,7 +83,7 @@ export async function processWorkflowAiQueue(): Promise<void> {
         await advanceWorkflowTimeline(conn, job.approval_id, job.step_no, now);
       });
     } catch (error) {
-      console.error(`[workflow-ai] 生成失败：${classifyAiError(error)}`);
+      logModule('miniprogram', 'approvals', 'error', `AI 审批生成失败：${classifyAiError(error)}`);
       await transaction(async conn => {
         const [approval] = await conn.query<RowDataPacket[]>('SELECT status FROM approvals WHERE id = ? FOR UPDATE', [job.approval_id]);
         const [jobs] = await conn.query<RowDataPacket[]>('SELECT status, attempts FROM approval_workflow_ai_jobs WHERE approval_id = ? AND step_no = ? FOR UPDATE', [job.approval_id, job.step_no]);
@@ -122,7 +123,7 @@ export async function getWorkflowAiState(approvalId: string, isParticipant: bool
 }
 
 export function startWorkflowAiWorker(): void {
-  const run = (): void => { void processWorkflowAiQueue().catch(() => console.error('[workflow-ai] 任务处理失败')); };
+  const run = (): void => { void processWorkflowAiQueue().catch(() => logModule('miniprogram', 'approvals', 'error', 'AI 审批任务处理失败')); };
   run();
   setInterval(run, 5000).unref();
 }

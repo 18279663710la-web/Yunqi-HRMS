@@ -182,6 +182,7 @@ export interface DashboardData {
   activeAccountCount: number;
   departmentCount: number;
   pendingApprovalCount: number;
+  monthApprovalCount: number;
   jobCategoryCounts: Array<{ name: JobCategoryName; count: number }>;
   today: {
     total: number;

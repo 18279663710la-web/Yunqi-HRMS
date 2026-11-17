@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import { HttpError } from '../utils/errors';
+import { logRequestError } from '../logging/logger';
 
 const UPLOAD_LIMIT_CODES = new Set([
   'LIMIT_PART_COUNT',
@@ -21,7 +22,7 @@ export function notFoundHandler(_req: Request, res: Response): void {
   res.status(404).json({ code: 404, message: '接口不存在' });
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof HttpError) {
     res.status(err.status).json({ code: err.code, message: err.message });
     return;
@@ -49,6 +50,6 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
-  console.error('[server error]', err);
+  logRequestError(req, err);
   res.status(500).json({ code: 500, message: '服务器内部错误' });
 }

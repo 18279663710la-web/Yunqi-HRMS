@@ -4,6 +4,7 @@ import cors from 'cors';
 import { config } from './config';
 import { corsAllowedOrigins } from './shared/middleware/corsOrigin';
 import { errorHandler, notFoundHandler } from './shared/middleware/error';
+import { logRequest, logSystem } from './shared/logging/logger';
 import adminRoutes from './admin/adminRoutes';
 import hrRoutes from './admin/hr/hrRoutes';
 import approvalsRoutes from './miniprogram/approvals/approvalsRoutes';
@@ -26,6 +27,9 @@ import { requireAdmin, requireSuperAdmin } from './admin/admin-accounts/authMidd
 
 export function createApp(): express.Express {
   const app = express();
+  // 部署在 Nginx 之后时，按 X-Forwarded-For 还原真实来源地址；只信任本机回环代理，
+  // 否则登录失败计数会把所有用户都记成 127.0.0.1，导致全站登录被锁。
+  app.set('trust proxy', 'loopback');
 
   const allowedOrigins = new Set(corsAllowedOrigins(config.corsOrigin));
   app.use(
@@ -45,18 +49,24 @@ export function createApp(): express.Express {
 
   // 报销原图只通过短期签名地址提供，不公开 /uploads。
 
-  app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'yunqi-office-server', time: new Date().toISOString() });
-  });
-
-  // 请求日志：排查真机访问业务接口超时时，确认请求是否到达服务端及耗时
+  // 请求日志：按管理端/小程序端业务模块写入 server/logs，便于排错；
+  // 不记录查询参数，避免签名地址、令牌等敏感内容落盘。
   app.use((req, res, next) => {
     const startedAt = Date.now();
     res.on('finish', () => {
-      if (!req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/api/health')) return;
-      console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - startedAt}ms`);
+      const pathname = req.originalUrl.split('?')[0];
+      if (pathname === '/health') {
+        logSystem('health', res.statusCode >= 400 ? 'warn' : 'info', `${req.method} ${pathname} ${res.statusCode} ${Date.now() - startedAt}ms`, { ip: req.ip });
+        return;
+      }
+      if (!pathname.startsWith('/api')) return;
+      logRequest(req, res.statusCode, Date.now() - startedAt);
     });
     next();
+  });
+
+  app.get('/health', (_req, res) => {
+    res.json({ ok: true, service: 'yunqi-office-server', time: new Date().toISOString() });
   });
 
   app.use('/api/admin', adminRoutes);

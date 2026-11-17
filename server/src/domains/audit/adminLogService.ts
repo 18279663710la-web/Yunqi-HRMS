@@ -1,6 +1,7 @@
 import { execute, queryRows } from '../../shared/db/pool';
 import type { AdminOperationLog, AdminUser } from '../../shared/types/admin';
 import { toMinuteText } from '../../shared/utils/datetime';
+import { logModule } from '../../shared/logging/logger';
 
 interface LogRow {
   id: number;
@@ -41,7 +42,8 @@ export async function recordAdminLog(
       [admin.id, admin.name, action, targetType, targetId, JSON.stringify(detail ?? {})]
     );
   } catch (err) {
-    console.error('[admin log] 写入失败', err);
+    logModule('admin', 'audit', 'error', `管理员操作日志写入失败：${err instanceof Error ? `${err.message}
+${err.stack ?? ''}` : String(err)}`);
   }
 }
 

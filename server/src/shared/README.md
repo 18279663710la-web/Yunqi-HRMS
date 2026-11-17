@@ -6,7 +6,7 @@
 
 ## 主要内容
 
-- 子目录：[db/](db/README.md)、[middleware/](middleware/README.md)、[types/](types/README.md)、[utils/](utils/README.md)。
+- 子目录：[db/](db/README.md)、[logging/](logging/README.md)、[middleware/](middleware/README.md)、[types/](types/README.md)、[utils/](utils/README.md)。
 
 ## 维护约束
 

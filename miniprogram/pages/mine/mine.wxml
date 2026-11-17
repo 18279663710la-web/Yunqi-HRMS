@@ -95,8 +95,8 @@
     </view>
 
     <view class="mine-foot">
-      <view class="mine-foot-name">{{company.name}}</view>
-      <view class="mine-foot-tip">企业办公小程序 · 演示版本 v1.0.0</view>
+      <view class="mine-foot-name">{{appName}}</view>
+      <view class="mine-foot-tip">企业办公小程序 · 版本 v1.0.0</view>
     </view>
 
     <view class="tabbar-holder"></view>

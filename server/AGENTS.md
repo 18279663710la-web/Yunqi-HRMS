@@ -5,7 +5,7 @@
 
 ## 架构
 - `src/index.ts` 在启用自动迁移时建库、更新结构并播种，再由 `src/app.ts` 装配中间件和路由。
-- `admin/`、`miniprogram/` 按客户端及业务组织路由与各自的鉴权；`domains/` 保存跨端业务；`shared/db/` 提供连接池、结构初始化和种子，`shared/middleware/` 处理校验与错误。人事等部分路由仍包含 SQL 和事务，继续分层时须保持原事务边界。
+- `admin/`、`miniprogram/` 按客户端及业务组织路由与各自的鉴权；`domains/` 保存跨端业务；`shared/db/` 提供连接池、结构初始化和种子，`shared/logging/` 写按模块划分的运行日志，`shared/middleware/` 处理校验与错误。人事等部分路由仍包含 SQL 和事务，继续分层时须保持原事务边界。
 - 薪资构成模型的 `fieldOrder` 可选，独立保存全部字段显示顺序；写入校验字段名完整且不重复，字段变动时保留现存名称顺序并追加新字段，排序变更不重写员工定薪。
 - 公告管理：`admin/notices` 提供公告 CRUD（仅管理员）与附件上传（`uploads/notice/`，白名单扩展名、10MB）；员工端公告分页走 `/notices/page`（须在 `/notices/:id` 前注册），附件下载 `/notice-files/:name` 按 JSON_SEARCH 校验文件确属公告附件后回源。公告正文为 blocks_json（p/h/list/quote），banner 按分类固定分配；删除公告级联清理回执与附件文件。已读口径统一为在职员工：已读数=回执中在职员工数、总数=当前在职员工数（`noticeService` 与仪表盘聚合一致，详情读取时同步刷新存储列）。
 - 员工与管理员使用独立鉴权；发票原图存在 `uploads/`，只通过短期签名地址读取，旧 OCR 入口为模拟实现，查验使用腾讯云 SDK。
@@ -24,7 +24,7 @@
 
 ## 目录结构
 - `src/config.ts`：环境配置；`src/admin/`、`src/miniprogram/`：管理端和员工端接口；`src/domains/`：共享业务。
-- `src/shared/`：数据库连接、迁移、种子、错误处理、类型与通用工具；双端鉴权位于各自客户端目录；`sql/schema.sql`：数据库结构；`scripts/`：接口冒烟脚本。
+- `src/shared/`：数据库连接、迁移、种子、运行日志、错误处理、类型与通用工具；双端鉴权位于各自客户端目录；`sql/schema.sql`：数据库结构；`scripts/`：接口冒烟脚本。
 - `uploads/`：运行时上传文件。
 - 管理端、小程序端、共享业务和基础设施下各子目录的具体职责见 `../docs/项目目录职责说明.md`；组织管理查询目前在 `admin/dashboard/`，不能仅按侧栏推断代码位置。
 

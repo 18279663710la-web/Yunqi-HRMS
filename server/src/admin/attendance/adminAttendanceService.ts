@@ -8,7 +8,7 @@ import type {
   JobCategoryName,
 } from '../../shared/types/admin';
 import type { AttendanceRecord, AttendanceSummary } from '../../shared/types/models';
-import { dateKey, parseDateKey, toMinuteText } from '../../shared/utils/datetime';
+import { dateKey, formatTime, parseDateKey, toMinuteText } from '../../shared/utils/datetime';
 import { badRequest, notFound } from '../../shared/utils/errors';
 import { getPunch, getPunchMapForEmployees, buildDayRecord, summarizeRecords } from '../../domains/attendance/attendanceService';
 import { recordAdminLog } from '../../domains/audit/adminLogService';
@@ -344,14 +344,21 @@ export async function updateAttendancePunch(
 }
 
 export async function getAdminDashboard(): Promise<AdminDashboard> {
-  const [employeeCountRow, activeAccountRow, deptCountRow, pendingRow] = await Promise.all([
+  const now = new Date();
+  const monthStart = formatTime(new Date(now.getFullYear(), now.getMonth(), 1), 'YYYY-MM-DD');
+  const nextMonthStart = formatTime(new Date(now.getFullYear(), now.getMonth() + 1, 1), 'YYYY-MM-DD');
+  const [employeeCountRow, activeAccountRow, deptCountRow, approvalCountRow] = await Promise.all([
     queryOne<{ total: number }>("SELECT COUNT(*) AS total FROM employees e WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed')"),
     queryOne<{ total: number }>("SELECT COUNT(*) AS total FROM employee_accounts a WHERE a.status = 'active' AND NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = a.employee_id AND hd.status = 'departed')"),
     queryOne<{ total: number }>('SELECT COUNT(*) AS total FROM departments'),
-    queryOne<{ total: number }>("SELECT COUNT(*) AS total FROM approvals WHERE status = 'pending'"),
+    queryOne<{ pending: number | string; month_total: number | string }>(
+      `SELECT SUM(status = 'pending') AS pending,
+              SUM(status <> 'cancelled' AND created_at >= ? AND created_at < ?) AS month_total
+         FROM approvals`,
+      [monthStart, nextMonthStart]
+    ),
   ]);
-
-  const today = dateKey(new Date());
+  const today = dateKey(now);
   const employees = await queryRows<AdminEmployeeRow>(`${EMPLOYEE_SELECT} WHERE NOT EXISTS (SELECT 1 FROM hr_employee_departures hd WHERE hd.employee_id = e.id AND hd.status = 'departed') ORDER BY e.pinyin`);
   const [punchMap, configMap, travelMap, leaveMap] = await Promise.all([
     getPunchMapForEmployees(employees.map((e) => e.id), today, today),
@@ -411,7 +418,8 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
     employeeCount: Number(employeeCountRow?.total || 0),
     activeAccountCount: Number(activeAccountRow?.total || 0),
     departmentCount: Number(deptCountRow?.total || 0),
-    pendingApprovalCount: Number(pendingRow?.total || 0),
+    pendingApprovalCount: Number(approvalCountRow?.pending || 0),
+    monthApprovalCount: Number(approvalCountRow?.month_total || 0),
     jobCategoryCounts,
     today: todayStats,
     recentEmployees,

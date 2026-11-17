@@ -4,6 +4,9 @@ import * as workbenchApi from '../../services/workbench/api';
 import type { Company, CurrentUser, TodoStats, TodayAttendance } from '../../types/models';
 import { getCustomTabBar, type TapEvent } from '../../types/ui';
 
+/** 小程序名称，用于「我的」页底部与关于弹窗标题；公司地址和工作时间仍读公司配置。 */
+const APP_NAME = '云启办公';
+
 interface MenuItem {
   key: string;
   name: string;
@@ -13,6 +16,7 @@ interface MenuItem {
 }
 
 interface MineData {
+  appName: string;
   user: CurrentUser;
   userInitial: string;
   roleTitle: string;
@@ -34,6 +38,7 @@ interface MineCustom {
 
 Page<MineData, MineCustom>({
   data: {
+    appName: APP_NAME,
     user: {} as CurrentUser,
     userInitial: '',
     roleTitle: '',
@@ -54,7 +59,7 @@ Page<MineData, MineCustom>({
     ],
     settings: [
       { key: 'notify', name: '消息提醒设置', icon: 'bell' },
-      { key: 'about', name: '关于云启科技', icon: 'info' },
+      { key: 'about', name: '关于云启办公', icon: 'info' },
       { key: 'logout', name: '退出登录', icon: 'logout', danger: true },
     ],
   },
@@ -95,7 +100,7 @@ Page<MineData, MineCustom>({
       }
       settings.push(
         { key: 'notify', name: '消息提醒设置', icon: 'bell' },
-        { key: 'about', name: '关于云启科技', icon: 'info' },
+        { key: 'about', name: '关于云启办公', icon: 'info' },
         { key: 'logout', name: '退出登录', icon: 'logout', danger: true },
       );
 
@@ -189,8 +194,10 @@ Page<MineData, MineCustom>({
   showAbout() {
     const { company } = this.data;
     wx.showModal({
-      title: company.name,
-      content: `办公地址：${company.address}\n工作时间：${company.workTime}\n考勤规则：${company.flexible}`,
+      title: APP_NAME,
+      content: `办公地址：${company.address || '未配置'}
+工作时间：${company.workTime || '未配置'}
+考勤规则：${company.flexible || '未配置'}`,
       showCancel: false,
       confirmText: '关闭',
     });

@@ -115,7 +115,7 @@ export function DashboardPage() {
             </Col>
             <Col xs={24} sm={12} xl={6}>
               <Card className="stat-card" bordered={false}>
-                <Statistic title="待审批单据" value={data?.pendingApprovalCount || 0} prefix={<AuditOutlined style={{ color: 'var(--sf-accent-amber)' }} />} />
+                <Statistic title="当月审批数量" value={data?.monthApprovalCount || 0} prefix={<AuditOutlined style={{ color: 'var(--sf-accent-amber)' }} />} />
               </Card>
             </Col>
           </Row>

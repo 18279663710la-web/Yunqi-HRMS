@@ -5,6 +5,8 @@ web/dist/
 web/node_modules/
 server/dist/
 server/.runtime/
+server/logs/*
+!server/logs/README.md
 server/uploads/*
 !server/uploads/.gitkeep
 .env

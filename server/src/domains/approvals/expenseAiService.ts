@@ -7,6 +7,7 @@ import { localUploadFilename, parseGroundedAdvice, splitApprovalRules, classifyA
 import type { AiAdvice } from './expenseAiPolicy';
 import type { Invoice } from '../../shared/types/models';
 import { extractPartialReason, SseDecoder } from './expenseAiStream';
+import { logModule } from '../../shared/logging/logger';
 
 export interface AiInput {
   title: string;
@@ -139,14 +140,14 @@ export async function processExpenseAiQueue(): Promise<void> {
       const advice = await generateExpenseAdvice(parseJson(job.input_json), job.rules_snapshot);
       await execute("UPDATE expense_ai_jobs SET status = 'completed', result_json = ?, updated_at = NOW() WHERE approval_id = ? AND status = 'processing'", [JSON.stringify(advice), job.approval_id]);
     } catch (error) {
-      console.error(`[expense-ai] 生成失败：${classifyAiError(error)}`);
+      logModule('miniprogram', 'approvals', 'error', `报销 AI 建议生成失败：${classifyAiError(error)}`);
       await execute("UPDATE expense_ai_jobs SET status = IF(attempts < 3, 'queued', 'failed'), updated_at = NOW() WHERE approval_id = ? AND status = 'processing'", [job.approval_id]);
     }
   } finally { busy = false; }
 }
 
 export function startExpenseAiWorker(): void {
-  const run = (): void => { void processExpenseAiQueue().catch(() => console.error('[expense-ai] 任务处理失败')); };
+  const run = (): void => { void processExpenseAiQueue().catch(() => logModule('miniprogram', 'approvals', 'error', '报销 AI 建议任务处理失败')); };
   run();
   setInterval(run, 5000).unref();
 }
