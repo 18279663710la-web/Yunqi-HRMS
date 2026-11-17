@@ -21,3 +21,6 @@ server/uploads/*
 /.zcode/
 /.superpowers/
 /project.private.config.json
+
+# 测试截图与运行产物（不纳入交付仓库）
+软件测试/results/ui-screenshots/

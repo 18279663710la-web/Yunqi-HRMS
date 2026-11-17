@@ -1,8 +1,17 @@
-# 云启科技 · 企业办公（小程序 + Web 管理后台）
+# 云启办公（Yunqi HRMS）· 企业办公系统
 
-考勤打卡 / 拜访登记 / 审批流程 / 公告通知 / 通讯录 / 发票识别与查验，以及员工账号与考勤的 Web 管理后台。
+> **当前版本：V1.0.0** ｜ 交付日期：2026-11-17
 
-项目功能优化暂时收尾，后续按实际需求继续维护。阶段性收尾不表示待确认事项或未实现功能已经完成，具体约束与现状见项目及各模块 `AGENTS.md` 和开发日志。员工与账号、人事管理的功能优化已完成，后续优化不得修改这两个模块，除非提出硬性且明确的修改要求。考勤管理的功能优化已完成，后续优化不得修改这个模块，除非提出硬性且明确的修改要求。
+考勤打卡 / 拜访登记 / 审批流程 / 公告通知 / 通讯录 / 工资条 / 发票识别与查验，以及员工账号、人事、考勤与审批配置的 Web 管理后台。
+
+核心模块：
+
+- **小程序端**：工作台、审批、考勤与加班打卡、拜访登记、通讯录、公告、工资条、发票工具台。
+- **Web 管理后台**：仪表盘、员工与账号、人事管理、考勤管理、模型与公式、审批管理、公告管理、组织架构、管理员账号。
+- **服务端**：单个 Express 服务同时提供员工端与管理端 API，共享 MySQL；业务员 U9 数据通过只读镜像/外部 SQL Server 读取。
+- **运维**：Windows 10 部署配置、Nginx 反向代理、按模块运行日志、数据库与文件备份、日志轮转和开机任务。
+
+各模块的业务约束与现状以项目及各模块 `AGENTS.md`、开发日志和专题文档为准。
 
 整套系统为 **全栈 TypeScript + 本机 MySQL** 的前后端分离架构：
 
@@ -430,7 +439,7 @@ npm run dev:web
 - **自动填单**：报销金额 = 多张发票价税合计；费用日期 = 最早开票日期；报销类型按消费类型映射。
 - **查重**：数电票按 20 位号码、传统发票按代码加号码匹配；本单重复及待审批/已通过硬拦截，已驳回/已撤销只提示。提交事务中按规范化发票身份加锁并再次查重，避免并发重复报销。
 - **查验**：先查重，再按规则返回 `valid / notFound / mismatch / duplicated / limitExceeded / invalid / error`，结果缓存 24 小时。
-- 当前 `OCR_DRIVER=mock`、`VERIFY_DRIVER=mock`，模拟 OCR 不能用于报销；内部查重通过不等于验伪通过。二维码仅支持部分逗号分隔格式，动态二维码与 PDF 尚不支持，真实 OCR 和验伪需要后续接入。
+- `OCR_DRIVER` 与 `VERIFY_DRIVER` 由服务端环境变量配置；当前开发环境 OCR 使用 mock，发票验伪使用腾讯云。模拟 OCR 结果不能用于报销；内部查重通过不等于验伪通过。二维码仅支持部分逗号分隔格式，动态二维码与 PDF 尚不支持，真实 OCR 需按部署环境接入。
 
 ---
 
@@ -515,3 +524,72 @@ A：开发环境执行 `npm run db:reset` 会完整清空并重新播种，包�
 
 **Q：上传的发票图片在哪？**
 A：文件在 `server/uploads/`。报销原图通过短期签名地址 `/api/approval-files/<文件名>` 读取，未签名的 `/uploads/<文件名>` 不能访问。`npm run db:reset` 不会删除图片，可手动清理。
+
+---
+
+## 十五、部署与运维（Windows 10）
+
+交付服务器为 Windows 10，详细步骤见 [deploy/README.md](deploy/README.md)。
+
+### 1. 构建与启动
+
+```powershell
+npm run install:all
+npm run build:server
+npm run build:web
+powershell -ExecutionPolicy Bypass -File C:\yunqi\deploy\windows\install-tasks.ps1
+```
+
+开机任务包括 `YunqiServer`、`YunqiNginx`（可选）和 `YunqiOpsScheduler`；服务端启动/停止脚本位于 `deploy/windows/`。
+
+### 2. Nginx
+
+- 后台：`http://服务器IP:8080`，静态托管 `web/dist` 并反代 `/api`、`/health`。
+- 小程序：`https://api.example.com:443`，需要备案域名和受信任证书；模板见 `deploy/nginx/conf.d/miniprogram.conf.template`。
+- 不静态直出 `/uploads`；文件下载由 Express 鉴权或短期签名控制。
+
+### 3. 运行日志
+
+日志统一写入 `server/logs/`，按端、模块和日期分文件：
+
+```text
+logs/admin/<module>/YYYY-MM-DD.log
+logs/miniprogram/<module>/YYYY-MM-DD.log
+logs/system/<module>/YYYY-MM-DD.log
+logs/ops/backup|scheduler/YYYY-MM-DD.log
+```
+
+`LOG_ENABLED`、`LOG_DIR`、`LOG_RETENTION_DAYS`、`LOG_TO_CONSOLE` 可配置；请求日志不记录查询参数、请求体和令牌。详见 [server/logs/README.md](server/logs/README.md)。
+
+### 4. 备份与日志轮转
+
+在 `server/.env` 配置：
+
+```ini
+BACKUP_ENABLED=true
+BACKUP_INTERVAL_HOURS=24
+BACKUP_RETENTION_DAYS=14
+BACKUP_DIR=D:/yunqi-backups
+MYSQLDUMP_BIN=C:/Program Files/MySQL/MySQL Server 9.7/bin/mysqldump.exe
+LOG_ROTATE_ENABLED=true
+LOG_ROTATE_INTERVAL_HOURS=24
+NGINX_LOG_DIR=C:/nginx-1.30.6/logs
+NGINX_EXE=C:/nginx-1.30.6/nginx.exe
+```
+
+调度器每 60 秒读取一次配置，修改后无需重启。备份包含 MySQL、`server/uploads/` 和 `server/.runtime/`（AI 密钥加密文件），恢复步骤与日常检查见 [deploy/ops/README.md](deploy/ops/README.md)。
+
+### 5. 小程序上线前
+
+1. `project.config.json` 换正式 AppID，`miniprogram/utils/apiOrigin.ts` 配置生产域名。
+2. 微信后台配置 request / uploadFile / downloadFile 合法域名。
+3. 申请地理位置接口（考勤打卡、拜访签到）并完成用户隐私保护指引。
+4. 提供可登录的测试员工账号后提交审核。
+
+---
+
+## 十六、版本记录
+
+| 版本 | 日期 | 说明 |
+| --- | --- | --- |
+| **V1.0.0** | 2026-11-17 | 首个交付版本：小程序、Web 管理后台、服务端、Windows 10 部署与运维配置；Git 标签 `V1.0.0`。 |
