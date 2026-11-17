@@ -8,7 +8,6 @@
 
 - `conf.d/admin.conf`：管理后台入口，监听 `8080`，托管 `C:/yunqi/web/dist` 并把 `/api/`、`/health` 转发到 Express。
 - `conf.d/miniprogram.conf.template`：小程序公网入口模板，监听 `443`，需要域名、证书、备案后才能启用；未改名时不会被加载。
-- `runtime/nginx-1.30.6/`：nginx.org 官方 Windows 构建（1.30.6）原样解压，供本机演示与交付留存。
 
 ## Windows 10 启用方式
 

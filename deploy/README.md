@@ -8,7 +8,6 @@
 
 - `nginx/conf.d/admin.conf`：管理后台入口（`http://服务器IP:8080`），静态托管 `web/dist` 并反代 `/api`、`/health`。
 - `nginx/conf.d/miniprogram.conf.template`：小程序公网入口（`https://api.example.com`），需域名、备案、证书后启用。
-- `nginx/runtime/nginx-1.30.6/`：nginx.org 官方 Windows 构建，供本机演示与交付留存。
 - `ops/`：备份脚本、日志轮转、运维调度器、任务安装脚本和运维手册。
 - `windows/`：Windows 服务端启动/停止和开机任务安装脚本。
 - `systemd/yunqi-office.service`：Linux 部署的 systemd 示例（Windows 10 不使用）。
@@ -19,7 +18,7 @@
 C:/yunqi/
 ├── server/                  # 服务端代码、dist/、uploads/、.runtime/、.env、logs/
 └── web/dist/                # 管理后台构建产物
-C:/nginx-1.30.6/             # Nginx（也可使用仓库内 deploy/nginx/runtime）
+C:/nginx-1.30.6/             # Nginx（需自行安装）
 ```
 
 Express 监听 `127.0.0.1:3100`；Nginx 对外提供 `8080`（后台）和 `443`（小程序）。
